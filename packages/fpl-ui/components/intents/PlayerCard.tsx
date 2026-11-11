@@ -154,7 +154,12 @@ export default function PlayerCard({ data }: Props) {
         </div>
 
         {/* Next-5 fixture strip, by plan. Free/unknown reuse FixtureRunTable's chip. */}
-        <PlayerFixtureStrip fixtures={fixtures} teamShort={team_short} position={position} />
+        <PlayerFixtureStrip
+          fixtures={fixtures}
+          teamShort={team_short}
+          position={position}
+          observedAxis={data.strip_axis ?? null}
+        />
 
         {/* Bloque 10: zonal profile vs the pending matches of the next 3
             gameweeks. Absent/null -> no section, card unchanged. */}

@@ -19,7 +19,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import type { FixtureEntry, FixtureOutlookGW } from '@/lib/types';
+import type { FixtureAxis, FixtureEntry, FixtureOutlookGW } from '@/lib/types';
 import { FixtureChip, fdrColor, fixtureKey } from './FixtureRunTable';
 import {
   parseCompetitions,
@@ -41,14 +41,17 @@ export function PlayerFixtureStrip({
   fixtures,
   teamShort,
   position,
+  observedAxis = null,
 }: {
   fixtures: FixtureEntry[];
   teamShort: string;
   position: string;
+  /** The backend's axis from his observed role; null/absent = FPL position decides. */
+  observedAxis?: FixtureAxis | null;
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const axis = stripAxis(position);
+  const axis = stripAxis(position, observedAxis);
   const [view, setView] = useState<CompetitionsView | null>(null);
   /** undefined = still loading; null = no bundle or no row for this team (FDR everywhere). */
   const [series, setSeries] = useState<FixtureOutlookGW[] | null | undefined>(undefined);

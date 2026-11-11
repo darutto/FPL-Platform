@@ -63,6 +63,7 @@ from fpl_tool_runner.specs import ToolSpec
 # schedule strip without duplicating fixture-lookup logic.
 from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
 from fpl_grounded_assistant.player_snapshot_zonal import compose_player_zonal
+from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 
 # Re-use helpers from find_players — single source of truth.
 from fpl_grounded_assistant.find_players import (
@@ -262,6 +263,8 @@ def get_player_snapshot(
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
         _attach_zonal(player_dict, elements_by_id[match.record.id], bootstrap)
+        # The fixture strip's axis from his observed role; None = the UI's FPL fallback.
+        player_dict["strip_axis"] = strip_axis_for(match.record.id, bootstrap)
         return {"status": "ok", "player": player_dict}
 
     # Preserve the snapshot's existing conservative rule: a substring match

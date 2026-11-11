@@ -982,6 +982,11 @@ export interface PlayerSnapshotMeta {
    * compatibility with older API deployments.
    */
   zonal?: PlayerZonalOutlookMeta | null;
+  /**
+   * The fixture strip's axis from the role he was listed to start in (backend, licensed
+   * lineups). Absent/null = the strip goes by FPL position.
+   */
+  strip_axis?: FixtureAxis | null;
 }
 
 /** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */

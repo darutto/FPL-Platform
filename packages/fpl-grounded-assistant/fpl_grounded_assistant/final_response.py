@@ -872,6 +872,9 @@ class PlayerSnapshotMeta:
     #: i151c: ``news`` in Spanish when it matches a known FPL template (see
     #: news_es); otherwise the original English ``news``, untouched.
     news_label:                      str = ""
+    #: The fixture strip's outlook axis from the role he was listed to start in
+    #: ("attack" / "defence"); None = the UI's FPL fallback (DEF/GKP defence).
+    strip_axis:                      str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -2173,6 +2176,9 @@ def _extract_player_snapshot_meta(
             ),
             team_fdr_context             = team_fdr_context,
             zonal                        = _extract_player_zonal_meta(p.get("zonal")),
+            strip_axis                   = (
+                p["strip_axis"] if p.get("strip_axis") in ("attack", "defence") else None
+            ),
         )
     except Exception:  # noqa: BLE001
         return None
