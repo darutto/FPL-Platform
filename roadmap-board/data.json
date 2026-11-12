@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-11",
+  "updated": "2026-11-12",
   "cards": [
     {
       "id": "s1",
@@ -2663,6 +2663,18 @@
       "tags": [
         "Backend",
         "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s87",
+      "col": "shipped",
+      "title": "Prompt del orquestador: la respuesta de jugador no repite los números de su tarjeta",
+      "desc": "Fusionada (PR #641, 12/11). Nueva regla PLAYER_CARD_NO_STATS en el system prompt del orquestador (compartida por ES y EN): cuando corre get_player_snapshot, la respuesta deja de traer viñetas o tabla de stats y de hacer un repaso partido por partido, y un número de la tarjeta (precio, propiedad, puntos, PPG, forma, minutos, xG/xA/xGI, ICT, DC) solo puede aparecer como evidencia de un juicio en la misma frase -- se mantiene todo lo que la tarjeta no muestra (perfil, balón parado, lectura del calendario, zonal, noticias). Regresión en golden battery sin cambio de ruteo (173/180 en ambos brazos); números por respuesta bajaron de ~12 a ~1,5 en el lote de prueba.",
+      "tags": [
+        "Backend",
+        "IA",
         "FPL Asistente"
       ],
       "progress": 100
