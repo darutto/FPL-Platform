@@ -1660,9 +1660,12 @@ def _apply_evaluator(
     _primary_count = len(tool_calls_trace)
 
     # ------------------------------------------------------------------
-    # E0. Skip evaluator if disabled via env flag
+    # E0. Skip evaluator if disabled via env flag -- or when there is no text
+    #     to judge: an ok card-only answer (player snapshot, empty render) is
+    #     the tool's own deterministic card. Judging "" would only invite a
+    #     rejection and a paid retry of the primary.
     # ------------------------------------------------------------------
-    if _eval_disabled() or eval_client is None:
+    if _eval_disabled() or eval_client is None or (not answer_text and outcome == OUTCOME_OK):
         _total = _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         return OrchestratorResult(
             question=question,
@@ -2140,6 +2143,12 @@ def _apply_evaluator(
     )
 
 
+#: Partial-selection weight of an ``ok`` payload that renders no text because its
+#: card carries the answer (the player snapshot). About what the snapshot's old text
+#: dump measured (5-6 lines): above a one-line render, below a multi-row answer.
+_CARD_ONLY_PARTIAL_WEIGHT: int = 240
+
+
 def _select_partial(
     successful: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
 ) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
@@ -2158,12 +2167,19 @@ def _select_partial(
     Pure by construction: no I/O, no config reads, no provider knowledge, so it
     can be replayed offline against recorded traces. ``successful`` is never
     empty -- every call site guards on it.
+
+    A payload that renders NO text but is ``ok`` (the player snapshot since the
+    2026-11-11 verdict redesign: its card carries everything) weighs
+    ``_CARD_ONLY_PARTIAL_WEIGHT`` instead of zero, so the card still beats a
+    one-line render but not a multi-row answer -- the ranking it had before.
     """
     best = successful[0]
     best_len = -1
     for item in successful:
         try:
             rendered_len = len(render(item[1], item[3]))
+            if rendered_len == 0 and item[3].get("status") == "ok":
+                rendered_len = _CARD_ONLY_PARTIAL_WEIGHT
         except Exception:  # noqa: BLE001
             # A call whose payload cannot be rendered is not a usable answer.
             rendered_len = 0
@@ -3283,9 +3299,14 @@ def _ask_orchestrated_impl(
     #
     # Locale: the same value as the render() call directly above, so the notice
     # never disagrees with the table it introduces.
-    answer_text = (
-        f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
-    )
+    #
+    # A card-only payload (ok, empty render: the player snapshot since the
+    # verdict redesign) gets no notice: the card and its conclusions ARE the
+    # answer, and a notice followed by nothing would read as a failure.
+    if answer_text or tool_status != "ok":
+        answer_text = (
+            f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
+        )
 
     return _apply_evaluator(
         locale=locale,

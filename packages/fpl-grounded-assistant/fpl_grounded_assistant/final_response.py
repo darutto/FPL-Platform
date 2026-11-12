@@ -811,6 +811,21 @@ class PlayerZonalOutlookMeta:
     data_provenance: "DataProvenance | None" = None
 
 
+#: Conclusion keys the UI words (see player_conclusions); anything else is dropped at extraction.
+PLAYER_CONCLUSION_KEYS: frozenset[str] = frozenset({
+    "points_attack", "points_defence", "points_clean_sheets", "set_pieces", "starts", "zonal",
+})
+
+
+@dataclass(frozen=True)
+class PlayerConclusion:
+    """One line of the verdict above the player card: a key the UI words, its
+    label params, and optional "top N %" evidence. Never a rendered string."""
+    key:      str
+    params:   "dict[str, Any]"
+    evidence: "dict[str, Any] | None" = None
+
+
 @dataclass(frozen=True)
 class PlayerSnapshotMeta:
     """Structured single-player snapshot output for the player detail card.
@@ -875,6 +890,8 @@ class PlayerSnapshotMeta:
     #: The fixture strip's outlook axis from the role he was listed to start in
     #: ("attack" / "defence"); None = the UI's FPL fallback (DEF/GKP defence).
     strip_axis:                      str | None = None
+    #: The verdict: 0-3 conclusions the card doesn't show, priority order; () = no block.
+    conclusions:                     "tuple[PlayerConclusion, ...]" = ()
 
 
 # ---------------------------------------------------------------------------
@@ -2092,6 +2109,25 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
+def _extract_player_conclusions(raw: "Any") -> "tuple[PlayerConclusion, ...]":
+    """``player.conclusions``; malformed entries are dropped one by one, never the card."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerConclusion] = []
+    for item in raw[:3]:
+        if (
+            isinstance(item, dict)
+            and item.get("key") in PLAYER_CONCLUSION_KEYS
+            and isinstance(item.get("params"), dict)
+            and (item.get("evidence") is None or isinstance(item.get("evidence"), dict))
+        ):
+            out.append(PlayerConclusion(
+                key=item["key"], params=dict(item["params"]),
+                evidence=dict(item["evidence"]) if item.get("evidence") is not None else None,
+            ))
+    return tuple(out)
+
+
 def _extract_player_snapshot_meta(
     ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
 ) -> "PlayerSnapshotMeta | None":
@@ -2179,6 +2215,7 @@ def _extract_player_snapshot_meta(
             strip_axis                   = (
                 p["strip_axis"] if p.get("strip_axis") in ("attack", "defence") else None
             ),
+            conclusions                  = _extract_player_conclusions(p.get("conclusions")),
         )
     except Exception:  # noqa: BLE001
         return None

@@ -894,26 +894,6 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     },
 
     # -- get_player_snapshot -----------------------------------------------
-    "player_snapshot.price_line": {
-        "en": "  Price: £{cost}m | Owned: {own}% | Status: {status_lbl}",
-        "es": "  Precio: £{cost}m | Propiedad: {own}% | Estado: {status_lbl}",
-    },
-    "player_snapshot.points_line": {
-        "en": "  Total pts: {pts} | PPG: {ppg} | Form: {form}",
-        "es": "  Pts totales: {pts} | PPG: {ppg} | Forma: {form}",
-    },
-    "player_snapshot.minutes_line": {
-        "en": "  Minutes: {mins}",
-        "es": "  Minutos: {mins}",
-    },
-    "player_snapshot.chance_line": {
-        "en": "  Chance of playing: {chance}%",
-        "es": "  Prob. de jugar: {chance}%",
-    },
-    "player_snapshot.news_line": {
-        "en": "  News: {news}",
-        "es": "  Noticias: {news}",
-    },
     "player_snapshot.ambiguous_header": {
         "en": "Multiple players match '{query}' — please specify:",
         "es": "Múltiples jugadores coinciden con '{query}' — por favor especifica:",
