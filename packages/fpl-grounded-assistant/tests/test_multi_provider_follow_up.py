@@ -1031,6 +1031,37 @@ def test_no_text_and_no_tool_call_is_marked_without_an_extra_call(
     assert result.answer_text.startswith(_notice())
 
 
+@pytest.mark.parametrize("provider", _PROVIDERS)
+def test_card_only_snapshot_gets_no_notice_and_no_evaluator(monkeypatch, bootstrap, provider):
+    """Verdict redesign: an ok player snapshot renders no text (the card and its
+    conclusions are the answer). With no model prose the turn must ship an
+    EMPTY text -- not the raw-render notice followed by nothing -- and the
+    evaluator must not be asked to judge "" (a rejection would buy a paid retry).
+    """
+    _no_loop(monkeypatch)
+    monkeypatch.delenv("FPL_EVAL_DISABLED", raising=False)  # the skip under test is ours, not the env's
+    client = _SequenceClient(provider, [
+        _action_response(provider, "call-1", "get_player_snapshot", {"player_name": "Salah"}),
+        _empty_response(provider),
+    ])
+
+    class _NoEvaluator:
+        def __getattr__(self, name):
+            raise AssertionError("the evaluator must not run on a card-only answer")
+
+    result = ask_orchestrated(
+        "Who is Salah?", bootstrap, provider=provider,
+        client=client, api_key="test-key", _eval_client=_NoEvaluator(),
+    )
+
+    assert result.tool_chosen == "get_player_snapshot"
+    assert result.tool_output["status"] == "ok"
+    assert result.outcome == "ok"
+    assert result.answer_text == ""
+    assert result.synthesis_turn is False
+    assert result.evaluator_verdict is None
+
+
 def test_raw_render_notice_comes_from_the_catalogue_in_both_locales():
     """(c)'s marker is catalogued prose, not a hardcoded string.
 

@@ -1432,6 +1432,13 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         # Bloque 10: None when the zonal section is omitted. ``share`` and
         # ``player_share`` are 0-1 fractions (the UI converts to percent).
         "zonal": _dc_asdict(ps.zonal) if getattr(ps, "zonal", None) is not None else None,
+        # The fixture strip's axis from the observed role; None = FPL fallback in the UI.
+        "strip_axis": getattr(ps, "strip_axis", None),
+        # The verdict above the card; [] = no block. Structured: the UI words each key.
+        "conclusions": [
+            {"key": c.key, "params": c.params, "evidence": c.evidence}
+            for c in getattr(ps, "conclusions", ())
+        ],
         # Player-card signals (player_signals.py): [] = no pill row.
         "signals": [_dc_asdict(sig) for sig in getattr(ps, "signals", ())],
     }

@@ -1,148 +1,148 @@
 {
-  "generatedAt": "2026-11-09T05:05:18Z",
+  "generatedAt": "2026-11-12T05:04:57Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
-  "gameweek": 9,
+  "gameweek": 10,
   "teams": [
     {
       "name": "Arsenal",
       "short": "ARS",
-      "goalsFor": 14,
+      "goalsFor": 15,
       "goalsAgainst": 5,
-      "played": 9
+      "played": 10
     },
     {
       "name": "Aston Villa",
       "short": "AVL",
-      "goalsFor": 10,
-      "goalsAgainst": 13,
-      "played": 9
+      "goalsFor": 14,
+      "goalsAgainst": 17,
+      "played": 10
     },
     {
       "name": "Bournemouth",
       "short": "BOU",
-      "goalsFor": 14,
-      "goalsAgainst": 13,
-      "played": 9
+      "goalsFor": 16,
+      "goalsAgainst": 14,
+      "played": 10
     },
     {
       "name": "Brentford",
       "short": "BRE",
       "goalsFor": 16,
-      "goalsAgainst": 9,
-      "played": 9
+      "goalsAgainst": 11,
+      "played": 10
     },
     {
       "name": "Brighton",
       "short": "BHA",
-      "goalsFor": 24,
+      "goalsFor": 26,
       "goalsAgainst": 7,
-      "played": 9
+      "played": 10
     },
     {
       "name": "Chelsea",
       "short": "CHE",
       "goalsFor": 19,
-      "goalsAgainst": 15,
-      "played": 9
+      "goalsAgainst": 16,
+      "played": 10
     },
     {
       "name": "Coventry City",
       "short": "COV",
-      "goalsFor": 9,
-      "goalsAgainst": 16,
-      "played": 9
+      "goalsFor": 10,
+      "goalsAgainst": 19,
+      "played": 10
     },
     {
       "name": "Crystal Palace",
       "short": "CRY",
-      "goalsFor": 9,
-      "goalsAgainst": 21,
-      "played": 9
+      "goalsFor": 10,
+      "goalsAgainst": 24,
+      "played": 10
     },
     {
       "name": "Everton",
       "short": "EVE",
-      "goalsFor": 9,
-      "goalsAgainst": 9,
-      "played": 9
+      "goalsFor": 12,
+      "goalsAgainst": 10,
+      "played": 10
     },
     {
       "name": "Fulham",
       "short": "FUL",
-      "goalsFor": 9,
-      "goalsAgainst": 11,
-      "played": 9
+      "goalsFor": 10,
+      "goalsAgainst": 12,
+      "played": 10
     },
     {
       "name": "Hull City",
       "short": "HUL",
       "goalsFor": 11,
-      "goalsAgainst": 10,
-      "played": 9
+      "goalsAgainst": 11,
+      "played": 10
     },
     {
       "name": "Ipswich Town",
       "short": "IPS",
-      "goalsFor": 14,
-      "goalsAgainst": 18,
-      "played": 9
+      "goalsFor": 15,
+      "goalsAgainst": 20,
+      "played": 10
     },
     {
       "name": "Leeds",
       "short": "LEE",
-      "goalsFor": 9,
+      "goalsFor": 10,
       "goalsAgainst": 8,
-      "played": 9
+      "played": 10
     },
     {
       "name": "Liverpool",
       "short": "LIV",
-      "goalsFor": 11,
-      "goalsAgainst": 9,
-      "played": 9
+      "goalsFor": 14,
+      "goalsAgainst": 10,
+      "played": 10
     },
     {
       "name": "Man City",
       "short": "MCI",
-      "goalsFor": 20,
-      "goalsAgainst": 10,
-      "played": 9
+      "goalsFor": 21,
+      "goalsAgainst": 13,
+      "played": 10
     },
     {
       "name": "Man Utd",
       "short": "MUN",
-      "goalsFor": 10,
-      "goalsAgainst": 15,
-      "played": 9
+      "goalsFor": 14,
+      "goalsAgainst": 19,
+      "played": 10
     },
     {
       "name": "Newcastle",
       "short": "NEW",
-      "goalsFor": 12,
-      "goalsAgainst": 15,
-      "played": 9
+      "goalsFor": 13,
+      "goalsAgainst": 16,
+      "played": 10
     },
     {
       "name": "Nott'm Forest",
       "short": "NFO",
-      "goalsFor": 6,
-      "goalsAgainst": 12,
-      "played": 9
+      "goalsFor": 9,
+      "goalsAgainst": 13,
+      "played": 10
     },
     {
       "name": "Spurs",
       "short": "TOT",
       "goalsFor": 10,
-      "goalsAgainst": 10,
-      "played": 9
+      "goalsAgainst": 11,
+      "played": 10
     },
     {
       "name": "Sunderland",
       "short": "SUN",
-      "goalsFor": 7,
+      "goalsFor": 8,
       "goalsAgainst": 17,
-      "played": 9
+      "played": 10
     }
   ],
   "players": [

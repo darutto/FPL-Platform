@@ -62,7 +62,10 @@ from fpl_tool_runner.specs import ToolSpec
 # Reuse the fixture-run tool so the snapshot card can show an upcoming
 # schedule strip without duplicating fixture-lookup logic.
 from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
+from fpl_grounded_assistant.player_conclusions import player_conclusions
+from fpl_grounded_assistant.player_signals import position_fact, signals_from_conclusions
 from fpl_grounded_assistant.player_snapshot_zonal import compose_player_zonal
+from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 
 # Re-use helpers from find_players — single source of truth.
 from fpl_grounded_assistant.find_players import (
@@ -158,22 +161,6 @@ def _attach_zonal(
     result = compose_player_zonal(element, bootstrap)
     if result.zonal is not None:
         player_dict["zonal"] = result.zonal
-
-
-def _attach_signals(
-    output: dict[str, Any], element: dict[str, Any], bootstrap: dict[str, Any],
-) -> dict[str, Any]:
-    """Player-card signals (player_signals.py) as a top-level ``signals`` key,
-    hidden from the model by the orchestrator. Absent when there are none."""
-    from fpl_grounded_assistant.player_signals import build_player_signals  # noqa: PLC0415
-
-    try:
-        signals = build_player_signals(element, output["player"], bootstrap)
-    except Exception:  # noqa: BLE001 -- enrichment must not break the card
-        signals = []
-    if signals:
-        output["signals"] = signals
-    return output
 
 
 def get_player_snapshot(
@@ -283,10 +270,23 @@ def get_player_snapshot(
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
         _attach_zonal(player_dict, elements_by_id[match.record.id], bootstrap)
+        element = elements_by_id[match.record.id]
+        # The fixture strip's axis from his observed role; key left out = the UI's FPL fallback.
+        axis = strip_axis_for(match.record.id, bootstrap)
+        if axis is not None:
+            player_dict["strip_axis"] = axis
+        # The verdict above the card: what the card itself doesn't show. Key left out when nothing fires.
+        conclusions = player_conclusions(
+            element, bootstrap, player_dict.get("zonal"), position=position_fact(element, bootstrap)
+        )
+        if conclusions:
+            player_dict["conclusions"] = conclusions
         output = {"status": "ok", "player": player_dict}
-        if not signals:
-            return output
-        return _attach_signals(output, elements_by_id[match.record.id], bootstrap)
+        # «Explorar» pills: one per emitted verdict line with a deeper card. Hidden from the model.
+        pills = signals_from_conclusions(element, conclusions, bootstrap) if signals else []
+        if pills:
+            output["signals"] = pills
+        return output
 
     # Preserve the snapshot's existing conservative rule: a substring match
     # remains a wizard candidate even when only one player happens to match.

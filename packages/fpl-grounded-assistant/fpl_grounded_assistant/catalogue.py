@@ -894,26 +894,6 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     },
 
     # -- get_player_snapshot -----------------------------------------------
-    "player_snapshot.price_line": {
-        "en": "  Price: £{cost}m | Owned: {own}% | Status: {status_lbl}",
-        "es": "  Precio: £{cost}m | Propiedad: {own}% | Estado: {status_lbl}",
-    },
-    "player_snapshot.points_line": {
-        "en": "  Total pts: {pts} | PPG: {ppg} | Form: {form}",
-        "es": "  Pts totales: {pts} | PPG: {ppg} | Forma: {form}",
-    },
-    "player_snapshot.minutes_line": {
-        "en": "  Minutes: {mins}",
-        "es": "  Minutos: {mins}",
-    },
-    "player_snapshot.chance_line": {
-        "en": "  Chance of playing: {chance}%",
-        "es": "  Prob. de jugar: {chance}%",
-    },
-    "player_snapshot.news_line": {
-        "en": "  News: {news}",
-        "es": "  Noticias: {news}",
-    },
     "player_snapshot.ambiguous_header": {
         "en": "Multiple players match '{query}' — please specify:",
         "es": "Múltiples jugadores coinciden con '{query}' — por favor especifica:",
@@ -1507,7 +1487,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "renderer.position_changes.unmapped": {"en": " \u2014 the stored lineup is incomplete, so he may have started", "es": " \u2014 la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que pudo ser titular"},
     "renderer.position_changes.hypothesis": {"en": "    Unproven: he took the position {name} usually holds ({role})", "es": "    Sin demostrar: ocup\u00f3 la posici\u00f3n habitual de {name} ({role})"},
     "renderer.position_changes.no_change": {"en": "  No change of starting slot against his recent starts.", "es": "  Sin cambio de casilla frente a sus \u00faltimos partidos."},
-    "renderer.position_changes.switch": {"en": "Since GW{gw} they have started as {to} ({n} of {n}); before, {before} ({k} of {m}).", "es": "Desde la J{gw} empieza de {to} ({n} de {n}); antes, {before} ({k} de {m})."},
+    "renderer.position_changes.switch": {"en": "Since GW{gw} he has started as {to} ({n} of {n}); before, {before} ({k} of {m}).", "es": "Desde la J{gw} empieza de {to} ({n} de {n}); antes, {before} ({k} de {m})."},
     "renderer.position_changes.gap": {"en": "Listed as a {fpl} in FPL; started {n} of {m} as a {played}{side}.", "es": "En FPL es {fpl}; ha empezado {n} de {m} como {played}{side}."},
     "renderer.position_changes.line_GKP": {"en": "goalkeeper", "es": "portero"},
     "renderer.position_changes.line_DEF": {"en": "defender", "es": "defensa"},
@@ -1774,7 +1754,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "zonal.gw_many": {"en": "GWs", "es": "jornadas"},
     "zonal.prov_current": {"en": "Data: {label} season", "es": "Datos: temporada {label}"},
     "zonal.player_favorable": {
-        "en": "{player} generates their xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
+        "en": "{player} generates his xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
         "es": "{player} genera su xG justo en zonas donde el rival concede por encima de la media \u2014 cruce favorable en {gws}.",
     },
     "zonal.player_neutral": {
@@ -1799,30 +1779,18 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "No fixture calendar in context: league-wide ranking.",
         "es": "Sin calendario en el contexto: ranking de toda la liga.",
     },
-    # Player-card signals (player_signals.py): pill labels, shortest wording,
-    # and the question each pill sends. The questions reuse phrasings the
-    # target tool's description already claims (get_position_changes:
-    # 'en que posicion juega X' / 'what position does X really play';
-    # get_zonal_opportunity: players who can exploit a rival's weak zones,
-    # scoped to the player's club by naming it).
-    "signals.position.label": {"en": "{role} {n} of {m}", "es": "{role} {n} de {m}"},
+    # Player-card «Explorar» pills (player_signals.py): the pill names its
+    # destination; the question it sends reuses phrasings the target tool's
+    # description already claims (get_position_changes: 'en que posicion
+    # juega X' / 'what position does X really play'; get_zonal_opportunity:
+    # players who can exploit a rival's weak zones, scoped to his club by
+    # naming it). The verdict line's wording lives in the UI (concl.*).
+    "signals.pill.position": {"en": "Position", "es": "Posición"},
+    "signals.pill.zone": {"en": "Zones", "es": "Zonas"},
     "signals.position.ask": {
         "en": "What position does {player} really play?",
         "es": "¿En qué posición juega {player}?",
     },
-    "signals.role.winger": {"en": "Winger", "es": "Extremo"},
-    "signals.role.wing_back": {"en": "Wing-back", "es": "Carrilero"},
-    "signals.role.forward": {"en": "Striker", "es": "Delantero"},
-    "signals.role.attacking_mid": {"en": "No. 10", "es": "Mediapunta"},
-    "signals.role.central_mid": {"en": "Midfielder", "es": "Mediocentro"},
-    "signals.role.holding_mid": {"en": "Holding mid", "es": "Pivote"},
-    "signals.role.centre_back": {"en": "Centre-back", "es": "Central"},
-    "signals.role.full_back": {"en": "Full-back", "es": "Lateral"},
-    "signals.line.DEF": {"en": "Defender", "es": "Defensa"},
-    "signals.line.MID": {"en": "Midfielder", "es": "Medio"},
-    "signals.line.FWD": {"en": "Forward", "es": "Delantero"},
-    "signals.zone.label_flank": {"en": "{opp} weak flank", "es": "Banda débil {opp}"},
-    "signals.zone.label_centre": {"en": "{opp} weak centre", "es": "Centro débil {opp}"},
     "signals.zone.ask": {
         "en": "Which {team} players can exploit {opp}'s weak zones?",
         "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",

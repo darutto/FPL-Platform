@@ -983,19 +983,49 @@ export interface PlayerSnapshotMeta {
    */
   zonal?: PlayerZonalOutlookMeta | null;
   /**
-   * Player-card signals: up to 3 pills at the foot of the card, display order.
-   * Empty/absent = no pill row, card unchanged. Optional for rolling
-   * compatibility with older API deployments.
+   * The fixture strip's axis from the role he was listed to start in (backend, licensed
+   * lineups). Absent/null = the strip goes by FPL position.
+   */
+  strip_axis?: FixtureAxis | null;
+  /**
+   * The verdict above the card: 0-3 conclusions the card itself doesn't show, in priority order.
+   * Structured, worded by the UI. Absent/empty = no verdict block.
+   */
+  conclusions?: PlayerConclusion[];
+  /**
+   * «Explorar» pills at the foot of the card, one per verdict line that has a deeper card
+   * (position, zonal), display order. Empty/absent = no section at all.
    */
   signals?: PlayerSignal[];
 }
 
-/** One signal pill. `label` and `send_text` arrive localized from the backend; `send_text` is sent verbatim on tap. */
+/** One «Explorar» pill. `label` names the destination and `send_text` (sent verbatim on tap) arrive localized. */
 export interface PlayerSignal {
   kind: 'position' | 'zone';
   label: string;
   send_text: string;
 }
+
+/** The verdict's position line: the role word when his off-line starts agree on it, else the line word. */
+export type PlayerPositionRole =
+  | 'winger' | 'wing_back' | 'forward' | 'attacking_mid' | 'central_mid' | 'holding_mid' | 'centre_back' | 'full_back';
+
+export type PlayerPosition = 'GKP' | 'DEF' | 'MID' | 'FWD';
+export type SetPiece = 'penalties' | 'free_kicks' | 'corners';
+
+/** "top N %" of his FPL position on a per-90 metric (players with 450+ minutes). */
+export interface PlayerConclusionEvidence {
+  metric: 'xgi_per_90' | 'dc_per_90' | 'cs_per_90';
+  top_pct: number;
+  position: PlayerPosition;
+}
+
+export type PlayerConclusion =
+  | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
+  | { key: 'position'; params: { role?: PlayerPositionRole; line?: PlayerPosition; starts: number; games: number }; evidence: null }
+  | { key: 'set_pieces'; params: { pieces: SetPiece[] }; evidence: null }
+  | { key: 'starts'; params: { starts: number; games: number }; evidence: null }
+  | { key: 'zonal'; params: { opponents: string[] }; evidence: null };
 
 /** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */
 export interface PlayerZonalZone {

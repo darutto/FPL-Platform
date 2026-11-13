@@ -42,10 +42,14 @@ def test_involvement_keeps_the_one_call_compare_instruction():
     assert "compara Palmer y Saka" in GET_PLAYER_INVOLVEMENT_SCHEMA.parameters["properties"]["compare_player"]["description"]
 
 
-def test_position_changes_english_is_gender_neutral():
+def test_position_changes_english_calls_the_player_he():
+    # Product decision 2026-11-07: English prose refers to a player as he/his/him, never they/their. The model
+    # copies this wording into its answers.
     d = GET_POSITION_CHANGES_SCHEMA.description
-    assert "their club's recent matches" in d and "their own earlier starts" in d and "most of their starts" in d
-    # Quoted example phrases ('who replaces X if he does not play', 'replaced him') are the user's or forbidden
-    # wording, not ours. An apostrophe right after a letter (club's, Y's) is not a quote.
+    assert "his club's recent matches" in d and "his own earlier starts" in d and "most of his starts" in d
+    # Quoted example phrases ('cuando no jugo Y', 'because of the move') are the user's or forbidden wording, not
+    # ours. An apostrophe right after a letter (club's, Y's) is not a quote. "them"/"they" stay allowed for plural
+    # things (the per-90 figures, the match counts); "their" only ever meant the player here.
     own_words = re.sub(r"(?<![A-Za-z])'.*?'(?![A-Za-z])", "", d)
-    assert not re.search(r"\b(he|his|him|himself)\b", own_words)
+    assert re.search(r"\b(he|his|him)\b", own_words)
+    assert not re.search(r"\b(their|theirs|themselves)\b", own_words)

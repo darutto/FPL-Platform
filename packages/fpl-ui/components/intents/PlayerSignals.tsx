@@ -1,25 +1,27 @@
 'use client';
 
 /**
- * PlayerSignals — the row of «señales» at the foot of PlayerCard.
+ * PlayerSignals — the «Explorar» section at the foot of PlayerCard.
  *
- * Up to 3 tappable pills (Spotify-style: icon + shortest label). Each one says
- * another card has something to say about this player; a tap sends the pill's
- * `send_text` to the chat verbatim, which opens that card. The backend decides
- * which signals exist (player_signals.py, deterministic, no LLM) and writes the
- * localized label and question; this component only draws them.
+ * The verdict above the card says the fact («Juega de extremo · 8 de 10»,
+ * «Cruce zonal favorable: HUL, NEW»); a pill here is the way into the card that
+ * explains it. Pills name the destination, not the data: `Posición ›` opens
+ * the position pitch, `Zonas ›` the rival's weak-zone card. The backend emits a
+ * pill only for a verdict line it actually showed (player_signals.py), and
+ * writes the localized label and the question a tap sends, verbatim, to the
+ * chat. The model is only paid for on that tap.
  *
- * No signals, or no chat to send to (shared answer) → renders nothing: no
- * empty row, no separator, the card exactly as before.
+ * No pills, or no chat to send to (a shared answer) → renders nothing: no
+ * heading, no row, no separator; the card is exactly as before.
  */
 import type { ComponentType } from 'react';
 import type { PlayerSignal } from '@/lib/types';
 import { useChatAsk } from '@/lib/chat-ask';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
-const MAX_SIGNALS = 3;
+const MAX_PILLS = 3;
 
-/** Crossing arrows: he starts somewhere other than his FPL line. */
+/** Crossing arrows: where he really plays. */
 function PositionIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 flex-none fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -32,7 +34,7 @@ function PositionIcon() {
   );
 }
 
-/** Target: a near rival concedes in his zone. */
+/** Target: the rival's weak zones. */
 function ZoneIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 flex-none fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -51,26 +53,33 @@ const ICONS: Record<PlayerSignal['kind'], ComponentType> = {
 export default function PlayerSignals({ signals }: { signals?: PlayerSignal[] | null }) {
   const ask = useChatAsk();
   const t = useT();
-  const shown = (signals ?? []).filter((s) => s.kind in ICONS && s.label && s.send_text).slice(0, MAX_SIGNALS);
+  const shown = (signals ?? []).filter((s) => s.kind in ICONS && s.label && s.send_text).slice(0, MAX_PILLS);
   if (ask == null || shown.length === 0) return null;
 
   return (
-    <div role="group" aria-label={t('ps.aria')} className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
-      {shown.map((s, i) => {
-        const Icon = ICONS[s.kind];
-        return (
-          <button
-            key={`${i}-${s.kind}`}
-            type="button"
-            data-signal={s.kind}
-            onClick={() => ask(s.send_text)}
-            className="inline-flex min-h-[44px] items-center gap-2 whitespace-nowrap rounded-full bg-white/[0.09] pl-3 pr-3.5 text-[13px] font-semibold text-bf-text transition-colors hover:bg-white/[0.15] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bf-turquoise/60 sm:min-h-[36px] [&>svg]:text-bf-gray"
-          >
-            <Icon />
-            <span>{s.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <section aria-label={t('ps.title')} className="space-y-2 border-t border-white/10 pt-2.5" data-testid="player-explore">
+      {/* Same heading style as the card's «Zonas» section. */}
+      <h3 aria-hidden="true" className="text-[10px] font-extrabold uppercase tracking-wider text-bf-gray">
+        {t('ps.title')}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {shown.map((s, i) => {
+          const Icon = ICONS[s.kind];
+          return (
+            <button
+              key={`${i}-${s.kind}`}
+              type="button"
+              data-signal={s.kind}
+              onClick={() => ask(s.send_text)}
+              className="inline-flex min-h-[44px] items-center gap-2 whitespace-nowrap rounded-full bg-white/[0.09] pl-3 pr-3 text-[13px] font-semibold text-bf-text transition-colors hover:bg-white/[0.15] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bf-turquoise/60 sm:min-h-[36px] [&>svg]:text-bf-gray"
+            >
+              <Icon />
+              <span>{s.label}</span>
+              <span aria-hidden="true" className="font-bold text-bf-gray">›</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

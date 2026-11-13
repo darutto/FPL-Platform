@@ -845,8 +845,8 @@ def _get_player_zonal_outlook_handler(
 GET_PLAYER_ZONAL_OUTLOOK_SPEC = ToolSpec(
     name="get_player_zonal_outlook",
     description=(
-        "Use when the subject is a specific named player and whether their "
-        "upcoming fixtures suit them zonally (do the next opponents' weak "
+        "Use when the subject is a specific named player and whether his "
+        "upcoming fixtures suit him zonally (do the next opponents' weak "
         "zones fit the player's shot profile). Per-GW favorable/neutral "
         "matchup read over the next 1-5 fixtures. Opportunity signal only — "
         "no buy/sell advice."

@@ -469,6 +469,7 @@ _SYSTEM_PROMPT: str = (
     "  - PLAIN_LANGUAGE: never show the user internal field names, enum codes or raw values from tool outputs -- no snake_case keys (dgw_teams, bgw_teams, fixture_context, squad_fit), no codes (conditions_unfavorable, status 'a'), no notation like field=[] / null / true, and no backticks or code formatting for data. Say what the value MEANS in plain words instead (\"no hay equipos con doble jornada\", \"disponible\", \"sin datos de calendario para esta jornada\").\n"
     "  - NO_TOOL_TALK: never talk about where the facts came from -- never mention \"la herramienta\", \"la salida\", \"el sistema\", \"el resultado\", \"los datos (disponibles/recibidos)\" or a \"campo\"; state the fact itself. When something is not known, say it ONCE in one short plain sentence (\"No sé si tus suplentes tienen minutos asegurados.\", \"No hay noticias de lesión.\") without explaining or justifying why, and never guess beyond the data (no speculating about double or blank gameweeks it does not show).\n"
     "  - PLAYER_ZONAL: when get_player_snapshot returns a zonal block, add ONE short sentence to the player profile with its verdict (which of the pending matches of the next 3 gameweeks suit where the player generates his xG, or that the rivals' zonal data is not available), framed as the opportunity; never list every zone or repeat the whole table. When its data_provenance.status is not current (thin, stale_season, unverified, unknown), say the caveat of its label in a short clause (the sample is short, or the data is from another season). If the block is absent, say nothing about zones. Never buy/sell/transfer wording.\n"
+    "  - PLAYER_CARD_NO_STATS: when get_player_snapshot ran, the answer is shown above a player card that already shows price, ownership, points, points per game, form, minutes, xG/xA/xGI, ICT, defensive contribution, news and the next 5 fixtures. Do not restate those values: no stat bullets or table, and no bullet or sentence whose only job is to report one of them (\"lleva 50 puntos\", \"forma 5.0\", \"900 minutos\"). Do not walk through the next fixtures one by one either; name only the one or two that decide your judgement. Write what the card cannot show: your reading of the player, set-piece duties, whether the fixture run looks good and why, the zonal matchup, availability and news context, his profile. A card number may appear only as the evidence for a judgement in the same sentence, never on its own.\n"
     "  - CHIP_NAMES: write the chip names in English, as FPL names them -- Wildcard, Free Hit, Bench Boost, Triple Captain -- never comodín, ficha libre, golpe de suerte, impulso de banca, banco extra or triple capitán.\n"
     "  - DECIMALS: write decimals with a point, in Spanish too (the audience is Latin American) -- \"forma 10.7\", \"7.4 pts\", \"82.0 %\" -- never a comma (10,7).\n"
     "  - MATCH_COMPOSITION: when a ONE MATCH question ran get_fixture_outlook AND get_team_snapshot (both FPL_DATA, same turn), the answer keeps the calendar read (opponent, venue, difficulty, relative strength) AND names 2-3 of that team's top_players from the snapshot, each with ONE number the tool returned (form, expected_goals, expected_assists, total_points; for a DEF/GKP expected_goals_conceded, saves or defensive_contribution). When the calendar ran on BOTH axes (attack and defence), the answer has BOTH sides: the attacking read (dificultad ofensiva + the attackers) and the defensive read (dificultad para portería a cero + a DEF/GKP if the snapshot returned one; if none is among the top_players, say the defensive side rests on the calendar read). Never a name or number that is not in the tool output. Frame every player as the opportunity in THIS match. NEVER use transaction or urgency words: comprar/vender/fichar/traspasar/urgente/peligro, buy/sell/transfer in/bring in -- not even to say you are NOT recommending one (no disclaimers about fichajes/transfers).\n"
@@ -1662,9 +1663,12 @@ def _apply_evaluator(
     _primary_count = len(tool_calls_trace)
 
     # ------------------------------------------------------------------
-    # E0. Skip evaluator if disabled via env flag
+    # E0. Skip evaluator if disabled via env flag -- or when there is no text
+    #     to judge: an ok card-only answer (player snapshot, empty render) is
+    #     the tool's own deterministic card. Judging "" would only invite a
+    #     rejection and a paid retry of the primary.
     # ------------------------------------------------------------------
-    if _eval_disabled() or eval_client is None:
+    if _eval_disabled() or eval_client is None or (not answer_text and outcome == OUTCOME_OK):
         _total = _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         return OrchestratorResult(
             question=question,
@@ -2142,6 +2146,12 @@ def _apply_evaluator(
     )
 
 
+#: Partial-selection weight of an ``ok`` payload that renders no text because its
+#: card carries the answer (the player snapshot). About what the snapshot's old text
+#: dump measured (5-6 lines): above a one-line render, below a multi-row answer.
+_CARD_ONLY_PARTIAL_WEIGHT: int = 240
+
+
 def _select_partial(
     successful: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
 ) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
@@ -2160,12 +2170,19 @@ def _select_partial(
     Pure by construction: no I/O, no config reads, no provider knowledge, so it
     can be replayed offline against recorded traces. ``successful`` is never
     empty -- every call site guards on it.
+
+    A payload that renders NO text but is ``ok`` (the player snapshot since the
+    2026-11-11 verdict redesign: its card carries everything) weighs
+    ``_CARD_ONLY_PARTIAL_WEIGHT`` instead of zero, so the card still beats a
+    one-line render but not a multi-row answer -- the ranking it had before.
     """
     best = successful[0]
     best_len = -1
     for item in successful:
         try:
             rendered_len = len(render(item[1], item[3]))
+            if rendered_len == 0 and item[3].get("status") == "ok":
+                rendered_len = _CARD_ONLY_PARTIAL_WEIGHT
         except Exception:  # noqa: BLE001
             # A call whose payload cannot be rendered is not a usable answer.
             rendered_len = 0
@@ -3285,9 +3302,14 @@ def _ask_orchestrated_impl(
     #
     # Locale: the same value as the render() call directly above, so the notice
     # never disagrees with the table it introduces.
-    answer_text = (
-        f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
-    )
+    #
+    # A card-only payload (ok, empty render: the player snapshot since the
+    # verdict redesign) gets no notice: the card and its conclusions ARE the
+    # answer, and a notice followed by nothing would read as a failure.
+    if answer_text or tool_status != "ok":
+        answer_text = (
+            f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
+        )
 
     return _apply_evaluator(
         locale=locale,

@@ -1203,86 +1203,17 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
     return f"Error ({code}): {message}"
 
 
-def _player_zonal_lines(zonal: Any) -> list[str]:
-    """Bloque 10: the zonal section of a snapshot as text lines, or [] when
-    the snapshot carries none (or a malformed block -- never raises).
-
-    ``share`` / ``player_share`` are 0-1 fractions; this is where the text
-    path converts to a percentage. Opportunity-framed, season stamp last.
-    """
-    try:
-        if not isinstance(zonal, dict) or not zonal.get("fixtures") or not zonal.get("zones"):
-            return []
-        window = zonal["window"]
-        lines = [
-            f"Zonas — partidos de las próximas 3 jornadas (J{window['gw_from']}-J{window['gw_to']}): "
-            f"{zonal['verdict']}",
-            "  Dónde genera su xG: " + ", ".join(
-                f"{z['zone']} ({z['share'] * 100:.0f}% de su xG sin penalti)"
-                for z in zonal["zones"]
-            ) + ".",
-        ]
-        for fx in zonal["fixtures"]:
-            venue = "casa" if fx.get("is_home") else "fuera"
-            head = f"  J{fx['gameweek']} vs {fx['opponent']} ({venue})"
-            if fx.get("status") == "favorable":
-                zones = "; ".join(
-                    f"{m['zone']} (rival {m['delta_vs_avg']:+.3f} vs media)"
-                    for m in fx.get("matches", [])
-                )
-                lines.append(f"{head}: favorable — {zones}")
-            elif fx.get("status") == "no_data":
-                lines.append(f"{head}: sin datos zonales del rival")
-            else:
-                lines.append(f"{head}: sin cruce destacado")
-        prov = _provenance_line(zonal)
-        if prov:
-            lines.append(prov)
-        return lines
-    except (KeyError, TypeError, ValueError):
-        return []
-
-
 def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_snapshot raw_output.  P2.2.  F1: localized.
 
-    ``news`` is FPL's own third-party API text (tier-3) and is passed
-    through verbatim in both locales — only the "News:"/"Noticias:" label
-    around it is this renderer's own prose.
+    ``ok`` renders NOTHING (verdict redesign, 2026-11-11): the text used to dump
+    the same numbers the card shows. What the card doesn't show now travels as
+    structured ``player.conclusions`` and the UI words it above the card.
+    ``ambiguous`` / ``not_found`` / ``error`` still need words: there is no card.
     """
     status = output.get("status")
     if status == "ok":
-        p = output.get("player", {})
-        name      = p.get("web_name", "?")
-        team      = p.get("team_short", "?")
-        pos       = p.get("position", "?")
-        cost      = p.get("now_cost", 0) / 10.0
-        own       = p.get("selected_by_percent", 0.0)
-        status_lbl = p.get("status", "?")
-        form      = p.get("form", 0.0)
-        pts       = p.get("total_points", 0)
-        ppg       = p.get("points_per_game", 0.0)
-        xg        = p.get("expected_goals", 0.0)
-        xa        = p.get("expected_assists", 0.0)
-        xgi       = p.get("expected_goal_involvements", 0.0)
-        ict       = p.get("ict_index", 0.0)
-        mins      = p.get("minutes_played_season", 0)
-        news      = p.get("news", "") or ""  # tier-3: third-party, verbatim
-        chance    = p.get("chance_of_playing_this_round")
-
-        lines = [
-            f"**{name}** ({team}, {pos})",
-            t("player_snapshot.price_line", locale, cost=f"{cost:.1f}", own=f"{own:.1f}", status_lbl=status_lbl),
-            t("player_snapshot.points_line", locale, pts=pts, ppg=f"{ppg:.1f}", form=form),
-            f"  xG: {xg:.2f} | xA: {xa:.2f} | xGI: {xgi:.2f} | ICT: {ict:.1f}",
-            t("player_snapshot.minutes_line", locale, mins=mins),
-        ]
-        if chance is not None:
-            lines.append(t("player_snapshot.chance_line", locale, chance=chance))
-        if news:
-            lines.append(t("player_snapshot.news_line", locale, news=news))
-        lines.extend(_player_zonal_lines(p.get("zonal")))
-        return "\n".join(lines)
+        return ""
 
     if status == "ambiguous":
         query      = output.get("query", "")

@@ -811,12 +811,28 @@ class PlayerZonalOutlookMeta:
     data_provenance: "DataProvenance | None" = None
 
 
+#: Conclusion keys the UI words (see player_conclusions); anything else is dropped at extraction.
+PLAYER_CONCLUSION_KEYS: frozenset[str] = frozenset({
+    "points_attack", "points_defence", "points_clean_sheets", "position", "set_pieces", "starts", "zonal",
+})
+
+
+@dataclass(frozen=True)
+class PlayerConclusion:
+    """One line of the verdict above the player card: a key the UI words, its
+    label params, and optional "top N %" evidence. Never a rendered string."""
+    key:      str
+    params:   "dict[str, Any]"
+    evidence: "dict[str, Any] | None" = None
+
+
 @dataclass(frozen=True)
 class PlayerSignal:
     """One pill at the foot of the player card (player_signals.py).
 
-    ``kind`` picks the icon (``position`` | ``zone``); ``label`` is the pill
-    text; ``send_text`` is the question the UI sends, verbatim, on tap.
+    One per emitted verdict line with a deeper card. ``kind`` picks the icon
+    (``position`` | ``zone``); ``label`` names the destination («Posición»);
+    ``send_text`` is the question the UI sends, verbatim, on tap.
     """
     kind:      str
     label:     str
@@ -884,6 +900,11 @@ class PlayerSnapshotMeta:
     #: i151c: ``news`` in Spanish when it matches a known FPL template (see
     #: news_es); otherwise the original English ``news``, untouched.
     news_label:                      str = ""
+    #: The fixture strip's outlook axis from the role he was listed to start in
+    #: ("attack" / "defence"); None = the UI's FPL fallback (DEF/GKP defence).
+    strip_axis:                      str | None = None
+    #: The verdict: 0-3 conclusions the card doesn't show, priority order; () = no block.
+    conclusions:                     "tuple[PlayerConclusion, ...]" = ()
     #: Player-card signals (player_signals.py), display order, max 3. Empty
     #: tuple = no pill row; the card is unchanged.
     signals:                         "tuple[PlayerSignal, ...]" = ()
@@ -2118,6 +2139,25 @@ def _extract_player_signals(raw: Any) -> "tuple[PlayerSignal, ...]":
     return tuple(out)
 
 
+def _extract_player_conclusions(raw: "Any") -> "tuple[PlayerConclusion, ...]":
+    """``player.conclusions``; malformed entries are dropped one by one, never the card."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerConclusion] = []
+    for item in raw[:3]:
+        if (
+            isinstance(item, dict)
+            and item.get("key") in PLAYER_CONCLUSION_KEYS
+            and isinstance(item.get("params"), dict)
+            and (item.get("evidence") is None or isinstance(item.get("evidence"), dict))
+        ):
+            out.append(PlayerConclusion(
+                key=item["key"], params=dict(item["params"]),
+                evidence=dict(item["evidence"]) if item.get("evidence") is not None else None,
+            ))
+    return tuple(out)
+
+
 def _extract_player_snapshot_meta(
     ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
 ) -> "PlayerSnapshotMeta | None":
@@ -2202,6 +2242,10 @@ def _extract_player_snapshot_meta(
             ),
             team_fdr_context             = team_fdr_context,
             zonal                        = _extract_player_zonal_meta(p.get("zonal")),
+            strip_axis                   = (
+                p["strip_axis"] if p.get("strip_axis") in ("attack", "defence") else None
+            ),
+            conclusions                  = _extract_player_conclusions(p.get("conclusions")),
             signals                      = _extract_player_signals(ro.get("signals")),
         )
     except Exception:  # noqa: BLE001
