@@ -1779,6 +1779,22 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "No fixture calendar in context: league-wide ranking.",
         "es": "Sin calendario en el contexto: ranking de toda la liga.",
     },
+    # Player-card «Explorar» pills (player_signals.py): the pill names its
+    # destination; the question it sends reuses phrasings the target tool's
+    # description already claims (get_position_changes: 'en que posicion
+    # juega X' / 'what position does X really play'; get_zonal_opportunity:
+    # players who can exploit a rival's weak zones, scoped to his club by
+    # naming it). The verdict line's wording lives in the UI (concl.*).
+    "signals.pill.position": {"en": "Position", "es": "Posición"},
+    "signals.pill.zone": {"en": "Zones", "es": "Zonas"},
+    "signals.position.ask": {
+        "en": "What position does {player} really play?",
+        "es": "¿En qué posición juega {player}?",
+    },
+    "signals.zone.ask": {
+        "en": "Which {team} players can exploit {opp}'s weak zones?",
+        "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
+    },
 }
 
 

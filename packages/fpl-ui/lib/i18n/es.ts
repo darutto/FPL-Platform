@@ -139,6 +139,18 @@ export const es = {
   'concl.and': ' y ',
   'concl.starts': 'Titular en {starts} de {games}',
   'concl.zonal': 'Cruce zonal favorable: {opponents}',
+  'concl.position.role.winger': 'Juega de extremo',
+  'concl.position.role.wing_back': 'Juega de carrilero',
+  'concl.position.role.forward': 'Juega de delantero',
+  'concl.position.role.attacking_mid': 'Juega de mediapunta',
+  'concl.position.role.central_mid': 'Juega de mediocentro',
+  'concl.position.role.holding_mid': 'Juega de pivote',
+  'concl.position.role.centre_back': 'Juega de central',
+  'concl.position.role.full_back': 'Juega de lateral',
+  'concl.position.line.DEF': 'Juega de defensa',
+  'concl.position.line.MID': 'Juega de medio',
+  'concl.position.line.FWD': 'Juega de delantero',
+  'concl.position.count': '{starts} de {games}',
   'concl.metric.xgi_per_90': 'xGI/90',
   'concl.metric.dc_per_90': 'contribución defensiva/90',
   'concl.top': 'top {n} % de {pos}',
@@ -513,6 +525,9 @@ export const es = {
   'pz.legend': 'Turquesa: coincide con la zona con ventaja ante un rival favorable.',
   'pz.aria.cell': '{zone}: {pct}% de su xG',
   'pz.aria.hit': ' (coincide con un cruce favorable)',
+
+  // --- Player-card signals (pills at the foot of the card) ---
+  'ps.title': 'Explorar',
 
   // --- Squad pitch ---
   'sq.title': 'My squad',

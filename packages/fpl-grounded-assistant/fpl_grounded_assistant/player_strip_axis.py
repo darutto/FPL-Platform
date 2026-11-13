@@ -20,8 +20,9 @@ from typing import Any, Callable
 _LOG = logging.getLogger("fpl_grounded_assistant.player_strip_axis")
 
 _lock = threading.Lock()
-#: ``build_id`` -> axes of that build; only the current build is kept.
-_index: dict[str, Any] = {"build_id": None, "axes": None}
+#: ``build_id`` -> axes of that build, and every player's latest starting slots (the verdict's position line,
+#: player_signals.py); only the current build is kept.
+_index: dict[str, Any] = {"build_id": None, "axes": None, "starts": None}
 _building: set[str] = set()
 
 
@@ -39,16 +40,19 @@ def _current_build_id(handle: Any) -> str:
 
 def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures: Callable[[], list] | None) -> None:
     try:
-        from football_intelligence.observed_axis import observed_by_element  # noqa: PLC0415
+        from football_intelligence.observed_axis import observed_by_element, recent_starts_by_element  # noqa: PLC0415
 
+        from .player_signals import POSITION_RECENT_STARTS  # noqa: PLC0415
         from .position_changes_tool import fixture_index  # noqa: PLC0415
 
         fixtures = fixture_index(bootstrap, fetch_fixtures)
         if fixtures is None:  # not remembered: the next card tries again
             return
-        axes = observed_by_element(handle.table("lineup_snapshots"), handle.table("lineup_slots"), fixtures)
+        snapshots, slots = handle.table("lineup_snapshots"), handle.table("lineup_slots")
+        axes = observed_by_element(snapshots, slots, fixtures)
+        starts = recent_starts_by_element(snapshots, slots, fixtures, keep=POSITION_RECENT_STARTS)
         with _lock:
-            _index.update(build_id=build_id, axes=axes)
+            _index.update(build_id=build_id, axes=axes, starts=starts)
     except Exception:  # noqa: BLE001
         _LOG.warning("strip axis index build failed", exc_info=True)
     finally:
@@ -92,6 +96,45 @@ def _decide(observed: dict[str, Any] | None, element_id: int, bootstrap: dict[st
     )
 
 
+def _lookup(
+    field: str,
+    element_id: int,
+    bootstrap: dict[str, Any],
+    handle: Any,
+    fetch_fixtures: Callable[[], list] | None,
+    background: bool,
+) -> tuple[bool, Any]:
+    """``(ready, value)``: the player's entry in the current build's ``field`` index. Not ready -> the index is built
+    (in a background thread unless ``background`` is False) and ``(False, None)`` comes back at once."""
+    from .orch_config import is_football_intelligence_enabled  # noqa: PLC0415
+
+    if not is_football_intelligence_enabled():
+        return False, None
+    if handle is None:
+        from football_intelligence.distribution.licensed_runtime import handle_from_env  # noqa: PLC0415
+
+        handle = handle_from_env()
+    build_id = _current_build_id(handle)
+    with _lock:
+        ready = _index["build_id"] == build_id
+        if ready:
+            return True, (_index[field] or {}).get(int(element_id))
+        if build_id in _building:
+            return False, None
+        _building.add(build_id)
+    if background:
+        threading.Thread(
+            target=_build, args=(handle, build_id, bootstrap, fetch_fixtures),
+            name="strip-axis-index", daemon=True,
+        ).start()
+        return False, None
+    _build(handle, build_id, bootstrap, fetch_fixtures)
+    with _lock:
+        if _index["build_id"] != build_id:
+            return False, None
+        return True, (_index[field] or {}).get(int(element_id))
+
+
 def strip_axis_for(
     element_id: int,
     bootstrap: dict[str, Any],
@@ -105,39 +148,31 @@ def strip_axis_for(
     ``handle``, ``fetch_fixtures`` and ``background`` are the seams the tests use.
     """
     try:
-        from .orch_config import is_football_intelligence_enabled  # noqa: PLC0415
-
-        if not is_football_intelligence_enabled():
-            return None
-        if handle is None:
-            from football_intelligence.distribution.licensed_runtime import handle_from_env  # noqa: PLC0415
-
-            handle = handle_from_env()
-        build_id = _current_build_id(handle)
-        with _lock:
-            ready = _index["build_id"] == build_id
-            observed = _index["axes"].get(int(element_id)) if ready else None
-            if not ready:
-                if build_id in _building:
-                    return None
-                _building.add(build_id)
-        if ready:
-            return _decide(observed, element_id, bootstrap)
-        if background:
-            threading.Thread(
-                target=_build, args=(handle, build_id, bootstrap, fetch_fixtures),
-                name="strip-axis-index", daemon=True,
-            ).start()
-            return None
-        _build(handle, build_id, bootstrap, fetch_fixtures)
-        with _lock:
-            observed = _index["axes"].get(int(element_id)) if _index["build_id"] == build_id else None
-        return _decide(observed, element_id, bootstrap)
+        ready, observed = _lookup("axes", element_id, bootstrap, handle, fetch_fixtures, background)
+        return _decide(observed, element_id, bootstrap) if ready else None
     except Exception:  # noqa: BLE001  (no store synced, unreadable pointer, ...)
+        return None
+
+
+def recent_starts_for(
+    element_id: int,
+    bootstrap: dict[str, Any],
+    *,
+    handle: Any = None,
+    fetch_fixtures: Callable[[], list] | None = None,
+    background: bool = True,
+) -> list[dict[str, Any]] | None:
+    """His latest starting slots (oldest first, up to ``player_signals.POSITION_RECENT_STARTS``) from the same
+    per-build index, or ``None`` while it is not ready / the store is off. A player with no stored start gets ``[]``.
+    Same seams as :func:`strip_axis_for`. Never raises."""
+    try:
+        ready, starts = _lookup("starts", element_id, bootstrap, handle, fetch_fixtures, background)
+        return list(starts or []) if ready else None
+    except Exception:  # noqa: BLE001
         return None
 
 
 def _reset_for_tests() -> None:
     with _lock:
-        _index.update(build_id=None, axes=None)
+        _index.update(build_id=None, axes=None, starts=None)
         _building.clear()

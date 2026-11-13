@@ -813,7 +813,7 @@ class PlayerZonalOutlookMeta:
 
 #: Conclusion keys the UI words (see player_conclusions); anything else is dropped at extraction.
 PLAYER_CONCLUSION_KEYS: frozenset[str] = frozenset({
-    "points_attack", "points_defence", "points_clean_sheets", "set_pieces", "starts", "zonal",
+    "points_attack", "points_defence", "points_clean_sheets", "position", "set_pieces", "starts", "zonal",
 })
 
 
@@ -824,6 +824,19 @@ class PlayerConclusion:
     key:      str
     params:   "dict[str, Any]"
     evidence: "dict[str, Any] | None" = None
+
+
+@dataclass(frozen=True)
+class PlayerSignal:
+    """One pill at the foot of the player card (player_signals.py).
+
+    One per emitted verdict line with a deeper card. ``kind`` picks the icon
+    (``position`` | ``zone``); ``label`` names the destination («Posición»);
+    ``send_text`` is the question the UI sends, verbatim, on tap.
+    """
+    kind:      str
+    label:     str
+    send_text: str
 
 
 @dataclass(frozen=True)
@@ -892,6 +905,9 @@ class PlayerSnapshotMeta:
     strip_axis:                      str | None = None
     #: The verdict: 0-3 conclusions the card doesn't show, priority order; () = no block.
     conclusions:                     "tuple[PlayerConclusion, ...]" = ()
+    #: Player-card signals (player_signals.py), display order, max 3. Empty
+    #: tuple = no pill row; the card is unchanged.
+    signals:                         "tuple[PlayerSignal, ...]" = ()
 
 
 # ---------------------------------------------------------------------------
@@ -2109,6 +2125,20 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
+def _extract_player_signals(raw: Any) -> "tuple[PlayerSignal, ...]":
+    """``signals`` from the snapshot output; anything malformed is dropped."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerSignal] = []
+    for item in raw[:3]:
+        if not isinstance(item, dict):
+            continue
+        kind, label, send = item.get("kind"), item.get("label"), item.get("send_text")
+        if kind in ("position", "zone") and isinstance(label, str) and label and isinstance(send, str) and send:
+            out.append(PlayerSignal(kind=kind, label=label, send_text=send))
+    return tuple(out)
+
+
 def _extract_player_conclusions(raw: "Any") -> "tuple[PlayerConclusion, ...]":
     """``player.conclusions``; malformed entries are dropped one by one, never the card."""
     if not isinstance(raw, list):
@@ -2216,6 +2246,7 @@ def _extract_player_snapshot_meta(
                 p["strip_axis"] if p.get("strip_axis") in ("attack", "defence") else None
             ),
             conclusions                  = _extract_player_conclusions(p.get("conclusions")),
+            signals                      = _extract_player_signals(ro.get("signals")),
         )
     except Exception:  # noqa: BLE001
         return None

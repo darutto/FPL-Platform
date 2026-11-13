@@ -673,6 +673,9 @@ _TOOL_OUTPUT_MAX_LIST_ITEMS: int = 10
 #: LLM here -- the real tool output, the trace and the audit keep them.
 _MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
     "get_chip_advice": frozenset({"squad_fit", "squad_source", "linked_squad_error"}),
+    # Player-card signals: UI pills (label + the question a tap sends). The
+    # model has nothing to say about them; shown, it could echo the question.
+    "get_player_snapshot": frozenset({"signals"}),
 }
 
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({

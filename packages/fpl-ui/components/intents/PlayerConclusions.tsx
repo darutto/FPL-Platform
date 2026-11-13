@@ -11,7 +11,7 @@
  */
 
 import type { ReactNode } from 'react';
-import type { PlayerConclusion, SetPiece } from '@/lib/types';
+import type { PlayerConclusion, PlayerPositionRole, SetPiece } from '@/lib/types';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 type T = ReturnType<typeof useT>;
@@ -46,6 +46,13 @@ const ICONS: Record<PlayerConclusion['key'], ReactNode> = {
       <path d="M3 10h18M8 6v14M16 6v14" strokeOpacity=".45" />
     </svg>
   ),
+  position: (
+    <svg {...SVG_PROPS}>
+      <rect x="4" y="3" width="16" height="18" rx="1" />
+      <circle cx="8" cy="15" r="1.6" strokeDasharray="1.5 1.5" />
+      <circle cx="8" cy="9" r="2" fill="currentColor" />
+    </svg>
+  ),
   set_pieces: (
     <svg {...SVG_PROPS}>
       <path d="M5 21V4" />
@@ -67,6 +74,10 @@ const ICONS: Record<PlayerConclusion['key'], ReactNode> = {
   ),
 };
 
+const POSITION_ROLES: PlayerPositionRole[] = [
+  'winger', 'wing_back', 'forward', 'attacking_mid', 'central_mid', 'holding_mid', 'centre_back', 'full_back',
+];
+
 function joinPieces(pieces: SetPiece[], t: T): string {
   const words = pieces.map((p) => t(`concl.piece.${p}`));
   if (words.length <= 1) return words.join('');
@@ -82,6 +93,13 @@ export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
       return ['DEF', 'MID'].includes(c.params.position) ? t(`concl.defence.${c.params.position as 'DEF' | 'MID'}`) : null;
     case 'points_clean_sheets':
       return t('concl.cleanSheets');
+    case 'position': {
+      // The role word when his off-line starts agree on a role, else the line word; anything else is dropped.
+      const { role, line } = c.params;
+      if (role && POSITION_ROLES.includes(role)) return t(`concl.position.role.${role}`);
+      if (line && ['DEF', 'MID', 'FWD'].includes(line)) return t(`concl.position.line.${line as 'DEF' | 'MID' | 'FWD'}`);
+      return null;
+    }
     case 'set_pieces':
       return c.params.pieces.length > 0 ? t('concl.setPieces', { pieces: joinPieces(c.params.pieces, t) }) : null;
     case 'starts':
@@ -95,6 +113,7 @@ export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
 
 /** "xGI/90 · top 10 % de MID"; the clean-sheets line names its metric in the label, so evidence is "top N %" only. */
 export function conclusionEvidence(c: PlayerConclusion, t: T): string | null {
+  if (c.key === 'position') return t('concl.position.count', { starts: c.params.starts, games: c.params.games });
   const ev = c.evidence;
   if (ev == null) return null;
   const top = t('concl.top', { n: ev.top_pct, pos: ev.position });

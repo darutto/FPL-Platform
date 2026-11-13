@@ -45,6 +45,7 @@ import { FingerprintWaves } from './CardOrnaments';
 import { resolveStatusBadge } from './InjuriesTable';
 import { PlayerFixtureStrip } from './PlayerFixtureStrip';
 import PlayerZonasSection from './PlayerZonasSection';
+import PlayerSignals from './PlayerSignals';
 
 interface Props {
   data: PlayerSnapshotMeta;
@@ -164,6 +165,9 @@ export default function PlayerCard({ data }: Props) {
         {/* Bloque 10: zonal profile vs the pending matches of the next 3
             gameweeks. Absent/null -> no section, card unchanged. */}
         {zonal && <PlayerZonasSection zonal={zonal} />}
+
+        {/* Signals: up to 3 tappable pills; none -> nothing rendered. */}
+        <PlayerSignals signals={data.signals} />
       </div>
     </div>
   );

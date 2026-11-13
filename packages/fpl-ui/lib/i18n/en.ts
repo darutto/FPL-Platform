@@ -139,6 +139,18 @@ export const en: typeof es = {
   'concl.piece.corners': 'corners',
   'concl.and': ' and ',
   'concl.starts': 'Started {starts} of {games}',
+  'concl.position.role.winger': 'Plays as a winger',
+  'concl.position.role.wing_back': 'Plays as a wing-back',
+  'concl.position.role.forward': 'Plays as a striker',
+  'concl.position.role.attacking_mid': 'Plays as a No. 10',
+  'concl.position.role.central_mid': 'Plays in central midfield',
+  'concl.position.role.holding_mid': 'Plays as a holding mid',
+  'concl.position.role.centre_back': 'Plays at centre-back',
+  'concl.position.role.full_back': 'Plays at full-back',
+  'concl.position.line.DEF': 'Plays in defence',
+  'concl.position.line.MID': 'Plays in midfield',
+  'concl.position.line.FWD': 'Plays up front',
+  'concl.position.count': '{starts} of {games}',
   'concl.zonal': 'Favourable zonal matchup: {opponents}',
   'concl.metric.xgi_per_90': 'xGI/90',
   'concl.metric.dc_per_90': 'defensive contribution/90',
@@ -512,6 +524,9 @@ export const en: typeof es = {
   'pz.legend': 'Turquoise: matches the zone with an edge against a favourable opponent.',
   'pz.aria.cell': '{zone}: {pct}% of his xG',
   'pz.aria.hit': ' (matches a favourable matchup)',
+
+  // --- Player-card signals (pills at the foot of the card) ---
+  'ps.title': 'Explore',
 
   // --- Squad pitch ---
   'sq.title': 'My squad',

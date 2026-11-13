@@ -63,6 +63,7 @@ from fpl_tool_runner.specs import ToolSpec
 # schedule strip without duplicating fixture-lookup logic.
 from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
 from fpl_grounded_assistant.player_conclusions import player_conclusions
+from fpl_grounded_assistant.player_signals import position_fact, signals_from_conclusions
 from fpl_grounded_assistant.player_snapshot_zonal import compose_player_zonal
 from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 
@@ -165,8 +166,13 @@ def _attach_zonal(
 def get_player_snapshot(
     player_name: str | int,
     bootstrap: "dict[str, Any] | None" = None,
+    *,
+    signals: bool = True,
 ) -> dict[str, Any]:
     """Single player full grounding payload by name or FPL element id.
+
+    ``signals=False`` skips the player-card signals (player_signals.py) for
+    callers that only need the identity (build_squad resolves 15 names).
 
     Resolution: exact match (case + accent insensitive) wins immediately.
     If multiple exact matches OR multiple prefix matches without a tiebreaker,
@@ -264,17 +270,23 @@ def get_player_snapshot(
         player_dict.pop("match_rank", None)
         _attach_fixture_run(player_dict, bootstrap)
         _attach_zonal(player_dict, elements_by_id[match.record.id], bootstrap)
+        element = elements_by_id[match.record.id]
         # The fixture strip's axis from his observed role; key left out = the UI's FPL fallback.
         axis = strip_axis_for(match.record.id, bootstrap)
         if axis is not None:
             player_dict["strip_axis"] = axis
         # The verdict above the card: what the card itself doesn't show. Key left out when nothing fires.
         conclusions = player_conclusions(
-            elements_by_id[match.record.id], bootstrap, player_dict.get("zonal")
+            element, bootstrap, player_dict.get("zonal"), position=position_fact(element, bootstrap)
         )
         if conclusions:
             player_dict["conclusions"] = conclusions
-        return {"status": "ok", "player": player_dict}
+        output = {"status": "ok", "player": player_dict}
+        # «Explorar» pills: one per emitted verdict line with a deeper card. Hidden from the model.
+        pills = signals_from_conclusions(element, conclusions, bootstrap) if signals else []
+        if pills:
+            output["signals"] = pills
+        return output
 
     # Preserve the snapshot's existing conservative rule: a substring match
     # remains a wizard candidate even when only one player happens to match.

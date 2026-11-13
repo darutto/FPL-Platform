@@ -27,6 +27,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, apiErrorText, FplApiError } from '@/lib/api';
+import { ChatAskProvider } from '@/lib/chat-ask';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
@@ -374,6 +375,12 @@ export default function ChatShell() {
     sendMessage(text);
   }, [sendMessage]);
 
+  // Cards inside a message (the player card's signal pills) send their
+  // question through the normal path, like a typed one.
+  const askFromCard = useCallback((question: string) => {
+    sendMessage(question);
+  }, [sendMessage]);
+
   const isEmpty = messages.length === 0;
 
   return (
@@ -415,16 +422,18 @@ export default function ChatShell() {
                   <StarterPrompts onSelect={sendMessage} />
                 </div>
               ) : (
-                <MessageList
-                  messages={messages}
-                  loading={loading}
-                  onFollowUp={handleFollowUp}
-                  followUpArmedFor={followUpArmedFor}
-                  compareWizard={compareWizard}
-                  onSuggestionPick={handleSuggestionPick}
-                  playerPickWizard={playerPickWizard}
-                  onPlayerPick={handlePlayerPick}
-                />
+                <ChatAskProvider ask={askFromCard}>
+                  <MessageList
+                    messages={messages}
+                    loading={loading}
+                    onFollowUp={handleFollowUp}
+                    followUpArmedFor={followUpArmedFor}
+                    compareWizard={compareWizard}
+                    onSuggestionPick={handleSuggestionPick}
+                    playerPickWizard={playerPickWizard}
+                    onPlayerPick={handlePlayerPick}
+                  />
+                </ChatAskProvider>
               )}
             </div>
 

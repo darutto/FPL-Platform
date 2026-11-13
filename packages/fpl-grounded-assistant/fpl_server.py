@@ -1439,6 +1439,8 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
             {"key": c.key, "params": c.params, "evidence": c.evidence}
             for c in getattr(ps, "conclusions", ())
         ],
+        # Player-card signals (player_signals.py): [] = no pill row.
+        "signals": [_dc_asdict(sig) for sig in getattr(ps, "signals", ())],
     }
 
 

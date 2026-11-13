@@ -3,8 +3,9 @@
 Approved 2026-11-11 to replace the deterministic text dump above the card (which repeated the card's own numbers).
 Each conclusion is shown only when its rule fires; when none fires there is no verdict block at all.
 
-Everything comes from data already loaded for the snapshot -- the FPL bootstrap and the snapshot's own ``zonal``
-block -- so this adds no call of any kind. Conclusions are structured (``key`` + ``params`` + ``evidence``), never
+Everything comes from data already loaded for the snapshot -- the FPL bootstrap, the snapshot's own ``zonal``
+block and the position facts the caller reads from the per-build lineup index (player_signals.position_fact) -- so
+this adds no call of any kind. Conclusions are structured (``key`` + ``params`` + ``evidence``), never
 pre-rendered strings: the UI owns the wording in each locale.
 
 Priority (max :data:`MAX_CONCLUSIONS`, first wins):
@@ -12,10 +13,13 @@ Priority (max :data:`MAX_CONCLUSIONS`, first wins):
 1. points source -- ``points_attack`` / ``points_defence`` / ``points_clean_sheets``: the one with the highest
    percentile among the player's own FPL position (pool: :data:`MIN_POOL_MINUTES`+ minutes), when it reaches
    :data:`PERCENTILE_FIRES`. Evidence ``top N %`` names the metric.
-2. ``set_pieces`` -- first in FPL's penalties / direct free kicks / corners order; names only the pieces that apply.
-3. ``zonal`` -- the snapshot's zonal block already carries at least one favourable matchup (information only we have,
+2. ``position`` -- he starts off his FPL line («Juega de extremo · 8 de 10»; rule and window in player_signals). Second
+   because it often explains the first («muy ofensivo para ser defensa» because he plays on the wing). With the cap
+   of 3 it pushes ``starts`` out first, then ``zonal``.
+3. ``set_pieces`` -- first in FPL's penalties / direct free kicks / corners order; names only the pieces that apply.
+4. ``zonal`` -- the snapshot's zonal block already carries at least one favourable matchup (information only we have,
    and actionable: it ranks above the starts line).
-4. ``starts`` -- started at least :data:`STARTS_SHARE_FIRES` of the finished gameweeks, and is available now (when
+5. ``starts`` -- started at least :data:`STARTS_SHARE_FIRES` of the finished gameweeks, and is available now (when
    doubtful/injured the card already shows it, and a past starts record would read as a contradiction). The
    denominator is the finished gameweeks, so a late signing can fall short of the threshold.
 
@@ -164,17 +168,32 @@ def _zonal(zonal: Any) -> dict[str, Any] | None:
     return {"key": "zonal", "params": {"opponents": opponents}, "evidence": None}
 
 
+def _position(position: Any) -> dict[str, Any] | None:
+    if not isinstance(position, dict):
+        return None
+    starts, games = position.get("starts"), position.get("games")
+    if not isinstance(starts, int) or not isinstance(games, int) or not 0 < starts <= games:
+        return None
+    named = ({"role": position["role"]} if isinstance(position.get("role"), str)
+             else {"line": position["line"]} if isinstance(position.get("line"), str) else None)
+    if named is None:
+        return None
+    return {"key": "position", "params": {**named, "starts": starts, "games": games}, "evidence": None}
+
+
 def player_conclusions(
-    element: dict[str, Any], bootstrap: dict[str, Any], zonal: Any = None,
+    element: dict[str, Any], bootstrap: dict[str, Any], zonal: Any = None, *, position: Any = None,
 ) -> list[dict[str, Any]]:
     """The card's conclusions for one bootstrap *element*, in priority order, at most :data:`MAX_CONCLUSIONS`.
 
-    *zonal* is the snapshot's own ``zonal`` block (or None). Empty list when no rule fires.
+    *zonal* is the snapshot's own ``zonal`` block (or None); *position* is
+    ``player_signals.position_fact`` (or None). Empty list when no rule fires.
     """
-    position = _POSITIONS.get(int(_num(element.get("element_type")) or 0))
+    fpl_position = _POSITIONS.get(int(_num(element.get("element_type")) or 0))
     elements = bootstrap.get("elements") or []
     rules = (
-        lambda: _points_source(element, position, elements) if position else None,
+        lambda: _points_source(element, fpl_position, elements) if fpl_position else None,
+        lambda: _position(position),
         lambda: _set_pieces(element),
         lambda: _zonal(zonal),
         lambda: _starts(element, bootstrap),

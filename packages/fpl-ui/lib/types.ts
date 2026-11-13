@@ -992,7 +992,23 @@ export interface PlayerSnapshotMeta {
    * Structured, worded by the UI. Absent/empty = no verdict block.
    */
   conclusions?: PlayerConclusion[];
+  /**
+   * «Explorar» pills at the foot of the card, one per verdict line that has a deeper card
+   * (position, zonal), display order. Empty/absent = no section at all.
+   */
+  signals?: PlayerSignal[];
 }
+
+/** One «Explorar» pill. `label` names the destination and `send_text` (sent verbatim on tap) arrive localized. */
+export interface PlayerSignal {
+  kind: 'position' | 'zone';
+  label: string;
+  send_text: string;
+}
+
+/** The verdict's position line: the role word when his off-line starts agree on it, else the line word. */
+export type PlayerPositionRole =
+  | 'winger' | 'wing_back' | 'forward' | 'attacking_mid' | 'central_mid' | 'holding_mid' | 'centre_back' | 'full_back';
 
 export type PlayerPosition = 'GKP' | 'DEF' | 'MID' | 'FWD';
 export type SetPiece = 'penalties' | 'free_kicks' | 'corners';
@@ -1006,6 +1022,7 @@ export interface PlayerConclusionEvidence {
 
 export type PlayerConclusion =
   | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
+  | { key: 'position'; params: { role?: PlayerPositionRole; line?: PlayerPosition; starts: number; games: number }; evidence: null }
   | { key: 'set_pieces'; params: { pieces: SetPiece[] }; evidence: null }
   | { key: 'starts'; params: { starts: number; games: number }; evidence: null }
   | { key: 'zonal'; params: { opponents: string[] }; evidence: null };
