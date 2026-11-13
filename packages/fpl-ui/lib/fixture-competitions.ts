@@ -235,8 +235,9 @@ export function extraSentence(match: ExtraMatch, locale: Locale = DEFAULT_LOCALE
  * Rotation notice copy (descriptive, no claim about the risk): the cell says how many days after which
  * competition; the detail says what happened and that there is not yet evidence to size the risk.
  * Only the wording lives here: the days, the flag and the competition come from the server unchanged.
+ * Exported for the player card's strip, which draws the same gaps.
  */
-function gapFor(
+export function gapFor(
   restWholeDays: number | null,
   rotation: boolean,
   _opponent: string,
