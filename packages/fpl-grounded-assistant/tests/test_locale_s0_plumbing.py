@@ -43,8 +43,8 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: 2026-11-13: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card (only values the shown card
 #:   displays; off-card evidence stays), and MATCH_COMPOSITION's calendar read no longer lists the card's values,
 #:   on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
-ES_ORCH_PROMPT_SHA256 = "ce5edfcc17a3bfb4bd86a08f6dba8a92c204082013d59583959a631545ae5294"
-ES_ORCH_LOOP_PROMPT_SHA256 = "e1db350204f6151cd1eb74ff2dc03f655b2fc81da0e4e311085f2f25d9b684c5"
+ES_ORCH_PROMPT_SHA256 = "b4b09715d1acd6691787b50f0fc237a97029a4c9c62def3c7b4c6f5c4ea9b956"
+ES_ORCH_LOOP_PROMPT_SHA256 = "25641eca803d135604d79f15f7e10859881951ca1b1ee1dbe7f4bbbd49e014b3"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
@@ -73,16 +73,18 @@ def test_the_built_prompts_forbid_restating_any_card():
         rule = [i for i, line in enumerate(lines) if line.strip().startswith("- CARD_NO_RESTATE:")]
         assert len(rule) == 1
         text = lines[rule[0]]
-        assert "do not restate what the card shows: no stat bullets or table" in text
+        assert "do not restate what that card shows: no stat bullets or table" in text
+        assert "no gameweek-by-gameweek walk-through" in text and "no list or numbered ranking of its rows" in text
         assert "only as the evidence for a judgement in the same sentence" in text
-        assert "Evidence the card does not show" in text and "is not restating and stays" in text
+        assert "Numbers from a tool whose card is NOT shown" in text and "are not on the card and stay" in text
         assert "did not ask for" not in text
         cards = " ".join(lines[rule[0] + 1:rule[0] + 4])
-        for tool in ("get_player_snapshot:", "get_fixture_outlook:", "compare_players:", "get_chip_advice:",
+        for tool in ("get_player_snapshot:", "get_fixture_outlook,", "compare_players:", "get_chip_advice:",
                      "get_zonal_opportunity", "rank_players_by_metric"):
             assert tool in cards
         # The player-card specifics that worked in #641 are kept.
-        assert "Do not walk through the next fixtures one by one" in cards
+        assert "Name only the one or two fixtures that decide your judgement" in cards
+        assert "get_team_schedule" in cards
         assert "set-piece duties" in cards and "zonal matchup" in cards
         # MATCH_COMPOSITION keeps the named players' numbers (Leo 2026-11-13: off-card evidence is useful);
         # only its calendar read stops listing the card's values.
