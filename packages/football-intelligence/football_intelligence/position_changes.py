@@ -163,49 +163,36 @@ def _person(element: int, names: Mapping[int, Mapping[str, Any]]) -> dict[str, A
     return {"player_id": element, "web_name": info.get("web_name"), "team_short": info.get("team_short")}
 
 
-def analyse(
-    *,
+def _club_records(
     element: int,
-    snapshots: pd.DataFrame,
-    slots: pd.DataFrame,
-    sidelined: pd.DataFrame,
-    squad_membership: pd.DataFrame,
+    usable: Mapping[tuple[int, str], _Lineup],
+    squad: pd.DataFrame,
     fixtures: Mapping[int, FixtureMeta],
-    names: Mapping[int, Mapping[str, Any]],
-    limit: int = DEFAULT_LIMIT,
-    absent_element: int | None = None,
-) -> dict[str, Any]:
-    """Slots per match for one player, changes against his own recent starts, and who was missing.
+) -> tuple[str | None, str | None, list[_Lineup], list[dict[str, Any]]]:
+    """``(missing_reason, club, club matches, one record per club match he was with the club for)``, oldest first.
 
-    ``absent_element`` focuses on one teammate: the player's slots in the matches that teammate did not start
-    against those he did.
+    The window both the position card (:func:`analyse`) and the player card's verdict line
+    (:func:`recent_windows_by_element`) read, so the two count the same matches. *squad* is the squad-membership
+    rows of this element only. A record carries no change data yet (``change`` None, no associations).
     """
-    limit = max(1, min(int(limit), MAX_LIMIT))
-    lineups = _lineups(snapshots, slots)
-    without_meta = sum(1 for (fid, _t) in lineups if fid not in fixtures)
-    usable = {key: lu for key, lu in lineups.items() if key[0] in fixtures}
-
     # The club: the one on the most recent lineup row of the player; else the latest squad record.
     appearances = [(key, lu) for key, lu in usable.items() if element in lu.starters or element in lu.bench]
     if appearances:
         appearances.sort(key=lambda item: _order_key(item[0][0], fixtures))
         team = appearances[-1][0][1]
     else:
-        squad = squad_membership[squad_membership["element"].astype(int) == element]
         if squad.empty:
-            return _missing("player_not_in_licensed_store", without_meta)
+            return "player_not_in_licensed_store", None, [], []
         team = str(squad.sort_values("observed_at").iloc[-1]["team"])
     first_seen = min(
-        [str(r["observed_at"]) for r in squad_membership[
-            (squad_membership["element"].astype(int) == element) & (squad_membership["team"] == team)
-        ].to_dict("records")]
+        [str(r["observed_at"]) for r in squad[squad["team"] == team].to_dict("records")]
         + [lu.observed_at for (_fid, t), lu in appearances if t == team],
         default=None,
     )
 
     matches = sorted((lu for (fid, t), lu in usable.items() if t == team), key=lambda lu: _order_key(lu.fixture_id, fixtures))
     if not matches:
-        return _missing("no_lineups_for_the_players_club", without_meta)
+        return "no_lineups_for_the_players_club", team, [], []
 
     def status_of(lu: _Lineup) -> str:
         if element in lu.starters:
@@ -230,6 +217,59 @@ def analyse(
             "change": None, "associations": [], "_index": i, "_fixture_id": lu.fixture_id,
         }
         records.append(record)
+    return None, team, matches, records
+
+
+def recent_windows_by_element(
+    snapshots: pd.DataFrame,
+    slots: pd.DataFrame,
+    squad_membership: pd.DataFrame,
+    fixtures: Mapping[int, FixtureMeta],
+    limit: int = DEFAULT_LIMIT,
+) -> dict[int, list[dict[str, Any]]]:
+    """Every listed player's position-card window from ONE read of the tables: the same ``matches`` that
+    :func:`analyse` returns for ``limit`` (his club's latest matches, bench and not-listed included), slimmed to
+    ``gameweek`` / ``player_status`` / ``slot``. Feed it to :func:`fpl_position_gap` for the card's own count."""
+    limit = max(1, min(int(limit), MAX_LIMIT))
+    usable = {key: lu for key, lu in _lineups(snapshots, slots).items() if key[0] in fixtures}
+    elements = {e for lu in usable.values() for e in (*lu.starters, *lu.bench)}
+    squads = {int(k): g for k, g in squad_membership.groupby(squad_membership["element"].astype(int))} if len(squad_membership) else {}
+    empty = squad_membership.iloc[0:0]
+    out: dict[int, list[dict[str, Any]]] = {}
+    for element in elements:
+        reason, _team, _matches, records = _club_records(element, usable, squads.get(element, empty), fixtures)
+        if reason is None and records:
+            out[element] = [{"gameweek": r["gameweek"], "player_status": r["player_status"], "slot": r["slot"]}
+                            for r in records[-limit:]]
+    return out
+
+
+def analyse(
+    *,
+    element: int,
+    snapshots: pd.DataFrame,
+    slots: pd.DataFrame,
+    sidelined: pd.DataFrame,
+    squad_membership: pd.DataFrame,
+    fixtures: Mapping[int, FixtureMeta],
+    names: Mapping[int, Mapping[str, Any]],
+    limit: int = DEFAULT_LIMIT,
+    absent_element: int | None = None,
+) -> dict[str, Any]:
+    """Slots per match for one player, changes against his own recent starts, and who was missing.
+
+    ``absent_element`` focuses on one teammate: the player's slots in the matches that teammate did not start
+    against those he did.
+    """
+    limit = max(1, min(int(limit), MAX_LIMIT))
+    lineups = _lineups(snapshots, slots)
+    without_meta = sum(1 for (fid, _t) in lineups if fid not in fixtures)
+    usable = {key: lu for key, lu in lineups.items() if key[0] in fixtures}
+
+    squad = squad_membership[squad_membership["element"].astype(int) == element]
+    reason, team, matches, records = _club_records(element, usable, squad, fixtures)
+    if reason is not None:
+        return _missing(reason, without_meta)
 
     # Changes against the player's own prior starts, and the teammates missing in the same match.
     started_so_far: list[tuple[int, dict[str, Any]]] = []

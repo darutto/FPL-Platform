@@ -1,4 +1,4 @@
-"""The player card's position verdict line and «Explorar» pills (player_signals.py).
+"""The player card's position verdict line, «Explorar» pill and «Zonas» team link (player_signals.py).
 
 Synthetic data only: invented players, clubs and lineups; no value from the licensed store. No network, no provider.
 """
@@ -60,52 +60,66 @@ def _slot(role: str, side: str | None = None, formation: str = "4-3-3") -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Position line data (position_from_starts)
+# Position line data (position_from_window): the position card's own window and count
 # ---------------------------------------------------------------------------
 
-def test_role_word_when_off_line_starts_agree():
-    starts = [_slot("Left Midfield", "left")] * 7 + [_slot("Left Back", "left")] * 3
-    assert ps.position_from_starts(_el(10), starts) == {"role": "winger", "starts": 7, "games": 10}
+def _m(gw: int, slot: dict | None, status: str = "started") -> dict:
+    return {"gameweek": gw, "player_status": status if slot else ("bench" if status == "started" else status), "slot": slot}
 
 
-def test_reads_only_the_latest_window():
-    old_off = [_slot("Left Midfield")] * 6
-    recent_on = [_slot("Left Back")] * ps.POSITION_RECENT_STARTS
-    assert ps.POSITION_RECENT_STARTS == 10
-    assert ps.position_from_starts(_el(10), old_off + recent_on) is None
+def _window(*slots) -> list[dict]:
+    return [_m(5 + i, s) for i, s in enumerate(slots)]
 
 
-def test_needs_half_and_a_minimum_of_starts():
-    assert ps.position_from_starts(_el(10), [_slot("Left Midfield")] * 4 + [_slot("Centre Back")] * 5) is None
-    assert ps.position_from_starts(_el(10), [_slot("Left Midfield")] * 5 + [_slot("Centre Back")] * 5) is not None
+def test_role_word_count_and_gameweeks_match_the_card():
+    window = _window(*[_slot("Left Midfield", "left")] * 6)
+    assert ps.position_from_window(_el(10), window) == {
+        "role": "winger", "starts": 6, "games": 6, "gw_from": 5, "gw_to": 10}
+
+
+def test_count_is_the_cards_fpl_position_gap_over_the_window():
+    from football_intelligence.position_changes import fpl_position_gap
+
+    window = _window(_slot("Left Midfield"), _slot("Left Back"), _slot("Left Midfield"), None,
+                     _slot("Left Midfield"), _slot("Left Midfield"))
+    gap = fpl_position_gap(2, window)
+    pos = ps.position_from_window(_el(10), window)
+    assert (pos["starts"], pos["games"]) == (gap["starts"], gap["of"]) == (4, 5)
+    # Bench / not-listed matches are in the window but not in the count; the span is his starts' gameweeks.
+    assert (pos["gw_from"], pos["gw_to"]) == (5, 10)
+
+
+def test_needs_more_than_half_on_one_line_and_a_minimum_of_starts():
+    assert ps.position_from_window(_el(10), _window(*[_slot("Left Midfield")] * 2 + [_slot("Centre Back")] * 2)) is None
+    assert ps.position_from_window(_el(10), _window(*[_slot("Left Midfield")] * 3 + [_slot("Centre Back")] * 2))
     assert ps.POSITION_MIN_STARTS == 3
-    assert ps.position_from_starts(_el(10), [_slot("Left Midfield")] * 2) is None
+    assert ps.position_from_window(_el(10), _window(*[_slot("Left Midfield")] * 2)) is None
 
 
 def test_wing_back_in_a_back_three_is_a_defender_for_a_midfielder():
-    pos = ps.position_from_starts(_el(12), [_slot("Right Midfield", "right", "3-4-3")] * 4)
-    assert pos == {"role": "wing_back", "starts": 4, "games": 4}
+    pos = ps.position_from_window(_el(12), _window(*[_slot("Right Midfield", "right", "3-4-3")] * 4))
+    assert pos == {"role": "wing_back", "starts": 4, "games": 4, "gw_from": 5, "gw_to": 8}
 
 
-def test_mixed_roles_on_one_line_name_the_line_and_mixed_lines_name_nothing():
-    mixed_mid = [_slot("Attacking Midfield"), _slot("Central Midfield"), _slot("Centre Forward")]
-    assert ps.position_from_starts(_el(15), mixed_mid) == {"line": "MID", "starts": 2, "games": 3}
-    mixed_lines = [_slot("Left Midfield"), _slot("Centre Forward"), _slot("Centre Back"), _slot("Centre Back")]
-    assert ps.position_from_starts(_el(12), mixed_lines) is None  # MID listed: one FWD start, two DEF starts
+def test_mixed_roles_on_the_dominant_line_name_the_line():
+    mixed_mid = _window(_slot("Attacking Midfield"), _slot("Central Midfield"), _slot("Central Midfield"),
+                        _slot("Centre Forward"))
+    assert ps.position_from_window(_el(15), mixed_mid)["line"] == "MID"
+    assert "role" not in ps.position_from_window(_el(15), mixed_mid)
 
 
 def test_on_line_starts_goalkeepers_and_no_data_never_give_a_line():
-    assert ps.position_from_starts(_el(11), [_slot("Centre Back")] * 6) is None
-    assert ps.position_from_starts(_el(14), [_slot("Centre Back")] * 6) is None
-    assert ps.position_from_starts(_el(10), None) is None
-    assert ps.position_from_starts(_el(10), []) is None
+    assert ps.position_from_window(_el(11), _window(*[_slot("Centre Back")] * 6)) is None
+    assert ps.position_from_window(_el(14), _window(*[_slot("Centre Back")] * 6)) is None
+    assert ps.position_from_window(_el(10), None) is None
+    assert ps.position_from_window(_el(10), []) is None
 
 
 # ---------------------------------------------------------------------------
 # Verdict order and cap
 # ---------------------------------------------------------------------------
 
-POS = {"role": "winger", "starts": 7, "games": 10}
+POS = {"role": "winger", "starts": 6, "games": 6, "gw_from": 5, "gw_to": 10}
 ZONAL = {"fixtures": [{"status": "favorable", "opponent_short": "EAS"}, {"status": "favorable", "opponent_short": "WES"}]}
 
 
@@ -117,7 +131,10 @@ def test_position_line_params_and_order():
     taker = {**_el(10), "penalties_order": 1}
     out = player_conclusions(taker, _bs(), ZONAL, position=POS)
     assert [c["key"] for c in out] == ["position", "set_pieces", "zonal"]
-    assert out[0] == {"key": "position", "params": {"role": "winger", "starts": 7, "games": 10}, "evidence": None}
+    assert out[0] == {"key": "position", "params": {"role": "winger", "starts": 6, "games": 6},
+                      "evidence": {"gw_from": 5, "gw_to": 10}}
+    no_span = player_conclusions(taker, _bs(), ZONAL, position={"role": "winger", "starts": 6, "games": 6})
+    assert no_span[0]["evidence"] is None
 
 
 def test_without_position_the_verdict_is_unchanged():
@@ -147,26 +164,19 @@ def _concl(*keys):
     return [{"key": k, "params": {"opponents": ["EAS", "WES"]} if k == "zonal" else {}, "evidence": None} for k in keys]
 
 
-def test_one_pill_per_emitted_line_in_verdict_order_es():
+def test_only_the_position_line_gets_an_explorar_pill_es():
     out = ps.signals_from_conclusions(_el(10), _concl("position", "set_pieces", "zonal"), _bs("es"))
-    assert out == [
-        {"kind": "position", "label": "Posición", "send_text": "¿En qué posición juega Quillby?"},
-        {"kind": "zone", "label": "Zonas",
-         "send_text": "¿Qué jugadores del Northbury pueden explotar las zonas débiles del Eastport?"},
-    ]
+    assert out == [{"kind": "position", "label": "Posición", "send_text": "¿En qué posición juega Quillby?"}]
 
 
-def test_pills_en():
+def test_pill_en():
     out = ps.signals_from_conclusions(_el(10), _concl("position", "zonal"), _bs("en"))
-    assert [(p["label"], p["send_text"]) for p in out] == [
-        ("Position", "What position does Quillby really play?"),
-        ("Zones", "Which Northbury players can exploit Eastport's weak zones?"),
-    ]
+    assert [(p["label"], p["send_text"]) for p in out] == [("Position", "What position does Quillby really play?")]
 
 
 @pytest.mark.parametrize("keys,kinds", [
     (("position", "starts"), ["position"]),
-    (("set_pieces", "zonal"), ["zone"]),
+    (("set_pieces", "zonal"), []),
     (("points_attack", "starts"), []),
     ((), []),
 ])
@@ -180,23 +190,46 @@ def test_a_line_cut_by_the_cap_gets_no_pill():
     bs["elements"] = [taker if e["id"] == 10 else e for e in bs["elements"]] + [
         {"id": 100 + i, "element_type": 2, "minutes": 900, "expected_goal_involvements_per_90": "0.05", "team": 3}
         for i in range(8)]
-    emitted = player_conclusions(taker, bs, ZONAL, position=POS)
-    assert [c["key"] for c in emitted] == ["points_attack", "position", "set_pieces"]
-    # The pill's name check runs against the card's normal bootstrap.
-    assert [p["kind"] for p in ps.signals_from_conclusions(taker, emitted, _bs())] == ["position"]
+    many = [{"key": k, "params": {}, "evidence": None} for k in ("points_attack", "set_pieces", "zonal")]
+    assert ps.signals_from_conclusions(taker, many, _bs()) == []
 
 
 def test_shared_web_name_uses_the_full_name_and_unresolvable_names_drop_the_pill():
     out = ps.signals_from_conclusions(_el(12), _concl("position"), _bs())
     assert out[0]["send_text"] == "¿En qué posición juega Luca Fenn?"
     ghost = {"id": 999, "web_name": "Ghost", "first_name": "", "second_name": "", "team": 1, "element_type": 2}
-    assert ps.signals_from_conclusions(ghost, _concl("position", "zonal"), _bs())[0]["kind"] == "zone"
+    assert ps.signals_from_conclusions(ghost, _concl("position"), _bs()) == []
 
 
-def test_unknown_rival_drops_only_the_zone_pill():
-    bad = [{"key": "zonal", "params": {"opponents": ["XXX"]}, "evidence": None}]
-    assert ps.signals_from_conclusions(_el(10), _concl("position") + bad, _bs()) == [
-        ps.signals_from_conclusions(_el(10), _concl("position"), _bs())[0]]
+# ---------------------------------------------------------------------------
+# «Zonas» team link: the nearest favourable row of the card's own zonal block
+# ---------------------------------------------------------------------------
+
+def _zonal(*rows):
+    return {"fixtures": [{"status": st, "opponent_short": opp} for st, opp in rows]}
+
+
+def test_zone_link_names_the_nearest_favourable_rival_es_en():
+    zonal = _zonal(("neutral", "WES"), ("favorable", "EAS"), ("favorable", "WES"))
+    assert ps.zone_signal(_el(10), zonal, _bs("es")) == {
+        "kind": "zone", "label": "Quién del NOR explota al EAS",
+        "send_text": "¿Qué jugadores del Northbury pueden explotar las zonas débiles del Eastport?"}
+    assert ps.zone_signal(_el(10), zonal, _bs("en")) == {
+        "kind": "zone", "label": "Who at NOR exploits EAS",
+        "send_text": "Which Northbury players can exploit Eastport's weak zones?"}
+
+
+@pytest.mark.parametrize("zonal", [
+    None, {}, _zonal(), _zonal(("neutral", "EAS"), ("no_data", "WES")), _zonal(("favorable", "XXX")),
+    {"fixtures": "junk"},
+])
+def test_no_favourable_row_or_unknown_rival_no_zone_link(zonal):
+    assert ps.zone_signal(_el(10), zonal, _bs()) is None
+
+
+def test_zone_link_does_not_depend_on_the_verdict_line():
+    # The «Zonas» section shows whatever the verdict's cap kept; so does its link.
+    assert ps.zone_signal(_el(10), ZONAL, _bs()) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -215,12 +248,13 @@ class FakeHandle:
             obs = f"2026-10-{f:02d}T10:00:00Z"
             snaps.append({"fixture_id": f, "team": "NOR", "observed_at": obs, "state": "finished", "confirmed": True,
                           "formation": "4-2-3-1", "n_starters": 1, "n_bench": 0})
-            wing = f % 4 != 0  # 9 of 12 on the wing; the window keeps the last 10
+            wing = f % 4 != 0  # 9 of 12 on the wing; the window keeps the club's last 6 matches
             slots.append({"fixture_id": f, "team": "NOR", "observed_at": obs, "element": 10, "starter": True,
                           "detailed_position": "Left Midfield" if wing else "Left Back",
                           "grid_slot": "3:3" if wing else "2:4", "side": "left"})
+        squad = [{"team": "NOR", "element": 10, "jersey_number": 3, "observed_at": "2026-09-01T10:00:00Z"}]
         self._tables = {n: pd.DataFrame(r, columns=list(TABLES[n][0])).astype(object)
-                        for n, r in (("lineup_snapshots", snaps), ("lineup_slots", slots))}
+                        for n, r in (("lineup_snapshots", snaps), ("lineup_slots", slots), ("squad_membership", squad))}
         self._build_id, self.reads = build_id, 0
 
     def build_id(self):
@@ -239,15 +273,32 @@ def fi_on(monkeypatch):
     axis_mod._reset_for_tests()
 
 
-def test_index_keeps_the_last_ten_starts_and_shares_the_strip_axis_read(fi_on):
+def test_index_keeps_the_position_card_window_and_shares_the_strip_axis_read(fi_on):
     bs = {**_bs(), "fixture_index": FIX}
     handle = FakeHandle()
-    starts = axis_mod.recent_starts_for(10, bs, handle=handle, background=False)
-    assert len(starts) == 10
-    assert ps.position_from_starts(_el(10), starts) == {"role": "winger", "starts": 7, "games": 10}
+    window = axis_mod.position_window_for(10, bs, handle=handle, background=False)
+    assert [m["gameweek"] for m in window] == [7, 8, 9, 10, 11, 12]
+    # GWs 7, 9, 10, 11 on the wing, 8 and 12 at left-back: the card's «4/6 · J7–J12».
+    assert ps.position_from_window(_el(10), window) == {
+        "role": "winger", "starts": 4, "games": 6, "gw_from": 7, "gw_to": 12}
     axis_mod.strip_axis_for(10, bs, handle=handle, background=False)
-    assert handle.reads == 2  # lineup_snapshots + lineup_slots, once for both uses
-    assert axis_mod.recent_starts_for(11, bs, handle=handle, background=False) == []
+    assert handle.reads == 3  # lineup_snapshots + lineup_slots + squad_membership, once for both uses
+    assert axis_mod.position_window_for(11, bs, handle=handle, background=False) == []
+
+
+def test_index_window_is_what_the_position_card_reads(fi_on):
+    from football_intelligence.position_changes import analyse
+
+    bs = {**_bs(), "fixture_index": FIX}
+    handle = FakeHandle()
+    window = axis_mod.position_window_for(10, bs, handle=handle, background=False)
+    from fpl_grounded_assistant.position_changes_tool import fixture_index
+
+    card = analyse(element=10, snapshots=handle.table("lineup_snapshots"), slots=handle.table("lineup_slots"),
+                   sidelined=pd.DataFrame(columns=["element"]), squad_membership=handle.table("squad_membership"),
+                   fixtures=fixture_index(bs), names={})
+    assert [(m["gameweek"], m["player_status"], m["slot"]) for m in card["matches"]] == [
+        (m["gameweek"], m["player_status"], m["slot"]) for m in window]
 
 
 def test_index_not_ready_means_no_line_and_no_wait(fi_on, monkeypatch):
@@ -255,7 +306,7 @@ def test_index_not_ready_means_no_line_and_no_wait(fi_on, monkeypatch):
     monkeypatch.setattr(axis_mod.threading, "Thread",
                         lambda **kw: type("T", (), {"start": lambda self: started.append(kw)})())
     handle = FakeHandle()
-    assert axis_mod.recent_starts_for(10, {**_bs(), "fixture_index": FIX}, handle=handle) is None
+    assert axis_mod.position_window_for(10, {**_bs(), "fixture_index": FIX}, handle=handle) is None
     assert handle.reads == 0 and len(started) == 1
 
 
@@ -263,7 +314,7 @@ def test_flag_off_reads_nothing(monkeypatch):
     monkeypatch.delenv("FOOTBALL_INTELLIGENCE_ENABLED", raising=False)
     axis_mod._reset_for_tests()
     handle = FakeHandle()
-    assert axis_mod.recent_starts_for(10, _bs(), handle=handle, background=False) is None
+    assert axis_mod.position_window_for(10, _bs(), handle=handle, background=False) is None
     assert handle.reads == 0
     assert ps.position_fact(_el(10), _bs()) is None
 
@@ -287,6 +338,15 @@ def test_snapshot_carries_the_line_and_its_pill(snap, monkeypatch):
     assert out["signals"] == [{"kind": "position", "label": "Posición", "send_text": "¿En qué posición juega Quillby?"}]
     assert "signals" not in out["player"]
     # build_squad's path: the line stays, no pills
+    assert "signals" not in snap.get_player_snapshot("Quillby", bootstrap=_bs(), signals=False)
+
+
+def test_snapshot_appends_the_zonas_link_after_the_pill(snap, monkeypatch):
+    monkeypatch.setattr(snap, "position_fact", lambda element, bs: POS)
+    monkeypatch.setattr(snap, "_attach_zonal", lambda pd_, *a, **k: pd_.update(zonal=_zonal(("favorable", "EAS"))))
+    out = snap.get_player_snapshot("Quillby", bootstrap=_bs())
+    assert [s["kind"] for s in out["signals"]] == ["position", "zone"]
+    assert out["signals"][1]["label"] == "Quién del NOR explota al EAS"
     assert "signals" not in snap.get_player_snapshot("Quillby", bootstrap=_bs(), signals=False)
 
 
@@ -322,7 +382,8 @@ def test_serializer_puts_lines_and_pills_on_the_wire(snap, monkeypatch):
 
     monkeypatch.setattr(snap, "position_fact", lambda element, bs: POS)
     wire = _player_snapshot_meta_dict(_extract_player_snapshot_meta(snap.get_player_snapshot("Quillby", bootstrap=_bs()), "es"))
-    assert wire["conclusions"] == [{"key": "position", "params": POS, "evidence": None}]
+    assert wire["conclusions"] == [{"key": "position", "params": {"role": "winger", "starts": 6, "games": 6},
+                                    "evidence": {"gw_from": 5, "gw_to": 10}}]
     assert wire["signals"] == [{"kind": "position", "label": "Posición", "send_text": "¿En qué posición juega Quillby?"}]
 
 

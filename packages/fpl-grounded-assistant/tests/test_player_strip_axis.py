@@ -52,7 +52,7 @@ def _tables():
         slots.append({"fixture_id": fid, "team": "AAA", "observed_at": obs, "element": NEWBIE, "starter": fid <= 2,
                       "detailed_position": "Defensive Midfield" if fid <= 2 else None,
                       "grid_slot": "3:3" if fid <= 2 else None, "side": "centre" if fid <= 2 else None})
-    frames = {"lineup_snapshots": snaps, "lineup_slots": slots}
+    frames = {"lineup_snapshots": snaps, "lineup_slots": slots, "squad_membership": []}
     return {name: pd.DataFrame(rows, columns=list(TABLES[name][0])).astype(object) for name, rows in frames.items()}
 
 
@@ -104,10 +104,10 @@ def test_the_store_is_read_once_per_build():
     handle = FakeHandle()
     for element in (HOLDER, WINGBACK, NEWBIE, HOLDER):
         _axis(element, handle)
-    assert handle.reads == 2  # lineup_snapshots + lineup_slots, once
+    assert handle.reads == 3  # lineup_snapshots + lineup_slots + squad_membership (the position window), once
     handle._build_id = "b-2"
     _axis(HOLDER, handle)
-    assert handle.reads == 4
+    assert handle.reads == 6
 
 
 def test_the_card_never_waits_for_the_first_read(monkeypatch):

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  *
- * The player card's «Explorar» pills and the verdict's position line. Synthetic labels and counts.
+ * The player card's «Explorar» pill and the verdict's position line. Synthetic labels and counts.
  */
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -19,7 +19,7 @@ const base = playerSnapshotOkResponse.player_snapshot!;
 const POSITION: PlayerSignal = { kind: 'position', label: 'Posición', send_text: '¿En qué posición juega Quillby?' };
 const ZONE: PlayerSignal = {
   kind: 'zone',
-  label: 'Zonas',
+  label: 'Quién del NOR explota al EAS',
   send_text: '¿Qué jugadores del Northbury pueden explotar las zonas débiles del Eastport?',
 };
 
@@ -34,19 +34,19 @@ function renderCard(signals: PlayerSignal[] | undefined, ask: ((q: string) => vo
 }
 
 describe('Explorar pills', () => {
-  test('two pills under the EXPLORAR heading, in order, named by destination, with icon and chevron', () => {
+  test('only the position pill, under the EXPLORAR heading, named by destination, with icon and chevron', () => {
     renderCard([POSITION, ZONE]);
     const section = screen.getByRole('region', { name: 'Explorar' });
     expect(within(section).getByText('Explorar')).toBeInTheDocument();
     const pills = within(section).getAllByRole('button');
-    expect(pills.map((b) => b.textContent)).toEqual(['Posición›', 'Zonas›']);
-    expect(pills.map((b) => b.getAttribute('data-signal'))).toEqual(['position', 'zone']);
-    pills.forEach((b) => expect(b.querySelector('svg')).not.toBeNull());
+    expect(pills.map((b) => b.textContent)).toEqual(['Posición›']);
+    expect(pills[0].getAttribute('data-signal')).toBe('position');
+    expect(pills[0].querySelector('svg')).not.toBeNull();
   });
 
-  test('one pill', () => {
-    renderCard([ZONE]);
-    expect(within(screen.getByRole('region', { name: 'Explorar' })).getAllByRole('button')).toHaveLength(1);
+  test('a zone signal alone opens no EXPLORAR section (it belongs to «Zonas»)', () => {
+    const { container } = renderCard([ZONE]);
+    expect(container.querySelector('[data-testid="player-explore"]')).toBeNull();
   });
 
   test.each([[undefined], [[]]])('no pills: no heading, no row, no separator (%p)', (signals) => {
@@ -57,15 +57,13 @@ describe('Explorar pills', () => {
 
   test('a tap sends the pill question verbatim', () => {
     const ask = jest.fn();
-    renderCard([POSITION, ZONE], ask);
-    fireEvent.click(screen.getByRole('button', { name: /Zonas/ }));
-    expect(ask).toHaveBeenCalledWith(ZONE.send_text);
+    renderCard([POSITION], ask);
     fireEvent.click(screen.getByRole('button', { name: /Posición/ }));
-    expect(ask).toHaveBeenLastCalledWith(POSITION.send_text);
+    expect(ask).toHaveBeenCalledWith(POSITION.send_text);
   });
 
   test('outside the chat (no ask provider) nothing renders', () => {
-    renderCard([POSITION, ZONE], null);
+    renderCard([POSITION], null);
     expect(screen.queryByText('Explorar')).not.toBeInTheDocument();
   });
 
@@ -76,28 +74,36 @@ describe('Explorar pills', () => {
   });
 
   test('English heading', () => {
-    renderCard([{ kind: 'zone', label: 'Zones', send_text: "Which Northbury players can exploit Eastport's weak zones?" }], jest.fn(), 'en');
-    expect(screen.getByRole('region', { name: 'Explore' })).toHaveTextContent('Zones');
+    renderCard([{ kind: 'position', label: 'Position', send_text: 'What position does Quillby really play?' }], jest.fn(), 'en');
+    expect(screen.getByRole('region', { name: 'Explore' })).toHaveTextContent('Position');
   });
 });
 
 describe('verdict position line', () => {
-  const winger: PlayerConclusion = { key: 'position', params: { role: 'winger', starts: 7, games: 10 }, evidence: null };
-  const midLine: PlayerConclusion = { key: 'position', params: { line: 'MID', starts: 2, games: 3 }, evidence: null };
+  const winger: PlayerConclusion = {
+    key: 'position', params: { role: 'winger', starts: 6, games: 6 }, evidence: { gw_from: 5, gw_to: 10 },
+  };
+  const midLine: PlayerConclusion = { key: 'position', params: { line: 'MID', starts: 3, games: 5 }, evidence: null };
 
-  test('role word with the count as evidence (ES/EN)', () => {
+  test('role word and the position card count in the label, its gameweeks as evidence (ES/EN)', () => {
     const { unmount } = render(wrap(<PlayerConclusions conclusions={[winger]} />));
-    expect(screen.getByText('Juega de extremo')).toBeInTheDocument();
-    expect(screen.getByText('7 de 10')).toBeInTheDocument();
+    expect(screen.getByText('Juega de extremo · 6 de 6')).toBeInTheDocument();
+    expect(screen.getByText('J5–J10')).toBeInTheDocument();
     unmount();
     render(wrap(<PlayerConclusions conclusions={[winger]} />, 'en'));
-    expect(screen.getByText('Plays as a winger')).toBeInTheDocument();
-    expect(screen.getByText('7 of 10')).toBeInTheDocument();
+    expect(screen.getByText('Plays as a winger · 6 of 6')).toBeInTheDocument();
+    expect(screen.getByText('GW5–GW10')).toBeInTheDocument();
   });
 
-  test('line word when the roles do not agree', () => {
+  test('line word when the roles do not agree; no evidence when the span is missing', () => {
     render(wrap(<PlayerConclusions conclusions={[midLine]} />));
-    expect(screen.getByText('Juega de medio')).toBeInTheDocument();
+    const row = screen.getByText('Juega de medio · 3 de 5').closest('li')!;
+    expect(row.textContent).toBe('Juega de medio · 3 de 5');
+  });
+
+  test('one gameweek reads as a single J', () => {
+    render(wrap(<PlayerConclusions conclusions={[{ ...winger, evidence: { gw_from: 9, gw_to: 9 } }]} />));
+    expect(screen.getByText('J9')).toBeInTheDocument();
   });
 
   test('an unknown role is dropped, never shown raw', () => {

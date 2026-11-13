@@ -20,9 +20,9 @@ from typing import Any, Callable
 _LOG = logging.getLogger("fpl_grounded_assistant.player_strip_axis")
 
 _lock = threading.Lock()
-#: ``build_id`` -> axes of that build, and every player's latest starting slots (the verdict's position line,
-#: player_signals.py); only the current build is kept.
-_index: dict[str, Any] = {"build_id": None, "axes": None, "starts": None}
+#: ``build_id`` -> axes of that build, and every player's position-card window (the verdict's position line,
+#: player_signals.py: the same matches get_position_changes reads); only the current build is kept.
+_index: dict[str, Any] = {"build_id": None, "axes": None, "windows": None}
 _building: set[str] = set()
 
 
@@ -40,9 +40,9 @@ def _current_build_id(handle: Any) -> str:
 
 def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures: Callable[[], list] | None) -> None:
     try:
-        from football_intelligence.observed_axis import observed_by_element, recent_starts_by_element  # noqa: PLC0415
+        from football_intelligence.observed_axis import observed_by_element  # noqa: PLC0415
+        from football_intelligence.position_changes import DEFAULT_LIMIT, recent_windows_by_element  # noqa: PLC0415
 
-        from .player_signals import POSITION_RECENT_STARTS  # noqa: PLC0415
         from .position_changes_tool import fixture_index  # noqa: PLC0415
 
         fixtures = fixture_index(bootstrap, fetch_fixtures)
@@ -50,9 +50,15 @@ def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures
             return
         snapshots, slots = handle.table("lineup_snapshots"), handle.table("lineup_slots")
         axes = observed_by_element(snapshots, slots, fixtures)
-        starts = recent_starts_by_element(snapshots, slots, fixtures, keep=POSITION_RECENT_STARTS)
+        windows: dict[int, Any] = {}
+        try:  # the position line only: a failure here must not cost the strip its axis
+            # Same window as the position card (get_position_changes' default): his club's latest matches.
+            windows = recent_windows_by_element(
+                snapshots, slots, handle.table("squad_membership"), fixtures, limit=DEFAULT_LIMIT)
+        except Exception:  # noqa: BLE001
+            _LOG.warning("position window index build failed", exc_info=True)
         with _lock:
-            _index.update(build_id=build_id, axes=axes, starts=starts)
+            _index.update(build_id=build_id, axes=axes, windows=windows)
     except Exception:  # noqa: BLE001
         _LOG.warning("strip axis index build failed", exc_info=True)
     finally:
@@ -154,7 +160,7 @@ def strip_axis_for(
         return None
 
 
-def recent_starts_for(
+def position_window_for(
     element_id: int,
     bootstrap: dict[str, Any],
     *,
@@ -162,17 +168,17 @@ def recent_starts_for(
     fetch_fixtures: Callable[[], list] | None = None,
     background: bool = True,
 ) -> list[dict[str, Any]] | None:
-    """His latest starting slots (oldest first, up to ``player_signals.POSITION_RECENT_STARTS``) from the same
-    per-build index, or ``None`` while it is not ready / the store is off. A player with no stored start gets ``[]``.
-    Same seams as :func:`strip_axis_for`. Never raises."""
+    """His position-card window (``football_intelligence.position_changes.recent_windows_by_element``: his club's
+    latest ``DEFAULT_LIMIT`` matches, oldest first) from the same per-build index, or ``None`` while it is not ready /
+    the store is off. A player with no stored lineup gets ``[]``. Same seams as :func:`strip_axis_for`. Never raises."""
     try:
-        ready, starts = _lookup("starts", element_id, bootstrap, handle, fetch_fixtures, background)
-        return list(starts or []) if ready else None
+        ready, window = _lookup("windows", element_id, bootstrap, handle, fetch_fixtures, background)
+        return list(window or []) if ready else None
     except Exception:  # noqa: BLE001
         return None
 
 
 def _reset_for_tests() -> None:
     with _lock:
-        _index.update(build_id=None, axes=None, starts=None)
+        _index.update(build_id=None, axes=None, windows=None)
         _building.clear()
