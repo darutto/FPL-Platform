@@ -40,10 +40,11 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: PURPOSE, with a Spanish regression run (D1 option A) behind it.
 #: 2026-11-02: DECIMALS rule added on purpose (Leo: dot decimals in Spanish, Latin American audience).
 #: 2026-11-11: PLAYER_CARD_NO_STATS rule added on purpose (Leo: no stat bullets that repeat the player card).
-#: 2026-11-12: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card, and MATCH_COMPOSITION's
-#:   "ONE number per player" made evidence-only, on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
-ES_ORCH_PROMPT_SHA256 = "481ad1b0613fe139a2e70d1316e63ec2cbca0d32c4ed37aca16dd5f6a3504cf1"
-ES_ORCH_LOOP_PROMPT_SHA256 = "cc39d652f26e8ff0f4c6ebb0276d276ee2dc479557933b67303352e5ee0ad222"
+#: 2026-11-13: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card (only values the shown card
+#:   displays; off-card evidence stays), and MATCH_COMPOSITION's calendar read no longer lists the card's values,
+#:   on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
+ES_ORCH_PROMPT_SHA256 = "ce5edfcc17a3bfb4bd86a08f6dba8a92c204082013d59583959a631545ae5294"
+ES_ORCH_LOOP_PROMPT_SHA256 = "e1db350204f6151cd1eb74ff2dc03f655b2fc81da0e4e311085f2f25d9b684c5"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
@@ -74,7 +75,8 @@ def test_the_built_prompts_forbid_restating_any_card():
         text = lines[rule[0]]
         assert "do not restate what the card shows: no stat bullets or table" in text
         assert "only as the evidence for a judgement in the same sentence" in text
-        assert "stats the user did not ask for" in text
+        assert "Evidence the card does not show" in text and "is not restating and stays" in text
+        assert "did not ask for" not in text
         cards = " ".join(lines[rule[0] + 1:rule[0] + 4])
         for tool in ("get_player_snapshot:", "get_fixture_outlook:", "compare_players:", "get_chip_advice:",
                      "get_zonal_opportunity", "rank_players_by_metric"):
@@ -82,9 +84,10 @@ def test_the_built_prompts_forbid_restating_any_card():
         # The player-card specifics that worked in #641 are kept.
         assert "Do not walk through the next fixtures one by one" in cards
         assert "set-piece duties" in cards and "zonal matchup" in cards
-        # MATCH_COMPOSITION no longer asks for one number per named player.
-        assert "each with ONE number the tool returned" not in prompt
-        assert "only as the evidence inside that sentence" in prompt
+        # MATCH_COMPOSITION keeps the named players' numbers (Leo 2026-11-13: off-card evidence is useful);
+        # only its calendar read stops listing the card's values.
+        assert "each with ONE number the tool returned" in prompt
+        assert "the card shows the values, see CARD_NO_RESTATE" in prompt
 
 
 def test_es_evaluator_prompt_is_byte_identical():
