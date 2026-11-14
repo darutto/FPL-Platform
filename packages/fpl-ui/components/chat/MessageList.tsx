@@ -17,10 +17,11 @@ import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
 import { WIZARD_ARMING_INTENTS, isRewriteSuggestion } from '@/lib/wizard-arming';
 import type { WcAskResponse } from '@/lib/wc-types';
-import { selectIntentView } from '@/lib/intent-renderer';
+import { selectIntentView, type IntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import PlayerConclusions from '@/components/intents/PlayerConclusions';
+import TableConclusions, { tableConclusionRows } from '@/components/intents/TableConclusions';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
 import SuggestionChips, {
   PlayerPickChips,
@@ -152,8 +153,34 @@ interface MessageBubbleProps {
 export function looksLikeRenderedTable(text: string): boolean {
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
   const pipeRows = lines.filter((line) => (line.match(/\|/g)?.length ?? 0) >= 2);
-  const hasRule = lines.some((line) => /^[|\s]*-{3,}[-|\s]*$/.test(line));
+  // The rule row may carry alignment colons: |:---|---:|:---:|
+  const hasRule = lines.some((line) => /^[|:\s]*-{3,}[-:|\s]*$/.test(line));
   return pipeRows.length >= 2 && hasRule;
+}
+
+/** Views whose card IS a table: any deterministic text above them is the rows again (or a bare title). */
+const TABLE_VIEWS: ReadonlySet<IntentView> = new Set<IntentView>([
+  'resource_ranking',
+  'resource_injuries',
+  'ranking',
+  'differential',
+  'fixture_run',
+]);
+
+/**
+ * True when final_text sits above a TABLE card and the model did not write it.
+ *
+ * Slash (`/clasificacion`, `/diferenciales`, `/calendarios`) and `@resource` turns never reach
+ * the orchestrator, so `synthesis_turn` arrives null — not false — and the API does not expose
+ * the harness `kind`. What it does expose is `llm_used`, which the backend sets true only when
+ * the served text is the model's own. So: table view + no synthesis verdict + llm_used false.
+ * Orchestrator turns (synthesis_turn true/false) and non-table cards (/comparar, /capitan,
+ * /transferencia, /chips) never match.
+ */
+export function isDeterministicTableText(response: AskResponse | undefined): boolean {
+  if (response == null) return false;
+  const view = selectIntentView(response);
+  return view != null && TABLE_VIEWS.has(view) && response.synthesis_turn == null && response.llm_used === false;
 }
 
 function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
@@ -214,6 +241,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     message.text.trim().length > 0 &&
     message.response?.intent !== 'multi_intent' &&
     message.response?.synthesis_turn !== false &&
+    !isDeterministicTableText(message.response) &&
     !looksLikeRenderedTable(message.text);
   // Structured FPL turn → combine the model's verdict and the deterministic
   // view in one surface. The old card-only branch silently discarded
@@ -224,7 +252,10 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     message.response?.intent === 'player_snapshot'
       ? (message.response.player_snapshot?.conclusions ?? [])
       : [];
-  const showConclusions = conclusions.length > 0;
+  // Table card verdict: 0-3 conclusions ABOUT the table (never its rows). Only the lines this
+  // UI can word count, so a payload of unknown keys leaves no empty band behind.
+  const showTableConclusions = tableConclusionRows(message.response?.table_conclusions, t).length > 0;
+  const showConclusions = conclusions.length > 0 || showTableConclusions;
   const hasFplCard =
     !isUser &&
     !message.isError &&
@@ -253,7 +284,8 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
                 <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
                   {t('msg.verdict')}
                 </span>
-                {showConclusions && <PlayerConclusions conclusions={conclusions} />}
+                {conclusions.length > 0 && <PlayerConclusions conclusions={conclusions} />}
+                {showTableConclusions && <TableConclusions conclusions={message.response!.table_conclusions} />}
                 {showVerdict && (
                   <MarkdownLite
                     text={message.text}
