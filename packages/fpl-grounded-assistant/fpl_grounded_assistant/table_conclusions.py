@@ -9,7 +9,8 @@ strings: the UI owns the wording in each locale. This module imports nothing fro
 
 Priority (max :data:`MAX_CONCLUSIONS`, first wins):
 
-1. ``gap`` -- the leader, or the top two together, is clearly separated from the next row.
+1. ``gap`` -- the leader, or the top two together, is clearly separated from the next row. Not on metrics where
+   leading is not a merit, nor on a lead of a single unit in a list of whole numbers.
 2. ``concentration`` -- one team, or one FPL position, holds a large share of the list.
 3. ``opportunity`` -- a row in the top half is lightly owned.
 4. ``reading`` -- the metric is a season total, so it favours minutes. It only fills a free slot.
@@ -37,6 +38,10 @@ GAP_SHARE_FIRES: float = 0.20
 #: row). It keeps a steadily falling list -- where every step is as big as the first -- from reading as "one
 #: player and then the rest".
 GAP_VS_REST_SPREAD: float = 1.0
+
+#: When every value in the list is a whole number (goals, bonus, clean sheets), the lead must also be at least
+#: this many units: 2 goals against 1 is a 50 % lead and one goal -- a count that small is not "pulling clear".
+GAP_MIN_WHOLE_UNITS: int = 2
 
 #: A leading PAIR is only a pair when the two are close: the leader is within this share of the second. Above
 #: it the leader would be his own line (and below :data:`GAP_SHARE_FIRES` he was not).
@@ -83,8 +88,9 @@ SEASON_TOTAL_METRICS: frozenset[str] = frozenset({
     "expected_goals_conceded",
 })
 
-#: Leading these lists is not a merit, so a lightly owned leader is not an ``opportunity``: ownership (the rule
-#: would test the metric against itself), price, sales, cards and goals against.
+#: Leading these lists is not a merit, so a lightly owned leader is not an ``opportunity`` and a clear leader is
+#: not a ``gap`` worth a line (the verdict frames things as opportunities): ownership (``opportunity`` would test
+#: the metric against itself), price, sales, cards and goals against.
 NOT_A_MERIT_METRICS: frozenset[str] = frozenset({
     "selected_by_percent", "now_cost", "transfers_out_event", "yellow_cards", "red_cards", "goals_conceded",
     "expected_goals_conceded",
@@ -146,9 +152,10 @@ def _is_best_first_desc(metric: str, order: Any) -> bool:
 
 
 def _gap(rows: list[dict[str, Any]], metric: str, order: Any) -> dict[str, Any] | None:
-    if len(rows) < MIN_ROWS or not _is_best_first_desc(metric, order):
+    if len(rows) < MIN_ROWS or not _is_best_first_desc(metric, order) or metric in NOT_A_MERIT_METRICS:
         return None
     values = [r["value"] for r in rows]
+    min_lead = GAP_MIN_WHOLE_UNITS if all(v == int(v) for v in values) else 0
     if any(later > earlier for earlier, later in zip(values, values[1:])):
         return None  # not actually sorted best-first: say nothing rather than something wrong
 
@@ -157,7 +164,8 @@ def _gap(rows: list[dict[str, Any]], metric: str, order: Any) -> dict[str, Any] 
         if lead <= 0 or nxt < 0:
             return False
         gap = lead - nxt
-        return gap >= GAP_SHARE_FIRES * lead and gap >= GAP_VS_REST_SPREAD * (nxt - values[-1])
+        return (gap >= GAP_SHARE_FIRES * lead and gap >= GAP_VS_REST_SPREAD * (nxt - values[-1])
+                and gap >= min_lead)
 
     if separated(0):
         leaders = 1

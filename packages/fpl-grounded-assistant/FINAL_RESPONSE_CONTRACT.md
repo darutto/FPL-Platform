@@ -664,7 +664,7 @@ in this priority order:
 
 | `key` | Fires when | `params` | `evidence` |
 |---|---|---|---|
-| `gap` | The leader, or a leading pair, is clearly separated from the next row (descending rankings of 5+ rows). | `leaders` (1 or 2 `web_name`s), `metric` (canonical field) | `next_rank`, `next_value`, `lead_values` |
+| `gap` | The leader, or a leading pair, is clearly separated from the next row (descending rankings of 5+ rows). Never on metrics where leading is not a merit (cards, goals against, price, sales, ownership), nor on a one-unit lead in a list of whole numbers. | `leaders` (1 or 2 `web_name`s), `metric` (canonical field) | `next_rank`, `next_value`, `lead_values` |
 | `concentration` | One team (checked first) or one FPL position holds a large share of a 5+ row list. Position is skipped when the ranking was filtered to one position. | `kind` (`"team"`\|`"position"`), `value`, `count`, `total` | `null` |
 | `opportunity` | A row in the top half is lightly owned (bootstrap `selected_by_percent`). Skipped when the metric is ownership or leading it is not a merit. | `name`, `kind` (`"ownership"`) | `value` (percent) |
 | `reading` | The metric is a season total, so it favours minutes. Lowest priority: it only fills a free slot. | `kind` (`"total_metric"`) | `null` |

@@ -108,6 +108,26 @@ def test_gap_skips_lowest_first_and_set_piece_rankings():
     assert "gap" not in _keys(ranking_conclusions(rows, "penalties_order", bootstrap))
 
 
+@pytest.mark.parametrize("metric", sorted(tc.NOT_A_MERIT_METRICS))
+def test_gap_does_not_fire_where_leading_is_not_a_merit(metric):
+    spec = _with_values(100, 78, 76, 75, 74, 73, 72, 71, 70, 69)
+    rows, bootstrap = _tool_rows(spec), _bootstrap(spec)
+    assert "gap" in _keys(ranking_conclusions(rows, "form", bootstrap))  # the same rows do fire on a merit metric
+    assert "gap" not in _keys(ranking_conclusions(rows, metric, bootstrap))
+
+
+def test_gap_does_not_fire_on_a_one_unit_lead_in_whole_numbers():
+    one_unit = _with_values(2, 1, 1, 1, 1, 1)
+    assert "gap" not in _keys(ranking_conclusions(_tool_rows(one_unit), "goals_scored", _bootstrap(one_unit)))
+    pair = _with_values(3, 3, 2, 2, 2, 2)  # a leading pair one unit clear
+    assert "gap" not in _keys(ranking_conclusions(_tool_rows(pair), "goals_scored", _bootstrap(pair)))
+    two_units = _with_values(4, 2, 2, 2, 2, 2)
+    assert "gap" in _keys(ranking_conclusions(_tool_rows(two_units), "goals_scored", _bootstrap(two_units)))
+    # the floor is for whole-number lists only: the same one-unit lead with a decimal in the list still fires
+    decimals = _with_values(2.0, 1.0, 1.0, 1.0, 1.0, 0.5)
+    assert "gap" in _keys(ranking_conclusions(_tool_rows(decimals), "form", _bootstrap(decimals)))
+
+
 def test_gap_keeps_numbers_as_numbers():
     spec = _with_values(9.5, 7.2, 7.1, 7.0, 6.9)
     (gap,) = ranking_conclusions(_tool_rows(spec), "form", _bootstrap(spec))
