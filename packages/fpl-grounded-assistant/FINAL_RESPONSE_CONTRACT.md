@@ -144,6 +144,7 @@ Frozen dataclass.
 | `differential` | `DifferentialPicksMeta\|None` | **Stable (Phase 7g)** | Populated for `differential_picks` OK turns. `None` for all other intents and non-OK outcomes. Provides structured access to `ownership_threshold`, `top_n`, `picks`. |
 | `orch_outcome` | `str\|None` | **Stable (Orch-4c)** | Orchestration audit field. `None` when orchestration was not attempted (orch flag OFF or `_multi_intent_depth > 0`). `"ok"` when orchestrator succeeded and its answer was used. One of six non-OK strings when orchestrator was attempted but fell back to the deterministic path. **Independent of `outcome`** — `outcome` always reflects the deterministic result, regardless of orch state. |
 | `generic_card` | `GenericCardMeta\|None` | **Stable (Track A)** | Additive renderable card payload. Two deterministic sources: (1) curated deterministic composers on OK turns for `player_form`, `price_changes`, `team_fixture_calendar`, `team_schedule`, `position_fixture_run`, `current_gameweek`; (2) an orchestrator atomic-tool overlay for open-ended single-tool turns (currently `rank_players_by_metric`, `/ask` path only). `None` otherwise. **Composed only from deterministic metadata/tool output — never from LLM text; the `llm_review` parity gate is untouched.** See the `generic_card` section below. |
+| `table_conclusions` | `list[dict]\|None` (wire: `list[{key, params, evidence}]\|None`) | **Stable (table verdict)** | Additive verdict for a metric ranking: 0-3 one-line conclusions **about** the table, never a reprint of its rows. Populated on an orchestrator turn whose retained tool is `rank_players_by_metric` (status ok, and only alongside its ranking card) and on the `@resource` rankings (`top_form`, `top_xg`, `top_points`, `top_minutes`, `popular`; `/ask` path). `None` when no rule fires and on every other turn. **Deterministic — computed from the tool/resource rows and the bootstrap, never from LLM text. Keys and params only; the UI owns the wording.** See the `table_conclusions` section below. |
 | `suggestions` | `tuple[Suggestion,…]\|None` (wire: `list[{label, send_text}]\|None`) | **Stable (Guided Comparison)** | Additive tappable player-name suggestions for the guided comparison flow. Populated **only** on a `compare_players` `needs_clarification` turn, ranked by current-gameweek `transfers_in_event` (descending). `None` on OK outcomes and every other intent. **Deterministic — sourced from bootstrap data, never from LLM.** See the `suggestions` section below. |
 
 ### Field shape stability commitment
@@ -652,6 +653,23 @@ if r.differential:
         # 1 Palmer CHE MID 55.0 3.5 60
         # 2 Mbeumo MUN FWD 38.0 8.2 75
 ```
+
+---
+
+## `table_conclusions` — a ranking table's verdict
+
+Built by `table_conclusions.py` (pure module, never raises: a bad row is skipped, a bad datum drops that line
+only). Each entry is `{"key": str, "params": dict, "evidence": dict | None}`; numbers stay numbers. At most 3,
+in this priority order:
+
+| `key` | Fires when | `params` | `evidence` |
+|---|---|---|---|
+| `gap` | The leader, or a leading pair, is clearly separated from the next row (descending rankings of 5+ rows). | `leaders` (1 or 2 `web_name`s), `metric` (canonical field) | `next_rank`, `next_value`, `lead_values` |
+| `concentration` | One team (checked first) or one FPL position holds a large share of a 5+ row list. Position is skipped when the ranking was filtered to one position. | `kind` (`"team"`\|`"position"`), `value`, `count`, `total` | `null` |
+| `opportunity` | A row in the top half is lightly owned (bootstrap `selected_by_percent`). Skipped when the metric is ownership or leading it is not a merit. | `name`, `kind` (`"ownership"`) | `value` (percent) |
+| `reading` | The metric is a season total, so it favours minutes. Lowest priority: it only fills a free slot. | `kind` (`"total_metric"`) | `null` |
+
+Thresholds are named constants in the module, each with its reason.
 
 ---
 

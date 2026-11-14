@@ -441,6 +441,8 @@ def to_ask_response(
 
         # A1 (post-graduation): pure passthrough — adapter is still pure mapping; no transformation, no LLM.
         resource_rows=d.get("resource_rows"),
+        # The table's verdict: already plain JSON (key/params/evidence), passthrough.
+        table_conclusions=d.get("table_conclusions"),
         # Web search parity (premium, opt-in) — see step 1b above.
         web_search=web_search,
         # routing audit

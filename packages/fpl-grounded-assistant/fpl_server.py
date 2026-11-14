@@ -376,6 +376,8 @@ class AskResponse(BaseModel):
     suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
+    # A metric ranking's verdict: 0-3 {key, params, evidence} conclusions about the table; null when none fires.
+    table_conclusions:    list[dict[str, Any]] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -512,6 +514,8 @@ class SessionAskResponse(BaseModel):
     suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
+    # A metric ranking's verdict: 0-3 {key, params, evidence} conclusions about the table; null when none fires.
+    table_conclusions:    list[dict[str, Any]] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -2863,6 +2867,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
+        table_conclusions=r.table_conclusions,  # metric ranking's verdict (already plain JSON)
         # i102: the calendar card, already built correctly on FinalResponse by
         # Track D / i93 (composed_primary_call) and never serialized here.
         fixture_outlook=_to_dict(r.fixture_outlook),
