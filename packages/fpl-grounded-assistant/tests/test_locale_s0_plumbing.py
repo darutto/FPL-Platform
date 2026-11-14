@@ -40,8 +40,11 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: PURPOSE, with a Spanish regression run (D1 option A) behind it.
 #: 2026-11-02: DECIMALS rule added on purpose (Leo: dot decimals in Spanish, Latin American audience).
 #: 2026-11-11: PLAYER_CARD_NO_STATS rule added on purpose (Leo: no stat bullets that repeat the player card).
-ES_ORCH_PROMPT_SHA256 = "08624489413213a713a61451343cc2a203c3197ee96bb553d12fb83afbf189c4"
-ES_ORCH_LOOP_PROMPT_SHA256 = "338d1c41b28d4153332a648cc2e327900ccf68e30f450890844023e07a85471d"
+#: 2026-11-13: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card (only values the shown card
+#:   displays; off-card evidence stays), and MATCH_COMPOSITION's calendar read no longer lists the card's values,
+#:   on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
+ES_ORCH_PROMPT_SHA256 = "b4b09715d1acd6691787b50f0fc237a97029a4c9c62def3c7b4c6f5c4ea9b956"
+ES_ORCH_LOOP_PROMPT_SHA256 = "25641eca803d135604d79f15f7e10859881951ca1b1ee1dbe7f4bbbd49e014b3"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
@@ -62,17 +65,31 @@ def test_the_built_prompts_ask_for_dot_decimals_in_spanish_too():
         assert "in Spanish too" in rule[0] and '"forma 10.7"' in rule[0] and "never a comma" in rule[0]
 
 
-def test_the_built_prompts_forbid_restating_the_player_card():
-    """Leo 2026-11-11: no stat bullets or fixture lists the card already shows; the reading stays. No provider call."""
+def test_the_built_prompts_forbid_restating_any_card():
+    """Leo 2026-11-11/12: no answer restates its card, and no unasked stat padding; the reading stays. No provider call."""
     for prompt in (static_system_prompt("es"), static_system_prompt("en"), orch_mod._LOOP_SYSTEM_PROMPT):
-        rule = [line for line in prompt.splitlines() if line.strip().startswith("- PLAYER_CARD_NO_STATS:")]
+        assert "PLAYER_CARD_NO_STATS" not in prompt
+        lines = prompt.splitlines()
+        rule = [i for i, line in enumerate(lines) if line.strip().startswith("- CARD_NO_RESTATE:")]
         assert len(rule) == 1
-        text = rule[0]
-        assert "get_player_snapshot" in text
-        assert "Do not restate those values: no stat bullets or table" in text
-        assert "Do not walk through the next fixtures one by one" in text
-        assert "set-piece duties" in text and "zonal matchup" in text
+        text = lines[rule[0]]
+        assert "do not restate what that card shows: no stat bullets or table" in text
+        assert "no gameweek-by-gameweek walk-through" in text and "no list or numbered ranking of its rows" in text
         assert "only as the evidence for a judgement in the same sentence" in text
+        assert "Numbers from a tool whose card is NOT shown" in text and "are not on the card and stay" in text
+        assert "did not ask for" not in text
+        cards = " ".join(lines[rule[0] + 1:rule[0] + 4])
+        for tool in ("get_player_snapshot:", "get_fixture_outlook,", "compare_players:", "get_chip_advice:",
+                     "get_zonal_opportunity", "rank_players_by_metric"):
+            assert tool in cards
+        # The player-card specifics that worked in #641 are kept.
+        assert "Name only the one or two fixtures that decide your judgement" in cards
+        assert "get_team_schedule" in cards
+        assert "set-piece duties" in cards and "zonal matchup" in cards
+        # MATCH_COMPOSITION keeps the named players' numbers (Leo 2026-11-13: off-card evidence is useful);
+        # only its calendar read stops listing the card's values.
+        assert "each with ONE number the tool returned" in prompt
+        assert "the card shows the values, see CARD_NO_RESTATE" in prompt
 
 
 def test_es_evaluator_prompt_is_byte_identical():
