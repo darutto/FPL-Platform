@@ -476,6 +476,15 @@ class FixtureOutlookMeta:
     horizon:          int
     current_gameweek: "int | None"
     teams:            tuple[TeamOutlook, ...]
+    #: The fixture-cell answer's team zonal question(s) (fixture_cell_zonal.py); () = no link.
+    zonal_links:      "tuple[ZonalLink, ...]" = ()
+
+
+@dataclass(frozen=True)
+class ZonalLink:
+    """A link to the team zonal question: ``label`` names the destination, ``send_text`` is sent on tap."""
+    label:     str
+    send_text: str
 
 
 # ---------------------------------------------------------------------------
@@ -2514,9 +2523,22 @@ def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta |
             horizon          = int(ro.get("horizon", 0)),
             current_gameweek = ro.get("current_gameweek"),
             teams            = tuple(_team(t) for t in raw_teams),
+            zonal_links      = _extract_zonal_links(ro.get("zonal_links")),
         )
     except Exception:  # noqa: BLE001
         return None
+
+
+def _extract_zonal_links(raw: Any) -> "tuple[ZonalLink, ...]":
+    """``zonal_links`` from the outlook output (at most 2); anything malformed is dropped."""
+    if not isinstance(raw, list):
+        return ()
+    return tuple(
+        ZonalLink(label=item["label"], send_text=item["send_text"])
+        for item in raw[:2]
+        if isinstance(item, dict) and isinstance(item.get("label"), str) and item["label"]
+        and isinstance(item.get("send_text"), str) and item["send_text"]
+    )
 
 
 def _status_label_es(status: Any, locale: Locale = DEFAULT_LOCALE) -> str:

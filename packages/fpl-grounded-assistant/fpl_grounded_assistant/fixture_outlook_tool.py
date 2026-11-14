@@ -54,6 +54,7 @@ from .fixture_outlook import (
 from .catalogue import t
 from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 from .team_fixture_calendar import _resolve_team
+from .fixture_cell_zonal import match_zonal_links
 
 
 #: i101 -- the two ways a named gameweek can miss, told apart so the model
@@ -151,6 +152,10 @@ def _get_fixture_outlook_handler(
         if len(outlook["series"]) < _MIN_RUN_LEN:
             outlook["verdict"] = describe_short_horizon(outlook, team, bootstrap, locale)
             outlook["verdict_scope"] = "match"
+            # A /fixtures cell: the team zonal question for this match, when worth a tap (hidden from the model).
+            links = match_zonal_links(outlook, team, bootstrap)
+            if links:
+                outlook["zonal_links"] = links
         else:
             outlook["verdict_scope"] = "run"
     else:

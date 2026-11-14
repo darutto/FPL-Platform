@@ -676,6 +676,8 @@ _MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
     # Player-card signals: UI pills (label + the question a tap sends). The
     # model has nothing to say about them; shown, it could echo the question.
     "get_player_snapshot": frozenset({"signals"}),
+    # The fixture-cell answer's team zonal link (fixture_cell_zonal.py): UI only, same reason.
+    "get_fixture_outlook": frozenset({"zonal_links"}),
 }
 
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({

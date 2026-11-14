@@ -1786,10 +1786,15 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # players who can exploit a rival's weak zones, scoped to his club by
     # naming it). The verdict line's wording lives in the UI (concl.*).
     "signals.pill.position": {"en": "Position", "es": "Posición"},
-    "signals.pill.zone": {"en": "Zones", "es": "Zonas"},
     "signals.position.ask": {
         "en": "What position does {player} really play?",
         "es": "¿En qué posición juega {player}?",
+    },
+    # The team zonal link (player card «Zonas» section, fixture-cell answer):
+    # names its destination with the clubs' short codes.
+    "signals.zone.link": {
+        "en": "Who at {team} exploits {opp}",
+        "es": "Quién del {team} explota al {opp}",
     },
     "signals.zone.ask": {
         "en": "Which {team} players can exploit {opp}'s weak zones?",

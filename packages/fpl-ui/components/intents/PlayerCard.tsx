@@ -164,9 +164,11 @@ export default function PlayerCard({ data }: Props) {
 
         {/* Bloque 10: zonal profile vs the pending matches of the next 3
             gameweeks. Absent/null -> no section, card unchanged. */}
-        {zonal && <PlayerZonasSection zonal={zonal} />}
+        {zonal && (
+          <PlayerZonasSection zonal={zonal} zoneLink={data.signals?.find((s) => s.kind === 'zone') ?? null} />
+        )}
 
-        {/* Signals: up to 3 tappable pills; none -> nothing rendered. */}
+        {/* «Explorar»: the position pill; none -> nothing rendered. */}
         <PlayerSignals signals={data.signals} />
       </div>
     </div>

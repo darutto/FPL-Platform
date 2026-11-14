@@ -13,7 +13,8 @@ Priority (max :data:`MAX_CONCLUSIONS`, first wins):
 1. points source -- ``points_attack`` / ``points_defence`` / ``points_clean_sheets``: the one with the highest
    percentile among the player's own FPL position (pool: :data:`MIN_POOL_MINUTES`+ minutes), when it reaches
    :data:`PERCENTILE_FIRES`. Evidence ``top N %`` names the metric.
-2. ``position`` -- he starts off his FPL line («Juega de extremo · 8 de 10»; rule and window in player_signals). Second
+2. ``position`` -- he starts off his FPL line («Juega de extremo · 6 de 6», evidence «J5–J10»: the position card's
+   own window and count; rule in player_signals). Second
    because it often explains the first («muy ofensivo para ser defensa» because he plays on the wing). With the cap
    of 3 it pushes ``starts`` out first, then ``zonal``.
 3. ``set_pieces`` -- first in FPL's penalties / direct free kicks / corners order; names only the pieces that apply.
@@ -178,7 +179,11 @@ def _position(position: Any) -> dict[str, Any] | None:
              else {"line": position["line"]} if isinstance(position.get("line"), str) else None)
     if named is None:
         return None
-    return {"key": "position", "params": {**named, "starts": starts, "games": games}, "evidence": None}
+    gw_from, gw_to = position.get("gw_from"), position.get("gw_to")
+    # The gameweeks of his starts in the window: the position card's own «J5–J10».
+    evidence = ({"gw_from": gw_from, "gw_to": gw_to}
+                if isinstance(gw_from, int) and isinstance(gw_to, int) and gw_from <= gw_to else None)
+    return {"key": "position", "params": {**named, "starts": starts, "games": games}, "evidence": evidence}
 
 
 def player_conclusions(

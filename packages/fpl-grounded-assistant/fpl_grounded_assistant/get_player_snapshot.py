@@ -63,7 +63,7 @@ from fpl_tool_runner.specs import ToolSpec
 # schedule strip without duplicating fixture-lookup logic.
 from fpl_grounded_assistant.player_fixture_run import get_player_fixture_run
 from fpl_grounded_assistant.player_conclusions import player_conclusions
-from fpl_grounded_assistant.player_signals import position_fact, signals_from_conclusions
+from fpl_grounded_assistant.player_signals import position_fact, signals_from_conclusions, zone_signal
 from fpl_grounded_assistant.player_snapshot_zonal import compose_player_zonal
 from fpl_grounded_assistant.player_strip_axis import strip_axis_for
 
@@ -282,8 +282,12 @@ def get_player_snapshot(
         if conclusions:
             player_dict["conclusions"] = conclusions
         output = {"status": "ok", "player": player_dict}
-        # «Explorar» pills: one per emitted verdict line with a deeper card. Hidden from the model.
+        # «Explorar» pills (one per emitted verdict line with a deeper card) and the «Zonas» section's team link
+        # (nearest favourable matchup). Hidden from the model.
         pills = signals_from_conclusions(element, conclusions, bootstrap) if signals else []
+        zone = zone_signal(element, player_dict.get("zonal"), bootstrap) if signals else None
+        if zone is not None:
+            pills.append(zone)
         if pills:
             output["signals"] = pills
         return output

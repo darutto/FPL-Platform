@@ -731,6 +731,14 @@ export interface FixtureOutlookMeta {
   horizon: number;
   current_gameweek: number | null;
   teams: TeamOutlook[];
+  /** A one-gameweek (fixture-cell) answer: the team zonal question per rival worth a tap; absent/[] = none. */
+  zonal_links?: ZonalLink[];
+}
+
+/** «Quién del BHA explota al HUL ›»: `label` names the destination, `send_text` is sent verbatim on tap. */
+export interface ZonalLink {
+  label: string;
+  send_text: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -999,7 +1007,10 @@ export interface PlayerSnapshotMeta {
   signals?: PlayerSignal[];
 }
 
-/** One «Explorar» pill. `label` names the destination and `send_text` (sent verbatim on tap) arrive localized. */
+/**
+ * A "go deeper" link of the player card. `position` = the «Explorar» pill; `zone` = the team zonal question that
+ * closes the «Zonas» section. `label` names the destination and `send_text` (sent verbatim on tap) arrive localized.
+ */
 export interface PlayerSignal {
   kind: 'position' | 'zone';
   label: string;
@@ -1022,7 +1033,12 @@ export interface PlayerConclusionEvidence {
 
 export type PlayerConclusion =
   | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
-  | { key: 'position'; params: { role?: PlayerPositionRole; line?: PlayerPosition; starts: number; games: number }; evidence: null }
+  | {
+      key: 'position';
+      params: { role?: PlayerPositionRole; line?: PlayerPosition; starts: number; games: number };
+      /** The gameweeks of his starts in the position card's window (its «J5–J10»). */
+      evidence: { gw_from: number; gw_to: number } | null;
+    }
   | { key: 'set_pieces'; params: { pieces: SetPiece[] }; evidence: null }
   | { key: 'starts'; params: { starts: number; games: number }; evidence: null }
   | { key: 'zonal'; params: { opponents: string[] }; evidence: null };
