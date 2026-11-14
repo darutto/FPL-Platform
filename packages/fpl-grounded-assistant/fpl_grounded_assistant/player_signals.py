@@ -101,12 +101,19 @@ def position_from_window(element: dict[str, Any], window: list[dict[str, Any]] |
     gap = fpl_position_gap(element.get("element_type"), records)
     if gap is None or gap["of"] < POSITION_MIN_STARTS:
         return None
-    started = [m for m in records if m.get("player_status") == "started" and m.get("slot")]
+    # Played matches only, as fpl_position_gap counts: a predicted XI is no start.
+    started = [m for m in records if m.get("player_status") == "started" and m.get("slot") and m.get("played", True)]
     words = Counter(_role_word(m["slot"]) for m in started if played_line(m["slot"]) == gap["played_line"])
     named: dict[str, Any] = (
         {"role": next(iter(words))} if len(words) == 1 and None not in words else {"line": gap["played_line"]}
     )
-    out = {**named, "starts": gap["starts"], "games": gap["of"]}
+    # The numbers the position card's hero shows («6/6»): its own same-role count over the played starts.
+    from .atomic_tool_cards import _same_slot  # noqa: PLC0415
+
+    same, total = _same_slot(records, gap)
+    if same <= 0:
+        return None
+    out = {**named, "starts": same, "games": total}
     gws = [m["gameweek"] for m in started if isinstance(m.get("gameweek"), int)]
     if gws:
         out.update(gw_from=min(gws), gw_to=max(gws))

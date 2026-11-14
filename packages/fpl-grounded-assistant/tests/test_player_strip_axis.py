@@ -159,3 +159,54 @@ def test_the_meta_drops_anything_but_the_two_axes():
     assert _extract_player_snapshot_meta(out).strip_axis is None
     out["player"].pop("strip_axis")
     assert _extract_player_snapshot_meta(out).strip_axis is None
+
+
+def _capture_threads(monkeypatch):
+    started = []
+    monkeypatch.setattr(mod.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: started.append(kw)})())
+    return started
+
+
+def test_warm_at_startup_builds_in_the_background_and_the_first_card_is_complete(monkeypatch):
+    started = _capture_threads(monkeypatch)
+    handle = FakeHandle()
+    assert mod.warm_index(_bs(), handle=handle) is True
+    assert handle.reads == 0 and len(started) == 1  # nothing read on the caller's thread: boot is not blocked
+    assert mod.warm_index(_bs(), handle=handle) is False  # one build in flight at a time
+    started[0]["target"](*started[0]["args"])
+    # The first card after the start finds the index ready: no FPL fallback, no missing position line.
+    assert strip_axis_for(HOLDER, _bs(), handle=handle) == "defence"
+    assert len(started) == 1
+
+
+def test_warm_is_fail_soft_and_off_with_the_flag(monkeypatch):
+    class Broken:
+        def build_id(self):
+            raise FileNotFoundError("no pointer")
+
+    assert mod.warm_index(_bs(), handle=Broken()) is False
+    monkeypatch.delenv("FOOTBALL_INTELLIGENCE_ENABLED")
+    assert mod.warm_index(_bs(), handle=FakeHandle()) is False
+
+
+def test_a_new_build_serves_the_previous_index_while_it_builds(monkeypatch):
+    handle = FakeHandle()
+    assert _axis(HOLDER, handle) == "defence"  # build b-1, synchronously
+    started = _capture_threads(monkeypatch)
+    handle._build_id = "b-2"
+    assert strip_axis_for(HOLDER, _bs(), handle=handle) == "defence"  # b-1's answer, b-2 building
+    assert len(started) == 1 and mod._index["build_id"] == "b-1"
+    started[0]["target"](*started[0]["args"])
+    assert mod._index["build_id"] == "b-2"
+
+
+def test_server_startup_warms_the_index(monkeypatch):
+    import fpl_server
+    from fastapi.testclient import TestClient
+
+    calls = []
+    monkeypatch.setattr(mod, "warm_index", lambda bs, **kw: calls.append(bs) or True)
+    monkeypatch.setattr(fpl_server, "_bootstrap", _bs())  # restored after the test
+    with TestClient(fpl_server.app):
+        pass
+    assert len(calls) == 1 and calls[0] is fpl_server._bootstrap

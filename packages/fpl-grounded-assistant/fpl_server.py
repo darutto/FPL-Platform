@@ -1087,6 +1087,15 @@ async def lifespan(app: FastAPI):
         if bs is not None:
             _init_bootstrap(bs)
     _start_bootstrap_refresh()
+    # Player card: warm the per-build lineup index (strip axis + verdict position line) in a background thread, so the
+    # first cards after a deploy are not degraded. Never blocks boot or /healthz; fail-soft.
+    if _bootstrap is not None:
+        try:
+            from fpl_grounded_assistant.player_strip_axis import warm_index
+
+            warm_index(_bootstrap)
+        except Exception:  # noqa: BLE001
+            _LOG.info("player card index warm-up not started", exc_info=True)
     if _classifier_client is None:
         _try_init_classifier_from_env()
     if not os.environ.get("FPL_INTERNAL_TOKEN", "").strip():

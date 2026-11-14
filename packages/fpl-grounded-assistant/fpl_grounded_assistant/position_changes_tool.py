@@ -97,7 +97,8 @@ def _fetch_all_fixtures() -> list[dict[str, Any]]:
 
 
 def fixture_index(bootstrap: Mapping[str, Any], fetch: Callable[[], list[dict[str, Any]]] | None = None) -> dict[int, FixtureMeta] | None:
-    """FPL fixture id -> gameweek, kickoff and the two club codes. ``None`` when the list cannot be read."""
+    """FPL fixture id -> gameweek, kickoff, the two club codes and FPL's finished flag. ``None`` when the list cannot be
+    read."""
     rows = bootstrap.get("fixture_index")
     if rows is None:
         now = time.time()
@@ -116,7 +117,9 @@ def fixture_index(bootstrap: Mapping[str, Any], fetch: Callable[[], list[dict[st
         if home is None or away is None:
             continue
         event = row.get("event")
-        index[int(row["id"])] = FixtureMeta(int(event) if event is not None else None, row.get("kickoff_time"), home, away)
+        flags = [row[k] for k in ("finished", "finished_provisional") if isinstance(row.get(k), bool)]
+        index[int(row["id"])] = FixtureMeta(int(event) if event is not None else None, row.get("kickoff_time"), home, away,
+                                            finished=any(flags) if flags else None)
     return index
 
 

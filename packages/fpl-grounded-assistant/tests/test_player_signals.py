@@ -417,3 +417,86 @@ def test_zone_question_scopes_the_card_to_his_club():
     for locale in ("es", "en"):
         q = t("signals.zone.ask", locale, team="Northbury", opp="Eastport")
         assert infer_subject_teams(q, "Eastport", _bs(locale)) == ["NOR"]
+
+
+# ---------------------------------------------------------------------------
+# A lineup stored for a match not played yet (a predicted XI) is shown, never counted
+# ---------------------------------------------------------------------------
+
+#: FPL says GW1-11 are finished and GW12 is not; the store holds a (provisional) lineup for GW12 too.
+FIX_PENDING = [{**f, "finished": f["id"] <= 11, "finished_provisional": f["id"] <= 11} for f in FIX]
+
+
+def _card_for(handle, bs):
+    from football_intelligence.position_changes import analyse, fpl_position_gap
+
+    from fpl_grounded_assistant.position_changes_tool import fixture_index
+
+    out = analyse(element=10, snapshots=handle.table("lineup_snapshots"), slots=handle.table("lineup_slots"),
+                  sidelined=pd.DataFrame(columns=["element"]), squad_membership=handle.table("squad_membership"),
+                  fixtures=fixture_index(bs), names={10: {"web_name": "Quillby"}})
+    out["fpl_position_gap"] = fpl_position_gap(2, out["matches"])
+    return out
+
+
+def test_fixture_index_reads_fpl_finished_flags():
+    from fpl_grounded_assistant.position_changes_tool import fixture_index
+
+    idx = fixture_index({**_bs(), "fixture_index": FIX_PENDING
+                         + [{"id": 99, "event": 13, "kickoff_time": None, "team_h": 1, "team_a": 2}]})
+    assert (idx[11].finished, idx[12].finished, idx[99].finished) == (True, False, None)
+
+
+def test_unplayed_match_is_in_the_window_but_not_in_the_count_verdict_and_card_agree(fi_on):
+    from fpl_grounded_assistant.atomic_tool_cards import _same_slot, compose_position_changes_card
+
+    bs = {**_bs(), "fixture_index": FIX_PENDING}
+    handle = FakeHandle()
+    window = axis_mod.position_window_for(10, bs, handle=handle, background=False)
+    assert [(m["gameweek"], m["played"]) for m in window][-2:] == [(11, True), (12, False)]
+    pos = ps.position_from_window(_el(10), window)
+    # GW12's stored start is not a start: 7, 9, 10, 11 on the wing of 5 played starts (7-11).
+    assert pos == {"role": "winger", "starts": 4, "games": 5, "gw_from": 7, "gw_to": 11}
+
+    raw = _card_for(handle, bs)
+    assert _same_slot(raw["matches"], raw["fpl_position_gap"]) == (4, 5)
+    assert (raw["fpl_position_gap"]["starts"], raw["fpl_position_gap"]["of"]) == (4, 5)
+    card = compose_position_changes_card(raw, "es")
+    assert card.hero.value == "4/5"
+    # The predicted XI stays visible on its own row, labelled and outside the count.
+    gw12 = next(r for r in card.rows if r[0].endswith("12"))
+    assert "XI previsto, sin contar" in gw12[3]
+
+
+def test_a_predicted_start_makes_no_change_claim_and_no_role_switch():
+    from football_intelligence.position_changes import FixtureMeta, analyse
+    from football_intelligence.ingestion.licensed.store import TABLES
+
+    snaps, slots, fixtures = [], [], {}
+    for f in range(1, 9):
+        obs = f"2026-10-{f:02d}T10:00:00Z"
+        played = f <= 7
+        fixtures[f] = FixtureMeta(f, f"2026-10-{f:02d}T15:00:00Z", "NOR", "EAS", finished=played)
+        snaps.append({"fixture_id": f, "team": "NOR", "observed_at": obs, "state": "completed" if played else "scheduled",
+                      "confirmed": played, "formation": "4-3-3", "n_starters": 1, "n_bench": 0})
+        role = "Left Back" if f <= 7 else "Centre Forward"  # only the unplayed GW8 "moves" him
+        slots.append({"fixture_id": f, "team": "NOR", "observed_at": obs, "element": 10, "starter": True,
+                      "detailed_position": role, "grid_slot": "2:4" if f <= 7 else "4:1", "side": "left"})
+    frames = {n: pd.DataFrame(r, columns=list(TABLES[n][0])).astype(object)
+              for n, r in (("lineup_snapshots", snaps), ("lineup_slots", slots))}
+    out = analyse(element=10, snapshots=frames["lineup_snapshots"], slots=frames["lineup_slots"],
+                  sidelined=pd.DataFrame(columns=["element"]),
+                  squad_membership=pd.DataFrame(columns=list(TABLES["squad_membership"][0])),
+                  fixtures=fixtures, names={}, limit=10)
+    last = out["matches"][-1]
+    assert (last["gameweek"], last["played"], last["change"]) == (8, False, None)
+    assert "role_switch" not in out
+
+
+def test_fpl_finished_flag_decides_and_unknown_counts_as_played():
+    from football_intelligence.position_changes import FixtureMeta, _Lineup, _played
+
+    lu = _Lineup(1, "NOR", "o", True, None, 11, {}, frozenset())
+    assert _played(FixtureMeta(3, None, "NOR", "EAS", finished=False), lu) is False
+    assert _played(FixtureMeta(3, None, "NOR", "EAS", finished=True), lu) is True
+    assert _played(FixtureMeta(3, None, "NOR", "EAS"), lu) is True  # the list did not say: as before

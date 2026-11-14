@@ -61,6 +61,8 @@ class FixtureMeta:
     kickoff: str | None  # ISO 8601, UTC
     home: str
     away: str
+    #: FPL's own flag (``finished`` or ``finished_provisional``); None when the fixture list did not say.
+    finished: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,17 @@ def _lineups(snapshots: pd.DataFrame, slots: pd.DataFrame) -> dict[tuple[int, st
             fixture_id, team, str(snap["observed_at"]), bool(snap["confirmed"]), _clean(snap["formation"]),
             int(snap["n_starters"]), starters, bench)
     return lineups
+
+
+def _played(meta: FixtureMeta, lineup: _Lineup) -> bool:
+    """Whether the match has been played: FPL's fixture list decides (``finished`` / ``finished_provisional``).
+
+    A lineup is stored before kickoff (provisional, then confirmed), so a stored start may be a PREDICTED XI: it is
+    shown as such but never counted as a start ("Juega de ..." / "N de M" are about matches played). The provider's
+    state on the stored observation cannot decide it (a lineup observed before kickoff keeps "scheduled" after the
+    match), so when FPL does not say, the match counts as played, as before this flag existed.
+    """
+    return meta.finished is not False
 
 
 def _order_key(fixture_id: int, fixtures: Mapping[int, FixtureMeta]) -> tuple[str, int, int]:
@@ -213,7 +226,7 @@ def _club_records(
         record: dict[str, Any] = {
             "gameweek": meta.gameweek, "kickoff": meta.kickoff, "opponent": meta.away if is_home else meta.home,
             "is_home": is_home, "lineup_status": "confirmed" if lu.confirmed else "provisional",
-            "player_status": status, "slot": slot, "claim_status": OBSERVED,
+            "player_status": status, "slot": slot, "claim_status": OBSERVED, "played": _played(meta, lu),
             "change": None, "associations": [], "_index": i, "_fixture_id": lu.fixture_id,
         }
         records.append(record)
@@ -229,7 +242,8 @@ def recent_windows_by_element(
 ) -> dict[int, list[dict[str, Any]]]:
     """Every listed player's position-card window from ONE read of the tables: the same ``matches`` that
     :func:`analyse` returns for ``limit`` (his club's latest matches, bench and not-listed included), slimmed to
-    ``gameweek`` / ``player_status`` / ``slot``. Feed it to :func:`fpl_position_gap` for the card's own count."""
+    ``gameweek`` / ``player_status`` / ``slot`` / ``played``. Feed it to :func:`fpl_position_gap` for the card's own
+    count (played matches only)."""
     limit = max(1, min(int(limit), MAX_LIMIT))
     usable = {key: lu for key, lu in _lineups(snapshots, slots).items() if key[0] in fixtures}
     elements = {e for lu in usable.values() for e in (*lu.starters, *lu.bench)}
@@ -239,8 +253,8 @@ def recent_windows_by_element(
     for element in elements:
         reason, _team, _matches, records = _club_records(element, usable, squads.get(element, empty), fixtures)
         if reason is None and records:
-            out[element] = [{"gameweek": r["gameweek"], "player_status": r["player_status"], "slot": r["slot"]}
-                            for r in records[-limit:]]
+            out[element] = [{"gameweek": r["gameweek"], "player_status": r["player_status"], "slot": r["slot"],
+                             "played": r["played"]} for r in records[-limit:]]
     return out
 
 
@@ -275,7 +289,8 @@ def analyse(
     started_so_far: list[tuple[int, dict[str, Any]]] = []
     for record in records:
         lu = matches[record["_index"]]
-        if record["player_status"] == "started":
+        # A predicted XI (match not played) is shown, but it is no start: no change claim, no baseline.
+        if record["player_status"] == "started" and record["played"]:
             prior = started_so_far[-BASELINE_STARTS:]
             if len(prior) >= MIN_BASELINE_STARTS:
                 base_role = _mode(_role(s) for _i, s in prior)
@@ -333,7 +348,7 @@ def analyse(
         result["absence_focus"] = absence
     if cover is not None:
         result["slot_cover"] = cover
-    switch = role_switch(records)
+    switch = role_switch([r for r in records if r.get("played", True)])
     if switch is not None:
         result["role_switch"] = switch
     return result
@@ -538,7 +553,8 @@ def fpl_position_gap(element_type: Any, matches: Iterable[Mapping[str, Any]]) ->
         return None
     lines: list[tuple[str, Mapping[str, Any]]] = []
     for m in matches:
-        if m.get("player_status") == "started" and m.get("slot"):
+        # A start in a match not played yet (a predicted XI) is not a start.
+        if m.get("player_status") == "started" and m.get("slot") and m.get("played", True):
             line = played_line(m["slot"])
             if line is not None:
                 lines.append((line, m["slot"]))
