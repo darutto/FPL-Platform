@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-12",
+  "updated": "2026-11-14",
   "cards": [
     {
       "id": "s1",
@@ -2675,6 +2675,18 @@
       "tags": [
         "Backend",
         "IA",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s88",
+      "col": "shipped",
+      "title": "Línea de posición en el veredicto + pills «Explorar»",
+      "desc": "Fusionada (PR #633, 13/11). El veredicto de la tarjeta de jugador suma una línea de posición («Juega de extremo · 8 de 10», según últimas 10 titularidades con alineación guardada, mínimo 3, mitad fuera de su línea FPL) leída del índice de alineaciones de #634 sin latencia añadida, y una sección «EXPLORAR» con pills Posición ›/Zonas › que solo aparecen si la conclusión correspondiente fue emitida tras el tope de #639, cada una enviando la pregunta de get_position_changes o get_zonal_opportunity.",
+      "tags": [
+        "Backend",
+        "UI",
         "FPL Asistente"
       ],
       "progress": 100
