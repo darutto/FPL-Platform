@@ -6,14 +6,16 @@
  *   (his observed role when the backend has it, else FWD/MID attack, DEF/GKP defence).
  *   With no band, the cell keeps FPL's FDR.
  * - Premium only: Europe and cup matches as their own cells, before the gameweek they
- *   precede, and the short-rest notice on the Premier League match that follows them.
+ *   precede, the short-rest notice on the Premier League match that follows them, and the
+ *   rest days before every cell (the /fixtures timeline's gaps; Leo, 2026-11-13).
  *
  * The BACKEND decides the tier (via /fixtures/competitions). This file never gates: the
  * caller passes the team's extras only when the answer was premium.
  */
 import type { FixtureAxis, FixtureEntry, FixtureOutlookGW } from './types';
 import type { Band } from './fixture-outlook-format';
-import type { TeamExtras } from './fixture-competitions';
+import { extraSentence, gapFor, type ExtraMatch, type GapInfo, type PlMatch, type TeamExtras } from './fixture-competitions';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 /**
  * Which outlook axis a player reads. The backend decides it from the role he was listed to
@@ -46,6 +48,8 @@ export interface StripPlCell {
   band: Band | null;
   /** Short rest after a European or cup match (server-decided), or null. */
   rest: StripRest | null;
+  /** The rest before this match, drawn between tiles (Premium only; null for the first cell). */
+  gap: GapInfo | null;
 }
 
 export interface StripExtraCell {
@@ -58,6 +62,11 @@ export interface StripExtraCell {
   opponent: string;
   venue: 'H' | 'A';
   kickoff: string;
+  /** The match as the /fixtures timeline draws it, and its full sentence (tooltip / screen readers). */
+  match: ExtraMatch;
+  sentence: string;
+  /** The rest before this match (null for the first cell). */
+  gap: GapInfo | null;
 }
 
 export type StripCell = StripPlCell | StripExtraCell;
@@ -76,25 +85,32 @@ export function bandFor(entry: FixtureEntry, series: FixtureOutlookGW[] | null):
   return null;
 }
 
-function restFor(entry: FixtureEntry, extras: TeamExtras | null): StripRest | null {
+/** The payload's Premier League match for a fixture: same gameweek, opponent and venue (or the only one that GW). */
+function plMatchFor(entry: FixtureEntry, extras: TeamExtras | null): PlMatch | null {
   if (!extras) return null;
   const sameGw = extras.plMatches.filter((m) => m.gameweek === entry.gameweek);
   const venue = entry.is_home ? 'H' : 'A';
-  const match =
+  return (
     sameGw.find((m) => m.opponentCode === entry.opponent_short && m.venue === venue) ??
-    (sameGw.length === 1 ? sameGw[0] : undefined);
+    (sameGw.length === 1 ? sameGw[0] : null)
+  );
+}
+
+function restFor(match: PlMatch | null): StripRest | null {
   if (!match || !match.rotation || match.restWholeDays === null || !match.previousCompetition) return null;
   return { days: match.restWholeDays, competition: match.previousCompetition };
 }
 
 /**
  * The strip: Premier League cells with their band, plus (when `extras` is given, i.e. Premium)
- * other competitions in date order between them and the short-rest notice.
+ * other competitions in date order between them, the short-rest notice and the rest days
+ * before each cell (none before the first: it has no visible predecessor).
  */
 export function buildStrip(
   fixtures: FixtureEntry[],
   extras: TeamExtras | null,
   series: FixtureOutlookGW[] | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): StripCell[] {
   const cells: StripCell[] = [];
   const placed = new Set<number>();
@@ -114,9 +130,13 @@ export function buildStrip(
           opponent: m.opponent,
           venue: m.venue,
           kickoff: m.kickoff,
+          match: m,
+          sentence: extraSentence(m, locale),
+          gap: gapFor(m.restWholeDays, false, m.opponent, null, locale),
         });
       }
     }
+    const match = plMatchFor(f, extras);
     cells.push({
       kind: 'pl',
       key: `${f.gameweek}-${f.opponent_short}-${f.is_home ? 'H' : 'A'}`,
@@ -125,8 +145,11 @@ export function buildStrip(
       isHome: f.is_home,
       fdr: f.difficulty,
       band: bandFor(f, series),
-      rest: restFor(f, extras),
+      rest: restFor(match),
+      gap: match
+        ? gapFor(match.restWholeDays, match.rotation, match.opponent, match.previousCompetition, locale, match.restHours)
+        : null,
     });
   }
-  return cells;
+  return cells.length > 0 ? [{ ...cells[0], gap: null }, ...cells.slice(1)] : cells;
 }

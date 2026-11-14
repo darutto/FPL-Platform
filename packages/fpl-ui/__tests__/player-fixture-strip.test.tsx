@@ -98,10 +98,19 @@ describe('player-fixture-strip lib', () => {
     expect(first.kind === 'pl' && first.rest).toBeNull();
   });
 
+  test('premium strip carries the /fixtures rest days between cells: none first, gold after a cup match', () => {
+    const view = parseCompetitions(PREMIUM)!;
+    const cells = buildStrip(FIXTURES, view.teams.get('TST')!, SERIES.attack);
+    expect(cells.map((c) => (c.gap ? [c.gap.days, c.gap.rotation] : null))).toEqual([null, [4, false], [2, true]]);
+    const extra = cells[1];
+    expect(extra.kind === 'extra' && [extra.match.opponentCode, extra.sentence.length > 0]).toEqual(['SYN', true]);
+  });
+
   test('without extras (Free, or no answer) the strip keeps its band and drops cup cells and rest', () => {
     const cells = buildStrip(FIXTURES, null, SERIES.attack);
     expect(cells.map((c) => c.kind)).toEqual(['pl', 'pl']);
     expect(cells.map((c) => (c.kind === 'pl' ? [c.band, c.rest] : null))).toEqual([[2, null], [null, null]]);
+    expect(cells.map((c) => c.gap)).toEqual([null, null]);
   });
 });
 
@@ -110,7 +119,9 @@ async function expectBandCells() {
   await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
   const pl = screen.getAllByTestId('player-strip-pl');
   expect(pl[1]).toHaveAttribute('data-source', 'fdr');
-  expect(pl[1]).toHaveTextContent('BBB (V) · 4');
+  // The /fixtures tile: gameweek, opponent, venue; the FDR it fell back to is in the tooltip.
+  expect(pl[1]).toHaveTextContent(/^J13BBBV$/);
+  expect(pl[1].querySelector('[title]')).toHaveAttribute('title', 'FDR 4');
   expect(screen.getByTestId('player-strip-legend')).toHaveTextContent('FácilMuy difícil');
 }
 
@@ -138,17 +149,24 @@ describe('PlayerFixtureStrip by tier (calendar rules: band for all, Europe/cups 
     expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Dificultad propia · Portería a cero');
     expect(screen.queryByTestId('player-strip-extra')).not.toBeInTheDocument();
     expect(screen.queryByTestId('player-strip-rest')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-strip-gap')).not.toBeInTheDocument();
   });
 
-  test('premium: band cell, FDR fallback, cup cell, rest notice, legend and footnote', async () => {
+  test('premium: band tile, FDR fallback, cup tile, rest days, legend and footnote', async () => {
     answer(PREMIUM);
     render(<PlayerFixtureStrip fixtures={FIXTURES} teamShort="TST" position="FWD" />);
     await waitFor(() => expect(screen.getAllByTestId('player-strip-pl')[0]).toHaveAttribute('data-source', 'band'));
     const pl = screen.getAllByTestId('player-strip-pl');
+    expect(pl[0]).toHaveTextContent(/^J12AAAL$/);
     expect(pl[1]).toHaveAttribute('data-source', 'fdr');
-    expect(pl[1]).toHaveTextContent('BBB (V) · 4');
-    expect(screen.getByTestId('player-strip-extra')).toHaveTextContent('UEL');
-    expect(screen.getByTestId('player-strip-rest')).toHaveTextContent('2d · UEL');
+    // The small /fixtures Europe/cup tile: competition, opponent code, venue.
+    expect(screen.getByTestId('player-strip-extra')).toHaveTextContent(/^UELSYNV$/);
+    // Rest days between tiles: grey before the cup match, gold (short rest) before the next PL match.
+    expect(screen.getByTestId('player-strip-gap')).toHaveTextContent(/^4d/);
+    expect(screen.getByTestId('player-strip-rest')).toHaveTextContent(/^2d/);
+    expect(screen.getByText('3d = descanso corto tras Europa o copa')).toHaveClass('text-bf-gold');
+    // Tiles keep their size; the row scrolls sideways on a narrow screen, as /fixtures does.
+    expect(screen.getByTestId('player-strip-row')).toHaveClass('overflow-x-auto');
     expect(screen.getByTestId('player-strip-legend')).toHaveTextContent('FácilMuy difícil');
     expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Dificultad propia · Ataque · FDR de FPL donde falta');
     expect(screen.queryByTestId('player-strip-locked')).not.toBeInTheDocument();
@@ -162,7 +180,7 @@ describe('PlayerFixtureStrip by tier (calendar rules: band for all, Europe/cups 
     // Colour only in the cell; the band word lives in the tooltip.
     expect(first).not.toHaveTextContent('Difícil');
     expect(first.querySelector('[title]')).toHaveAttribute('title', 'Difícil');
-    expect(first).toHaveTextContent('AAA (L)');
+    expect(first).toHaveTextContent(/^J12AAAL$/);
     expect(screen.getByTestId('player-strip-footnote')).toHaveTextContent('Portería a cero');
   });
 
