@@ -1481,6 +1481,9 @@ class FinalResponse:
     # outcome==needs_clarification AND intent==compare_players (deterministic,
     # never LLM).  None on OK outcomes and all other intents.
     suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
+    # A metric ranking's verdict (table_conclusions): 0-3 {key, params,
+    # evidence} dicts about the table, deterministic; None when none fires.
+    table_conclusions:      "list[dict[str, Any]] | None"    = field(default=None)
     # i80/i36: what ask_v2() produced on a session turn, kept as-is so the
     # HTTP layer audits from it instead of from constants:
     #   {"routing_trace": dict, "tokens": dict, "selected_tool": str | None,
@@ -3537,6 +3540,7 @@ def _try_session_orchestration_response(
         zonal_opportunity=result.get("zonal_opportunity"),
         player_snapshot=result.get("player_snapshot"),
         generic_card=result.get("generic_card"),
+        table_conclusions=result.get("table_conclusions"),
         suggestions=suggestion_items,
         evidence=_evidence_from_wire(result.get("evidence")),
         orch_outcome=orch_outcome,
