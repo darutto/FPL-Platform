@@ -2,11 +2,15 @@
 
 /**
  * The player card's next-fixtures strip (see lib/player-fixture-strip.ts). Same rules as
- * the /fixtures calendar, which leads (Leo, 2026-11-09):
+ * the /fixtures calendar, which leads (Leo, 2026-11-09), and the SAME tiles (Leo, 2026-11-13):
+ * the /fixtures timeline's Premier League tile («J11 / HUL / V», border and fill by difficulty),
+ * its small outlined Europe/cup tile (UECL · UNI · L) at its real date, and the rest days between
+ * tiles («4d» grey over a dashed line; gold over a solid line = short rest after Europe or a cup).
  *
- * - Every plan sees our outlook band on Premier League cells, on the player's axis, with
- *   FPL's FDR where there is no band. The band never depends on the tier.
- * - Premium adds Europe/cup cells and the short-rest notice.
+ * - Every plan sees our outlook band on Premier League tiles, on the player's axis, with
+ *   FPL's FDR where there is no band (same colour scale; the footnote says so, the tooltip
+ *   names it). The band never depends on the tier.
+ * - Premium adds the Europe/cup tiles and the rest days.
  * - Free gets the calendar's lock (short form: «🔒 Europa y copas · Ver con Premium»).
  * - No competitions answer (unavailable, failure): band only, no lock, no extras.
  *
@@ -14,28 +18,20 @@
  * The outlook bundle is loaded on demand (large; the chat need not ship it up front). Until it
  * settles, the strip is the plain FDR chips.
  *
- * Layout: minimal on mobile, full from `sm` up (opponent of a cup match). Band cells carry
- * no difficulty word (Leo, 2026-11-09): the colour and the legend say it, the tooltip names it.
+ * Tiles never shrink: on a narrow screen the row scrolls sideways, as /fixtures does. Legend:
+ * only the strip's own small one (difficulty ramp, the short-rest note, the axis footnote).
  */
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { FixtureAxis, FixtureEntry, FixtureOutlookGW } from '@/lib/types';
-import { FixtureChip, fdrColor, fixtureKey } from './FixtureRunTable';
-import {
-  parseCompetitions,
-  competitionColor,
-  competitionName,
-  competitionTileLabel,
-  lockedLink,
-  type CompetitionsView,
-} from '@/lib/fixture-competitions';
-import { axisLabel, bandColor, bandLabel, gwLabel, hexRgba, venueLabel, type Band } from '@/lib/fixture-outlook-format';
+import { FixtureChip, fixtureKey } from './FixtureRunTable';
+import { DETAILED_METRICS, ExtraTile, Gap, PlTile } from './FixtureTimeline';
+import { parseCompetitions, lockedLink, type CompetitionsView } from '@/lib/fixture-competitions';
+import { axisLabel, bandColor, bandLabel, type Band } from '@/lib/fixture-outlook-format';
 import { buildStrip, stripAxis, type StripCell } from '@/lib/player-fixture-strip';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 const BANDS = [1, 2, 3, 4, 5] as const;
-/** Short rest marker. Not bf-gold: that is the «Medio» band. */
-const REST = 'text-bf-purple';
 
 export function PlayerFixtureStrip({
   fixtures,
@@ -96,8 +92,8 @@ export function PlayerFixtureStrip({
     () =>
       series === undefined
         ? null
-        : buildStrip(fixtures, premium ? view?.teams.get(teamShort) ?? null : null, series),
-    [premium, fixtures, view, teamShort, series],
+        : buildStrip(fixtures, premium ? view?.teams.get(teamShort) ?? null : null, series, locale),
+    [premium, fixtures, view, teamShort, series, locale],
   );
 
   if (fixtures.length === 0) return null;
@@ -131,10 +127,22 @@ export function PlayerFixtureStrip({
 
   return (
     <div className="space-y-1.5 border-t border-white/10 pt-2.5" data-testid="player-fixture-strip" data-tier={view?.tier ?? 'none'}>
-      <div className="flex flex-wrap items-start gap-1.5">
-        {cells.map((cell) => (
-          <StripTile key={cell.key} cell={cell} />
-        ))}
+      {/* The /fixtures timeline row: tiles keep their size, the row scrolls on a narrow screen. */}
+      <div className="overflow-x-auto pb-1" data-testid="player-strip-row">
+        <div className="flex min-w-max items-start">
+          {cells.map((cell, i) => (
+            <div key={cell.key} className="flex flex-none items-start">
+              {cell.gap ? (
+                <span data-testid={cell.gap.rotation ? 'player-strip-rest' : 'player-strip-gap'} className="contents">
+                  <Gap gap={cell.gap} m={DETAILED_METRICS} selected={false} />
+                </span>
+              ) : i > 0 ? (
+                <span aria-hidden="true" className="flex-none" style={{ width: DETAILED_METRICS.spacer }} />
+              ) : null}
+              <StripTile cell={cell} />
+            </div>
+          ))}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-bf-gray">
         {anyBand && (
@@ -151,7 +159,8 @@ export function PlayerFixtureStrip({
             {bandLabel(5, locale)}
           </span>
         )}
-        {anyRest && <span className={REST}>{t('pc.strip.restLegend')}</span>}
+        {/* Gold, as /fixtures draws the same notice. */}
+        {anyRest && <span className="text-bf-gold">{t('pc.strip.restLegend')}</span>}
       </div>
       <p className="text-[10px] text-bf-gray/80" data-testid="player-strip-footnote">
         {anyBand && t('pc.strip.own', { axis: axisLabel(axis, locale) })}
@@ -164,59 +173,38 @@ export function PlayerFixtureStrip({
 }
 
 function StripTile({ cell }: { cell: StripCell }) {
-  const t = useT();
   const { locale } = useLocale();
 
   if (cell.kind === 'extra') {
-    const color = competitionColor(cell.competition);
-    const venue = venueLabel(cell.venue === 'H', locale);
     return (
-      <div
-        data-testid="player-strip-extra"
-        title={`${competitionName(cell.competition, locale)} · ${cell.opponent} (${venue})`}
-        className="flex min-w-[40px] flex-col items-stretch overflow-hidden rounded-md border bg-white/[0.02]"
-        style={{ borderColor: hexRgba(color, 0.6) }}
-      >
-        <span className="px-1.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider" style={{ color }}>
-          {competitionTileLabel(cell.competition)}
-        </span>
-        <span className="px-1.5 py-1 text-center text-xs font-bold text-bf-gray">
-          <span className="hidden sm:inline">{cell.opponentCode} </span>({venue})
-        </span>
-      </div>
+      <span data-testid="player-strip-extra" className="contents">
+        <ExtraTile
+          item={{ kind: 'extra', key: cell.key, match: cell.match, sentence: cell.sentence, gap: null }}
+          m={DETAILED_METRICS}
+          selected={false}
+        />
+      </span>
     );
   }
 
   const hasBand = cell.band !== null;
-  const color = hasBand ? bandColor(cell.band as Band) : fdrColor(cell.fdr);
-  const venue = venueLabel(cell.isHome, locale);
+  // A cell without our band keeps FPL's FDR, drawn on the same 1-5 scale (the footnote says so).
+  const gw: FixtureOutlookGW = {
+    gameweek: cell.gameweek,
+    band: hasBand ? cell.band : cell.fdr,
+    klass: 'neutral',
+    is_dgw: false,
+    is_bgw: false,
+    fixtures: [{ opponent_short: cell.opponent, is_home: cell.isHome, band: (cell.band ?? cell.fdr) as Band }],
+  };
   return (
-    <div className="flex flex-col items-stretch gap-0.5" data-testid="player-strip-pl" data-source={hasBand ? 'band' : 'fdr'}>
-      <div
-        className="flex min-w-[60px] flex-col items-stretch overflow-hidden rounded-md border border-white/10 bg-white/[0.04]"
+    <span data-testid="player-strip-pl" data-source={hasBand ? 'band' : 'fdr'} className="contents">
+      <PlTile
+        gw={gw}
+        ring={null}
+        m={DETAILED_METRICS}
         title={hasBand ? bandLabel(cell.band as Band, locale) : `FDR ${cell.fdr}`}
-      >
-        <span className="border-b border-white/5 bg-white/[0.04] px-1.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-bf-gray">
-          {gwLabel(cell.gameweek, locale)}
-        </span>
-        <span
-          className="px-1.5 py-1 text-center text-xs font-extrabold tracking-tight"
-          style={{ backgroundColor: `${color}33`, color }}
-        >
-          {cell.opponent} ({venue})
-          {/* A band cell says its difficulty by colour (legend below; word in the tooltip). */}
-          {!hasBand && <> · {cell.fdr}</>}
-        </span>
-      </div>
-      {cell.rest && (
-        <span
-          data-testid="player-strip-rest"
-          title={t('pc.strip.restTitle', { d: cell.rest.days, comp: competitionName(cell.rest.competition, locale) })}
-          className={`text-center text-[9px] font-bold ${REST}`}
-        >
-          {t('pc.strip.rest', { d: cell.rest.days, comp: competitionTileLabel(cell.rest.competition) })}
-        </span>
-      )}
-    </div>
+      />
+    </span>
   );
 }

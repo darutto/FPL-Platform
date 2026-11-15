@@ -79,7 +79,8 @@ interface Metrics {
   spacer: string;
 }
 
-const DETAILED: Metrics = {
+/** The «Detallado» sizes; the player card's strip draws its tiles with them too (exported). */
+export const DETAILED_METRICS: Metrics = {
   plW: '64px',
   plH: '64px',
   exW: '50px',
@@ -99,16 +100,19 @@ const DETAILED: Metrics = {
   spacer: '10px',
 };
 
-function PlTile({
+export function PlTile({
   gw,
   ring,
   m,
   onAsk,
+  title,
 }: {
   gw: FixtureOutlookGW;
   ring: string | null;
   m: Metrics;
   onAsk?: () => void;
+  /** Tooltip override (the player card's strip names the band or the FPL FDR it fell back to). */
+  title?: string;
 }) {
   const { locale } = useLocale();
   const blank = gw.band === null;
@@ -123,7 +127,7 @@ function PlTile({
     border: `1.5px solid ${hexRgba(fg, 0.55)}`,
     boxShadow: ring ? `0 0 0 2px ${hexRgba(ring, 0.7)}` : undefined,
   };
-  const label = cellTitle(gw, locale);
+  const label = title ?? cellTitle(gw, locale);
   const inner = (
     <>
       <span className="leading-none text-bf-gray font-normal" style={{ fontSize: m.gwFont }}>{gwLabel(gw.gameweek, locale)}</span>
@@ -146,7 +150,7 @@ function PlTile({
   );
 }
 
-function ExtraTile({
+export function ExtraTile({
   item,
   m,
   selected,
@@ -203,7 +207,7 @@ function ExtraTile({
 }
 
 /** The rest between two matches: a number over a thin line. Gold and solid when it is the rotation notice. */
-function Gap({
+export function Gap({
   gap,
   m,
   selected,
@@ -342,7 +346,7 @@ export function TimelineLane({
           <Items
             items={items}
             runByGw={runByGw}
-            m={DETAILED}
+            m={DETAILED_METRICS}
             detail={detail}
             onDetail={setDetail}
             onAskCell={onAskCell}
