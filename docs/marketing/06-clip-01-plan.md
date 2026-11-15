@@ -99,3 +99,9 @@ Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
 - "Pensando…" aparece solo ~0.4 s. La app tarda más, pero el clip no espera.
 - Tiempos nuevos: 3a Pregunta 5–6.3 s · 3b Respuesta (veredicto) 6.3–7.5 s · 3c Scroll con desenfoque de movimiento 7.5–8.5 s · 4 Zonas 8.5–12.5 s. El 1, el 2 y el 5 no cambian.
 - En el plano 4, las cifras se muestran tal como salen en la captura, sin animarlas de 0 a 57%. El énfasis lo hacen el push-in y el brillo en la fila de Sunderland.
+
+### Cambio de Leo (15 nov): empezar en la pantalla de inicio
+- El clip abre en el inicio real de la app: enfoca el campo del ID, se escriben los dígitos (3-3-0-3-4-0) y se toca "Conectar". Al tocar la pestaña SQUAD aparece el equipo en la cancha, y desde ahí sigue lo que antes era el plano 1.
+- El hook en texto, "¿Lo alineo esta semana?", se mantiene en 0–2.5 s sobre la conexión. El plano del Squad pasa a decir "Tu equipo, en la cancha."
+- Tiempos (15 s): 0a Inicio 0–1 · 0b Conecta 1–2.5 · 1 Squad 2.5–4 · 2 Toca 4–6 · 3a Pregunta 6–7 · 3b Respuesta 7–8 · 3c Scroll 8–8.8 · 4 Zonas 8.8–12.8 · 5 CTA 12.8–15.
+- Logo: SVG oficial de Leo en `docs/marketing/assets/logo-bf.svg`, usado en el plano 5.

@@ -10,6 +10,11 @@ Capturado el **15 nov 2026**, con la J10 cerrada y antes del deadline de la J11 
 
 | Archivo | Qué muestra | Pasada |
 |---|---|---|
+| `00a-home.png` | Pantalla de inicio (Chat) con el campo "ID de equipo FPL" vacío | 3 (sin cuota) |
+| `00b-id-typed.png` | ID 330340 escrito, antes de tocar "Conectar" | 3 |
+| `id-entry/` | Foco en el campo, un PNG por dígito (1…6) y "Conectando…" | 3 |
+| `00c-squad-after-connect.png` | Squad tras conectar y tocar la pestaña SQUAD | 3 |
+| `video/flow-connect.mp4` | Inicio → escribir el ID → Conectar → Squad | 3 |
 | `01-squad.png` | Squad en el campo, J10 | 1 (en vivo) |
 | `02-jackson-detail.png` | N.Jackson tocado: mini ficha (11 Pts GW · 31.4% Sel. · 8.8 Forma) y "Asistente →" | 1 |
 | `03-question-sent.png` | Burbuja de la pregunta y "Pensando…" | 1 |
@@ -25,3 +30,5 @@ Capturado el **15 nov 2026**, con la J10 cerrada y antes del deadline de la J11 
 **Pasada 2:** al recibir la respuesta, la app baja sola hasta el final, así que en la pasada 1 no se grabó el recorrido por la tarjeta. Para no gastar otra pregunta, la pasada 2 repite el mismo flujo en la app real y entrega a `/api/proxy` **la misma respuesta guardada** (sin modificar). Las cifras de las dos pasadas coinciden.
 
 **Privacidad:** en la cabecera del chat aparece el nombre del equipo 330340 con el nombre de su mánager truncado ("Los 11 impostores (Gerar…"). Los encuadres del storyboard lo dejan fuera; en el video habría que recortarlo o desenfocarlo.
+
+**Pasada 3 (sin cuota):** el inicio de la app, la escritura del ID dígito a dígito y la conexión. Las preguntas al asistente se bloquearon en esta pasada, así que no se gastó cuota. En la app, el cambio de Chat a Squad es instantáneo al tocar la pestaña, sin animación de deslizamiento.

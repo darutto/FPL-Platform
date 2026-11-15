@@ -21,7 +21,7 @@
   header p { margin: 4px 0; color: var(--gray); font-size: 16px; line-height: 1.45; max-width: 1500px; }
   header p b { color: var(--text); font-weight: 600; }
   .status { display: inline-block; margin: 10px 0 0; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 14px; letter-spacing: .6px; text-transform: uppercase; }
-  .row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; margin-top: 28px; align-items: start; }
+  .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; margin-top: 28px; align-items: start; }
   .col { min-width: 0; }
 
   /* 9:16 frame, 360x640 CSS px = 1080x1920 at 3x. Anchor (180,300) = (540,900). */
@@ -61,7 +61,7 @@
 <div class="page">
   <header>
     <h1>Clip 01 · <span>Toca. Pregunta. Entiende.</span></h1>
-    <p>15 s · 1080×1920 · 30 fps. Ancla en el centro exacto (540, 900): todo nace, cambia y muere ahí. Transiciones por <b>transformación del objeto</b> o por el <b>scroll real</b> de la app, nunca cross-dissolve. Del 3a al 4 es una sola pantalla: pregunta → respuesta → scroll hasta Zonas. Línea discontinua = zona segura (y 280–1500). Cruz = centro.</p>
+    <p>15 s · 1080×1920 · 30 fps. Ancla en el centro exacto (540, 900): todo nace, cambia y muere ahí. Transiciones por <b>transformación del objeto</b> o por el <b>scroll real</b> de la app, nunca cross-dissolve. Del 0a al 0b y del 3a al 4 es la misma pantalla: pregunta → respuesta → scroll hasta Zonas. Línea discontinua = zona segura (y 280–1500). Cruz = centro.</p>
     <p><b>Todas las imágenes son capturas de la app real</b> (<code>packages/fpl-ui</code> en local contra el backend de producción) en móvil 390×844 a 3x. Capturado el <b>15 nov 2026</b>, con la J10 cerrada y antes del deadline de la J11 (21 nov, 11:00 UTC). Equipo FPL <b>330340</b>. La respuesta del asistente es la que devolvió producción a la pregunta del Squad, sin tocar ninguna cifra.</p>
     <span class="status">Pendiente de aprobación · Leo</span>
   </header>
@@ -78,15 +78,30 @@
 // Each shot: the real capture, the source rectangle (in capture px, 1170x2532) to frame, and annotations in capture px.
 const CAP = '../captures/';
 const SHOTS = [
-  { n: 1, title: 'Hook', time: '0–2 s · frames 0–60', img: '01-squad.png',
+  { n: '0a', title: 'Inicio (hook)', time: '0–1 s · frames 0–30', img: '00a-home.png',
+    rect: [0, 0, 1170, 1250], box: [340, 330],
+    caption: '¿Lo alineo esta semana?',
+    image: 'Pantalla de inicio real de la app (Chat): campo "ID de equipo FPL" + "Conectar" y las preguntas sugeridas.',
+    move: 'Plano general de la app; la cámara empieza a ir hacia el campo del ID.',
+    trans: 'Push-in rápido hasta el campo del ID (misma pantalla).',
+    src: 'captures/00a-home.png' },
+  { n: '0b', title: 'Conecta', time: '1–2.5 s · frames 30–75', img: '00b-id-typed.png',
+    rect: [30, 250, 880, 560], box: [340, 330],
+    hls: [[515, 355, 745, 452]],
+    caption: '¿Lo alineo esta semana?',
+    image: 'El campo del ID enfocado; se escriben los dígitos reales 3-3-0-3-4-0 (uno cada 4 frames) y se toca "Conectar".',
+    move: 'Dígitos uno a uno (capturas reales de cada dígito); pulso de toque sobre "Conectar".',
+    trans: 'Toque en la pestaña "SQUAD": la app cambia al equipo en la cancha (en la app es instantáneo).',
+    src: 'captures/00b-id-typed.png · id-entry/digit-1…6.png · video/flow-connect.mp4' },
+  { n: 1, title: 'Squad', time: '2.5–4 s · frames 75–120', img: '01-squad.png',
     rect: [0, 830, 560, 1390], box: [340, 330],
     rings: [[279, 1108, 70]],
-    caption: '¿Lo alineo esta semana?',
-    image: 'Squad real sobre el césped. La ficha de N.Jackson late en el centro mientras el resto del equipo se asienta.',
+    caption: 'Tu equipo, en la cancha.',
+    image: 'El equipo conectado sobre el césped. La ficha de N.Jackson late.',
     move: 'Push-in lento 1.00→1.06 sobre la ficha N.J; fondo desenfocado.',
     trans: 'La cámara se acerca a N.J y la ficha se ilumina (toque) → pasa al plano 2.',
-    src: 'captures/01-squad.png' },
-  { n: 2, title: 'Toca', time: '2–5 s · frames 60–150', img: '02-jackson-detail.png',
+    src: 'captures/01-squad.png · 00c-squad-after-connect.png' },
+  { n: 2, title: 'Toca', time: '4–6 s · frames 120–180', img: '02-jackson-detail.png',
     rect: [0, 1040, 1170, 1880], box: [340, 330],
     rings: [[279, 1108, 70]], hls: [[878, 1538, 1110, 1668]],
     caption: 'Toca a cualquier jugador.',
@@ -94,28 +109,28 @@ const SHOTS = [
     move: 'La ficha se despliega hacia abajo en la mini ficha; pulso sobre "Asistente →".',
     trans: 'El botón "Asistente →" se estira y se convierte en la burbuja del chat (morph).',
     src: 'captures/02-jackson-detail.png' },
-  { n: '3a', title: 'Pregunta', time: '5–6.3 s · frames 150–190', img: '03-question-sent.png',
+  { n: '3a', title: 'Pregunta', time: '6–7 s · frames 180–210', img: '03-question-sent.png',
     rect: [40, 470, 1130, 900], box: [340, 330],
     caption: 'Pregúntale a tu asistente.',
     image: 'La burbuja real de la pregunta: "Cuéntame sobre N.Jackson — ¿lo alineo esta semana?" y debajo "Pensando…".',
-    move: 'La pregunta entra rápida; "Pensando…" se ve solo ~0.4 s (frames 177–190). En la app tarda más, pero el clip no espera: basta con mostrar que piensa.',
+    move: 'La pregunta entra rápida; "Pensando…" se ve solo ~0.4 s (frames 198–210). En la app tarda más, pero el clip no espera: basta con mostrar que piensa.',
     trans: '"Pensando…" da paso a la respuesta en el mismo sitio, igual que en la app.',
     src: 'captures/03-question-sent.png' },
-  { n: '3b', title: 'Respuesta', time: '6.3–7.5 s · frames 190–225', img: '04-answer-verdict.png',
+  { n: '3b', title: 'Respuesta', time: '7–8 s · frames 210–240', img: '04-answer-verdict.png',
     rect: [40, 470, 1130, 1960], box: [340, 330],
     caption: 'Pregúntale a tu asistente.',
     image: 'La respuesta real arranca bajo la pregunta: veredicto "Cruce zonal favorable: SUN, IPS, EVE" · "Titular en 9 de 10" y "Sí: alinea a N. Jackson esta semana".',
     move: 'La tarjeta aparece; pausa corta para leer el veredicto.',
     trans: 'Arranca el scroll real de la tarjeta (misma pantalla, sin corte).',
     src: 'captures/04-answer-verdict.png' },
-  { n: '3c', title: 'Scroll', time: '7.5–8.5 s · frames 225–255', img: '05-answer-player.png', blur: true,
+  { n: '3c', title: 'Scroll', time: '8–8.8 s · frames 240–264', img: '05-answer-player.png', blur: true,
     rect: [40, 420, 1130, 1500], box: [340, 330],
     caption: '',
     image: 'Scroll real por la ficha (54 pts · £7.1m · 31.4% · forma 8.8, xG/xA) y el calendario (SUN · IPS · EVE · CRY).',
     move: 'Aceleración con desenfoque de movimiento vertical: se lee como "bajamos por la misma respuesta".',
     trans: 'Frena en seco en Zonas (misma pantalla).',
     src: 'video/flow-scroll-replay.mp4 · captures/05-answer-player.png · 06-answer-fixtures.png' },
-  { n: 4, title: 'Entiende (hero)', time: '8.5–12.5 s · frames 255–375', img: '07-zonas.png',
+  { n: 4, title: 'Entiende (hero)', time: '8.8–12.8 s · frames 264–384', img: '07-zonas.png',
     rect: [45, 790, 1125, 2120], box: [340, 330],
     hls: [[100, 1860, 1065, 1945]],
     caption: 'Dónde dispara él. <em>Dónde concede Sunderland.</em>',
@@ -123,12 +138,12 @@ const SHOTS = [
     move: 'Push-in sobre 57% / 27%; brillo en la fila de Sunderland (acento musical). Las cifras son las de la captura, sin reanimarlas.',
     trans: 'Las líneas del campo se recogen al centro y forman el contorno del logo.',
     src: 'captures/07-zonas.png (pasada 2) · 07b-zonas-live.png (pasada 1, mismas cifras)' },
-  { n: 5, title: 'CTA', time: '12.5–15 s · frames 375–450', img: '07-zonas.png', logo: true,
+  { n: 5, title: 'CTA', time: '12.8–15 s · frames 384–450', img: '07-zonas.png', logo: true,
     caption: '',
-    image: 'Logo real (logo-icon.png) en el centro con brillo. Debajo, pastilla coral "FPL Asistente · Prueba gratis" y "benditofantasy".',
+    image: 'Logo oficial en SVG en el centro con brillo. Debajo, pastilla coral "FPL Asistente · Prueba gratis" y "benditofantasy".',
     move: 'El logo se asienta con un brillo; la pastilla sube 24 px.',
     trans: '— Último fotograma fijo 0.5 s para el loop.',
-    src: 'packages/fpl-ui/public/logo-icon.png' },
+    src: 'docs/marketing/assets/logo-bf.svg' },
 ];
 
 const row = document.getElementById('row');
@@ -157,7 +172,7 @@ for (const s of SHOTS) {
     }
   }
   if (s.logo) {
-    const lg = new Image(); lg.src = 'logo-icon.png'; lg.className = 'logo'; lg.alt = 'Logo Bendito Fantasy'; f.appendChild(lg);
+    const lg = new Image(); lg.src = 'logo-bf.svg'; lg.className = 'logo'; lg.alt = 'Logo Bendito Fantasy'; f.appendChild(lg);
     const p = document.createElement('div'); p.className = 'pill'; p.textContent = 'FPL Asistente · Prueba gratis'; f.appendChild(p);
     const h = document.createElement('div'); h.className = 'handle'; h.textContent = 'benditofantasy'; f.appendChild(h);
   }
