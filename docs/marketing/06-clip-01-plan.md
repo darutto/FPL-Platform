@@ -7,8 +7,8 @@ Base: `05-storyboard-creative-base.md` + método del video de referencia (carpet
 | Borrador | Problema | Corrección |
 |---|---|---|
 | Zonas "defensivas" | La tarjeta del jugador muestra **dónde dispara él** (`PlayerZonesPitch`), no zonas defensivas | Usar `PlayerZonesPitch` con el chip "Cruce favorable" |
-| Squad → Zonas → CaptainCard | Son **dos respuestas distintas** de la app (ficha de jugador y `/capitan`). Juntarlas en 15s inventa un flujo que no existe | Clip 01 = un flujo real (Squad → Ask AI → ficha con Zonas). El capitán va en el clip 02 |
-| Botón "Consultar Asistente" | No existe | Botón real: **"Ask AI →"** (`sq.ask`) |
+| Squad → Zonas → CaptainCard | Son **dos respuestas distintas** de la app (ficha de jugador y `/capitan`). Juntarlas en 15s inventa un flujo que no existe | Clip 01 = un flujo real (Squad → Consultar a mi asistente → ficha con Zonas). El capitán va en el clip 02 |
+| Botón "Consultar Asistente" | No existe | Botón: **"Consultar a mi asistente →"** (`sq.ask`, cambio pedido a Cerebro) |
 | Sello "FAVORITO / DIFERENCIAL" cualquiera | Sería un dato inventado | Mostrar solo lo que devuelva la app para el jugador elegido |
 | "No decidas a ciegas" | Encuadre negativo (regla del producto: positivo) | "Toca a cualquier jugador." |
 | Texto genérico de producto | Promete sin enseñar | Cada frase coincide con lo que se ve en pantalla |
@@ -28,8 +28,8 @@ Un solo gesto real del producto, contado en 3 tiempos: **Toca → Pregunta → E
 | # | Frames / s | Imagen (centro) | Transformación hacia el siguiente | Texto |
 |---|---|---|---|---|
 | 1 Hook | 0–60 · 0–2s | Ficha circular de un jugador (estilo `SquadPitch`) palpitando sobre fondo `#12111a`; 3 fichas más entran desde los bordes y se ordenan en formación | La cámara retrocede y las fichas **se asientan en el césped** → equipo completo | **"¿Lo alineo esta semana?"** |
-| 2 Toca | 60–150 · 2–5s | Squad completo sobre el césped `#0f3320`; un pulso toca al jugador del centro, que crece y se aísla | La ficha **se despliega hacia abajo** en la mini ficha (Pts GW / Sel. / Forma) con el botón coral **"Ask AI →"** | "Toca a cualquier jugador." |
-| 3 Pregunta | 150–240 · 5–8s | Se pulsa "Ask AI →". El botón **se estira y se convierte en la burbuja del chat**, donde se escribe: "Cuéntame sobre {jugador}, ¿lo alineo esta semana?" | La burbuja **se pliega en un rectángulo** que se dibuja como el área del campo (líneas de `PitchGeometry`) | "Pregúntale a la IA." |
+| 2 Toca | 60–150 · 2–5s | Squad completo sobre el césped `#0f3320`; un pulso toca al jugador del centro, que crece y se aísla | La ficha **se despliega hacia abajo** en la mini ficha (Pts GW / Sel. / Forma) con el botón coral **"Consultar a mi asistente →"** | "Toca a cualquier jugador." |
+| 3 Pregunta | 150–240 · 5–8s | Se pulsa "Consultar a mi asistente →". El botón **se estira y se convierte en la burbuja del chat**, donde se escribe: "Cuéntame sobre {jugador}, ¿lo alineo esta semana?" | La burbuja **se pliega en un rectángulo** que se dibuja como el área del campo (líneas de `PitchGeometry`) | "Pregúntale a tu asistente." |
 | 4 Entiende (hero) | 240–375 · 8–12.5s | `PlayerZonesPitch`: las celdas se rellenan, el % sube en Archivo Black (p. ej. 0→59%), aparece la línea del rival y **la celda coincidente se enciende en turquesa** + chip "Cruce favorable" | Las líneas del campo **se recogen al centro** y forman el contorno del logo | "Dónde dispara él. Dónde concede el rival." |
 | 5 CTA | 375–450 · 12.5–15s | `logo-icon.png` (real) se asienta en el centro con un brillo; debajo, pastilla coral | — (último fotograma fijo 0.5 s para el loop) | **"FPL Asistente · Prueba gratis"** + "benditofantasy" |
 
