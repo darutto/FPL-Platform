@@ -61,3 +61,17 @@ Profundidad de campo: el fondo (césped/UI secundaria) con blur de 12–18px; el
 3. ¿Hay logo en SVG / wordmark "Bendito Fantasy"?
 4. Audio: ¿voz de Leo/podcast, voz IA o solo música + texto?
 5. ¿Tenemos SFX o música con licencia, o los buscamos (Artlist, etc.)?
+
+## Decisiones de Leo (15 nov)
+1. ✅ Separar: clip 01 = Zonas, clip 02 = capitán.
+2. ✅ Protagonista: **N. Jackson (AVL)**. Buen calendario y se puede extender con Europa. Pendiente: capturar su respuesta real en la app (ficha + Zonas) en la jornada de publicación y confirmar que sale "Cruce favorable". Si no sale, se cambia de jugador o de jornada; no se inventa.
+3. ✅ Logo: PNG por ahora; Leo entrega el SVG antes del corte final.
+4. ✅ Música sí. Voz: Leo o voz IA (ver propuesta abajo).
+5. ⏳ Cambio de copy "Ask AI" → "Consultar a mi asistente" enviado a Cerebro. Pendiente decidir "IA activa".
+
+## Dirección de audio (propuesta)
+- **Música:** el lo-fi encaja con "entender con calma", pero los cortes del clip piden pulso. Propuesta: **lo-fi con golpe**. Una pista de lo-fi de la carpeta de Leo a ~85–95 BPM, con los cambios de plano en los tiempos fuertes y un acento (kick/clap) en el momento del "Cruce favorable" (plano 4). Alternativa más enérgica para el clip 02 (capitán/deadline): electrónica minimal o afro-house a 115–120 BPM.
+- **SFX (pocos y suaves):** tap en la ficha, whoosh corto en cada transformación, "pop" por celda de zona, campanita/brillo en el turquesa y en el logo.
+- **Voz (recomendación: Leo):** la comunidad del podcast ya conoce su voz, y eso refuerza "asistente de Bendito Fantasy" frente a "una IA más". Se graba con el móvil en un cuarto con ropa/cortinas, a 15–20 cm, en 3 tomas, y se limpia después. Plan B: voz IA cálida en español (p. ej. ElevenLabs), que requiere cuenta/API key.
+- **Guion VO (15 s, ~32 palabras):**
+  > ¿Lo alineo esta semana? · Toca a Jackson en tu equipo. · Consulta a tu asistente. · Mira dónde dispara él… y dónde concede su rival. · Ahí está el cruce favorable. · FPL Asistente. Pruébalo gratis.
