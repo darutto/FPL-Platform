@@ -10,7 +10,7 @@
  *   emerald → turquoise · amber → gold · violet/indigo → cyan
  *   red → coral · slate → gray
  *
- * The FDR ramp is deliberately NOT here — fdrColor in FixtureRunTable owns
+ * The FDR ramp is deliberately NOT here — fdrColor in FixtureChip owns
  * those colors (V2_MVP_ROADMAP spec, Decision 3).
  */
 import type { DictKey } from './i18n/dictionary';

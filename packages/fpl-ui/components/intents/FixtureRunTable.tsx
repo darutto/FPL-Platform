@@ -1,28 +1,22 @@
 /**
- * FixtureRunTable — structured rendering for player_fixture_run OK turns.
+ * FixtureRunTable — structured rendering for player_fixture_run OK turns
+ * (`/calendarios <jugador>`, EN `/fixtures <player>`).
  *
  * Rendered beneath final_text when:
  *   response.outcome     === 'ok'
  *   response.intent      === 'player_fixture_run'
  *   response.fixture_run !== null
  *
- * Consumes from FixtureRunMeta (stable conditional fields only):
- *   web_name, team_short, position, horizon, current_gameweek,
- *   fixtures[].gameweek, fixtures[].opponent_short,
- *   fixtures[].is_home, fixtures[].difficulty
- *
- * FDR colour scale (from V2_MVP_ROADMAP.md):
- *   1=#2ecc71 (easy) … 5=#e74c3c (hard)
- *   Applied as inline background colours so the exact spec values are used.
- *
- * Venue labels are Spanish (L=local / V=visitante).
+ * A header (name · team · position) over the player card's own fixture strip, so every
+ * fixture calendar in the app draws the /fixtures tiles (Leo, 2026-11-14): our band for
+ * every plan (FPL's FDR where there is none), Europe/cups and rest days for Premium, the
+ * strip's small legend. The payload carries no `strip_axis`, so the band reads the FPL
+ * position's axis (DEF/GKP defence, the rest attack).
  */
-import type { FixtureRunMeta, FixtureEntry } from '@/lib/types';
+import type { FixtureRunMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
-import { useLocale } from '@/lib/i18n/LocaleProvider';
-import { gwLabel, venueLabel } from '@/lib/fixture-outlook-format';
-import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locale';
+import { PlayerFixtureStrip } from './PlayerFixtureStrip';
 
 interface Props {
   data: FixtureRunMeta;
@@ -45,91 +39,8 @@ export default function FixtureRunTable({ data }: Props) {
           <span className="flex-shrink-0 text-bf-gray text-xs">{position}</span>
         </div>
 
-        {/* Fixture chips — DS .scout-fdr stack: GW strip on top, FDR pill below.
-            Ramp colors come from fdrColor (V2 spec) — deliberately inline. */}
-        <div className="flex flex-wrap gap-1.5">
-          {fixtures.map((f) => (
-            <FixtureChip key={fixtureKey(f)} entry={f} />
-          ))}
-        </div>
-
-        {/* Legend */}
-        <FdrLegend />
+        <PlayerFixtureStrip fixtures={fixtures} teamShort={team_short} position={position} />
       </div>
     </div>
   );
-}
-
-/** Exported so other cards (e.g. PlayerCard's fixture strip) can reuse the same chip. */
-export function FixtureChip({ entry }: { entry: FixtureEntry }) {
-  const { gameweek, opponent_short, is_home, difficulty } = entry;
-  const { locale } = useLocale();
-  const color = fdrColor(difficulty);
-  const venue = formatVenue(is_home, locale);
-
-  return (
-    <div className="flex flex-col items-stretch rounded-md overflow-hidden min-w-[60px] bg-white/[0.04] border border-white/10">
-      <span className="px-1.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-bf-gray bg-white/[0.04] border-b border-white/5">
-        {gwLabel(gameweek, locale)}
-      </span>
-      <span
-        className="px-1.5 py-1 text-center text-xs font-extrabold tracking-tight"
-        style={{ backgroundColor: `${color}33`, color }}
-      >
-        {opponent_short} ({venue}) · {difficulty}
-      </span>
-    </div>
-  );
-}
-
-function FdrLegend() {
-  const levels = [1, 2, 3, 4, 5] as const;
-  return (
-    <div className="flex items-center gap-2 pt-1">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-bf-gray/70">FDR:</span>
-      {levels.map((d) => (
-        <span
-          key={d}
-          className="text-[10px] font-bold rounded px-1.5 py-0.5"
-          style={{ backgroundColor: `${fdrColor(d)}30`, color: fdrColor(d) }}
-        >
-          {d}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Exported pure helpers — tested in __tests__/component-helpers.test.ts
-// ---------------------------------------------------------------------------
-
-/** FDR difficulty → hex colour (V2_MVP_ROADMAP.md spec). */
-export function fdrColor(difficulty: 1 | 2 | 3 | 4 | 5): string {
-  const COLORS: Record<1 | 2 | 3 | 4 | 5, string> = {
-    1: '#2ecc71',
-    2: '#a8d8a8',
-    3: '#f7f7a8',
-    4: '#f4a262',
-    5: '#e74c3c',
-  };
-  return COLORS[difficulty];
-}
-
-/** Venue abbreviation: Spanish true → 'L' (local) / false → 'V' (visitante); English 'H' / 'A'. */
-export function formatVenue(is_home: boolean, locale: Locale = DEFAULT_LOCALE): string {
-  return venueLabel(is_home, locale);
-}
-
-/**
- * Stable composite key for a FixtureEntry — safe for double gameweeks.
- *
- * gameweek alone is NOT unique in DGWs: a player can have two fixtures in
- * the same GW against different opponents. This key combines all three
- * identity fields so DGW rows are always distinct.
- *
- * Format: "{gw}-{opponent}-{H|A}"  e.g. "29-ARS-H", "29-MUN-A"
- */
-export function fixtureKey(entry: FixtureEntry): string {
-  return `${entry.gameweek}-${entry.opponent_short}-${entry.is_home ? 'H' : 'A'}`;
 }

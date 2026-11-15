@@ -5,10 +5,10 @@
  * No React, no DOM, no jsdom required.
  *
  * These tests cover component-level output logic beyond renderer selection:
- *   - FixtureRunTable: fdrColor, formatVenue
+ *   - FixtureChip: fdrColor, formatVenue
  *   - DifferentialTable: formatOwnership, formatCost
  */
-import { fdrColor, formatVenue, fixtureKey } from '../components/intents/FixtureRunTable';
+import { fdrColor, formatVenue, fixtureKey } from '../components/intents/FixtureChip';
 import {
   formatOwnership,
   formatCost,
@@ -17,7 +17,7 @@ import {
 import { fixtureRunDgwResponse } from './fixtures/sample-responses';
 
 // ---------------------------------------------------------------------------
-// FixtureRunTable — fdrColor
+// FixtureChip — fdrColor
 // ---------------------------------------------------------------------------
 
 describe('fdrColor — FDR difficulty to hex colour', () => {
@@ -48,7 +48,7 @@ describe('fdrColor — FDR difficulty to hex colour', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FixtureRunTable — formatVenue
+// FixtureChip — formatVenue
 // ---------------------------------------------------------------------------
 
 describe('formatVenue — Spanish venue abbreviation', () => {
@@ -136,7 +136,7 @@ describe('formatPositionScore — score formatting with missing-value fallback',
 });
 
 // ---------------------------------------------------------------------------
-// FixtureRunTable — fixtureKey (DGW-safe composite identity)
+// FixtureChip — fixtureKey (DGW-safe composite identity)
 // ---------------------------------------------------------------------------
 
 describe('fixtureKey — composite fixture identity for React keys', () => {

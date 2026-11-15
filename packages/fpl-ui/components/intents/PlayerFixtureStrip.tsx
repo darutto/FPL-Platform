@@ -24,7 +24,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { FixtureAxis, FixtureEntry, FixtureOutlookGW } from '@/lib/types';
-import { FixtureChip, fixtureKey } from './FixtureRunTable';
+import { FixtureChip, fixtureKey } from './FixtureChip';
 import { DETAILED_METRICS, ExtraTile, Gap, PlTile } from './FixtureTimeline';
 import { parseCompetitions, lockedLink, type CompetitionsView } from '@/lib/fixture-competitions';
 import { axisLabel, bandColor, bandLabel, type Band } from '@/lib/fixture-outlook-format';
