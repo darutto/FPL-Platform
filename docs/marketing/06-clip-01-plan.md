@@ -75,3 +75,13 @@ Profundidad de campo: el fondo (césped/UI secundaria) con blur de 12–18px; el
 - **Voz (recomendación: Leo):** la comunidad del podcast ya conoce su voz, y eso refuerza "asistente de Bendito Fantasy" frente a "una IA más". Se graba con el móvil en un cuarto con ropa/cortinas, a 15–20 cm, en 3 tomas, y se limpia después. Plan B: voz IA cálida en español (p. ej. ElevenLabs), que requiere cuenta/API key.
 - **Guion VO (15 s, ~32 palabras):**
   > ¿Lo alineo esta semana? · Toca a Jackson en tu equipo. · Consulta a tu asistente. · Mira dónde dispara él… y dónde concede su rival. · Ahí está el cruce favorable. · FPL Asistente. Pruébalo gratis.
+
+## Datos confirmados: N. Jackson (captura de Leo, 15 nov, antes de la GW11)
+Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
+- ✅ Cruce favorable real en las GW11–13: **Sunderland (H)** en área centro + área izq; **Ipswich (A)** y **Everton (H)** en área centro.
+- Zonas: **57%** de su xG sin penalti en el área centro y **27%** en el área izquierda. Las dos casillas salen en turquesa.
+- Plano 4 usa la **GW11 vs Sunderland**: es el único rival que enciende las dos casillas. El 57% sube primero y el 27% después.
+- Mini ficha del plano 2: 54 pts · forma 8.8 · 31.4% sel. · £7.1m.
+- Guion VO ajustado: "Mira dónde dispara él… y dónde concede Sunderland."
+- Texto en pantalla en ES (las capturas están en EN): "Área centro · 57% de su xG sin penalti", "Cruce favorable".
+- Vigencia: el clip debe publicarse **antes del deadline de la GW11**, o se actualiza con el siguiente rival.
