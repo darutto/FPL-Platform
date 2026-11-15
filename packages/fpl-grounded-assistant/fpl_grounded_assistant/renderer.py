@@ -2160,6 +2160,8 @@ def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAUL
         else:
             what = t("renderer.position_changes.not_listed", locale)
         flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
+        if pstatus == "started" and m.get("played") is False:
+            flag += t("renderer.position_changes.predicted", locale)
         out = f"; {out_text(m['fpl_out'], locale)}" if m.get("fpl_out") else ""
         slot_note = slot_row_text(m.get("slot_occupants"), locale)
         out += f"; {slot_note}" if slot_note else ""

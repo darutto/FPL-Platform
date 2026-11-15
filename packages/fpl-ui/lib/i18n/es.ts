@@ -181,11 +181,9 @@ export const es = {
   'msg.recommendationData': 'Datos de la recomendación',
   'msg.followUpOn': 'Seguimiento activado ✓',
   'msg.followUp': 'Seguir conversación →',
-  'msg.badge.webAi': 'Búsqueda web + IA',
+  'msg.badge.webAi': 'Búsqueda web',
   'msg.badge.verified': 'Datos verificados',
   'msg.badge.noTournament': 'Sin datos del torneo',
-  'msg.badge.aiOn': 'IA activa',
-  'msg.badge.deterministic': 'Determinístico',
   'msg.providerDown': 'proveedor no disponible',
 
   // --- Wizards (the questions the UI itself asks) ---
@@ -352,7 +350,7 @@ export const es = {
 
   // --- Web search card ---
   'web.title': 'Búsqueda web',
-  'web.badge': 'Búsqueda web · IA · información sin verificar',
+  'web.badge': 'Búsqueda web · sin verificar',
   'web.sources': 'Fuentes consultadas',
 
   // --- Sharing ---
@@ -510,7 +508,6 @@ export const es = {
   'z.noExploiters': 'Sin perfiles de jugador que encajen en estas zonas todavía.',
   'z.penalties': 'Penaltis (excluidos):',
   'z.xgaPerGame': '{value} xGA/partido',
-  'z.ai': 'IA activa',
   'z.scope.fixtures': 'rivales de {opponent} hasta la J{gw}',
   'z.scope.inferred': '{matched} · según tu pregunta',
   'z.group.home': 'J{gw} · {team} recibe a {opponent}',
@@ -578,7 +575,7 @@ export const es = {
   'sq.pos.FWD': 'DEL',
   'sq.captainAria': ', capitán',
   'sq.detailAria': 'Detalle de {name}',
-  'sq.ask': 'Ask AI →',
+  'sq.ask': 'Asistente →',
   'sq.askQuestion': 'Cuéntame sobre {name} — ¿lo alineo esta semana?',
   'sq.stat.pts': 'Pts GW',
   'sq.stat.sel': 'Sel.',

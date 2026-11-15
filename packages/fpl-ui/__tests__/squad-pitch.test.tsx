@@ -50,7 +50,7 @@ test('loads the connected squad, selects a starter, and deselects it without ask
   expect(onAskPlayer).not.toHaveBeenCalled();
 });
 
-test('bench selection replaces the starter detail and Ask AI uses only the selected player', async () => {
+test('bench selection replaces the starter detail and the assistant button uses only the selected player', async () => {
   const onAskPlayer = jest.fn();
   render(<SquadPitch teamId={123} onAskPlayer={onAskPlayer} />);
   const starter = await screen.findByRole('button', { name: 'Haaland, MCI' });
@@ -63,7 +63,7 @@ test('bench selection replaces the starter detail and Ask AI uses only the selec
   expect(bench).toHaveAttribute('aria-pressed', 'true');
   const detail = screen.getByRole('region', { name: 'Detalle de Calvert-Lewin' });
   expect(onAskPlayer).not.toHaveBeenCalled();
-  fireEvent.click(within(detail).getByRole('button', { name: /Ask AI/ }));
+  fireEvent.click(within(detail).getByRole('button', { name: 'Asistente →' }));
   expect(onAskPlayer).toHaveBeenCalledTimes(1);
   expect(onAskPlayer).toHaveBeenCalledWith('Cuéntame sobre Calvert-Lewin — ¿lo alineo esta semana?');
 });

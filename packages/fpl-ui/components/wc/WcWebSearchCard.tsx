@@ -17,6 +17,7 @@ import type { WcWebSearchPayload } from '@/lib/wc-types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from '@/components/intents/CardOrnaments';
 import MarkdownLite from '@/components/MarkdownLite';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: WcWebSearchPayload;
@@ -57,6 +58,7 @@ function hostLabel(result: { source: string; url: string }): string {
 
 
 export default function WcWebSearchCard({ data }: Props) {
+  const t = useT();
   const { topic, summary, results, timestamp } = data;
   const when = formatTimestamp(timestamp);
 
@@ -80,7 +82,7 @@ export default function WcWebSearchCard({ data }: Props) {
       <div className="px-4 py-3 space-y-2">
         {/* Unverified disclaimer (Banner pattern, info tone) */}
         <div className="rounded-lg border border-bf-cyan/40 bg-bf-cyan/10 px-3 py-1.5 text-[11px] text-bf-cyan">
-          Búsqueda web · IA · información sin verificar
+          {t('web.badge')}
         </div>
 
         {topic && (

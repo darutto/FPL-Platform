@@ -6,23 +6,26 @@ lineup store once per build and keeps every player's observed role in memory; th
 minutes, xA/90 against the other defenders) comes from the bootstrap already loaded, so a card is a dict lookup
 plus one pass over the defenders.
 
-No extra latency for the card: when the index for the current build is not ready, the card gets ``None`` at once
-(the UI keeps the FPL fallback: DEF/GKP defence, else attack) and the index is built in a background thread. A store
-that is missing or unreadable, a fixture list that cannot be fetched, or ``FOOTBALL_INTELLIGENCE_ENABLED`` off: also
-``None``. Never raises.
+No extra latency for the card. The server warms the index at startup (:func:`warm_index`, a background thread that
+never blocks boot or /healthz), so the first cards after a deploy are not degraded. When a new build lands, cards keep
+reading the previous build's index while the new one is built in the background. Only with no index at all (the very
+first seconds after a start) does the card get ``None`` (the UI keeps the FPL fallback: DEF/GKP defence, else attack;
+the verdict has no position line). A store that is missing or unreadable, a fixture list that cannot be fetched, or
+``FOOTBALL_INTELLIGENCE_ENABLED`` off: also ``None``. Never raises.
 """
 from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Any, Callable
 
 _LOG = logging.getLogger("fpl_grounded_assistant.player_strip_axis")
 
 _lock = threading.Lock()
-#: ``build_id`` -> axes of that build, and every player's latest starting slots (the verdict's position line,
-#: player_signals.py); only the current build is kept.
-_index: dict[str, Any] = {"build_id": None, "axes": None, "starts": None}
+#: ``build_id`` -> axes of that build, and every player's position-card window (the verdict's position line,
+#: player_signals.py: the same matches get_position_changes reads); only the current build is kept.
+_index: dict[str, Any] = {"build_id": None, "axes": None, "windows": None}
 _building: set[str] = set()
 
 
@@ -39,10 +42,11 @@ def _current_build_id(handle: Any) -> str:
 
 
 def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures: Callable[[], list] | None) -> None:
+    started = time.monotonic()
     try:
-        from football_intelligence.observed_axis import observed_by_element, recent_starts_by_element  # noqa: PLC0415
+        from football_intelligence.observed_axis import observed_by_element  # noqa: PLC0415
+        from football_intelligence.position_changes import DEFAULT_LIMIT, recent_windows_by_element  # noqa: PLC0415
 
-        from .player_signals import POSITION_RECENT_STARTS  # noqa: PLC0415
         from .position_changes_tool import fixture_index  # noqa: PLC0415
 
         fixtures = fixture_index(bootstrap, fetch_fixtures)
@@ -50,9 +54,18 @@ def _build(handle: Any, build_id: str, bootstrap: dict[str, Any], fetch_fixtures
             return
         snapshots, slots = handle.table("lineup_snapshots"), handle.table("lineup_slots")
         axes = observed_by_element(snapshots, slots, fixtures)
-        starts = recent_starts_by_element(snapshots, slots, fixtures, keep=POSITION_RECENT_STARTS)
+        windows: dict[int, Any] = {}
+        try:  # the position line only: a failure here must not cost the strip its axis
+            # Same window as the position card (get_position_changes' default): his club's latest matches.
+            windows = recent_windows_by_element(
+                snapshots, slots, handle.table("squad_membership"), fixtures, limit=DEFAULT_LIMIT)
+        except Exception:  # noqa: BLE001
+            _LOG.warning("position window index build failed", exc_info=True)
         with _lock:
-            _index.update(build_id=build_id, axes=axes, starts=starts)
+            _index.update(build_id=build_id, axes=axes, windows=windows)
+        # Counts and timing only: nothing about the build's content is logged.
+        _LOG.info("player card index built: players=%d windows=%d seconds=%.1f",
+                  len(axes), len(windows), time.monotonic() - started)
     except Exception:  # noqa: BLE001
         _LOG.warning("strip axis index build failed", exc_info=True)
     finally:
@@ -105,7 +118,8 @@ def _lookup(
     background: bool,
 ) -> tuple[bool, Any]:
     """``(ready, value)``: the player's entry in the current build's ``field`` index. Not ready -> the index is built
-    (in a background thread unless ``background`` is False) and ``(False, None)`` comes back at once."""
+    (in a background thread unless ``background`` is False) and the PREVIOUS build's entry comes back at once while it
+    builds (``(True, value)``), or ``(False, None)`` when there is no index yet."""
     from .orch_config import is_football_intelligence_enabled  # noqa: PLC0415
 
     if not is_football_intelligence_enabled():
@@ -116,18 +130,20 @@ def _lookup(
         handle = handle_from_env()
     build_id = _current_build_id(handle)
     with _lock:
-        ready = _index["build_id"] == build_id
-        if ready:
+        if _index["build_id"] == build_id:
             return True, (_index[field] or {}).get(int(element_id))
+        # A new build: serve the previous one meanwhile (a day's difference at most), never nothing.
+        stale = _index["build_id"] is not None
+        previous = (_index[field] or {}).get(int(element_id)) if stale else None
         if build_id in _building:
-            return False, None
+            return stale, previous
         _building.add(build_id)
     if background:
         threading.Thread(
             target=_build, args=(handle, build_id, bootstrap, fetch_fixtures),
             name="strip-axis-index", daemon=True,
         ).start()
-        return False, None
+        return stale, previous
     _build(handle, build_id, bootstrap, fetch_fixtures)
     with _lock:
         if _index["build_id"] != build_id:
@@ -154,7 +170,7 @@ def strip_axis_for(
         return None
 
 
-def recent_starts_for(
+def position_window_for(
     element_id: int,
     bootstrap: dict[str, Any],
     *,
@@ -162,17 +178,34 @@ def recent_starts_for(
     fetch_fixtures: Callable[[], list] | None = None,
     background: bool = True,
 ) -> list[dict[str, Any]] | None:
-    """His latest starting slots (oldest first, up to ``player_signals.POSITION_RECENT_STARTS``) from the same
-    per-build index, or ``None`` while it is not ready / the store is off. A player with no stored start gets ``[]``.
-    Same seams as :func:`strip_axis_for`. Never raises."""
+    """His position-card window (``football_intelligence.position_changes.recent_windows_by_element``: his club's
+    latest ``DEFAULT_LIMIT`` matches, oldest first) from the same per-build index, or ``None`` while it is not ready /
+    the store is off. A player with no stored lineup gets ``[]``. Same seams as :func:`strip_axis_for`. Never raises."""
     try:
-        ready, starts = _lookup("starts", element_id, bootstrap, handle, fetch_fixtures, background)
-        return list(starts or []) if ready else None
+        ready, window = _lookup("windows", element_id, bootstrap, handle, fetch_fixtures, background)
+        return list(window or []) if ready else None
     except Exception:  # noqa: BLE001
         return None
 
 
+def warm_index(bootstrap: dict[str, Any], *, handle: Any = None, fetch_fixtures: Callable[[], list] | None = None) -> bool:
+    """Start building the current build's index in a background thread, so the first cards after a start find it
+    ready. Returns at once (True when a build was started). Called from the server's startup; never raises, never
+    blocks: it reads only the store's small pointer file on the caller's thread."""
+    try:
+        from .orch_config import is_football_intelligence_enabled  # noqa: PLC0415
+
+        if not is_football_intelligence_enabled():
+            return False
+        before = set(_building)
+        _lookup("axes", 0, bootstrap, handle, fetch_fixtures, True)
+        return bool(set(_building) - before)
+    except Exception:  # noqa: BLE001  (no store synced, unreadable pointer, ...)
+        _LOG.info("player card index warm-up skipped", exc_info=True)
+        return False
+
+
 def _reset_for_tests() -> None:
     with _lock:
-        _index.update(build_id=None, axes=None, starts=None)
+        _index.update(build_id=None, axes=None, windows=None)
         _building.clear()

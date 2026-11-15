@@ -35,7 +35,6 @@ const SAME_IN_BOTH = new Set<string>([
   'sq.bench',
   'sq.tap1',
   'sq.tap2',
-  'sq.ask',
   'sq.stat.sel',
   'z.pos.DEF',
   'sq.pos.DEF',

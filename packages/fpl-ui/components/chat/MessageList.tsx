@@ -274,7 +274,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           <div
             role="region"
             aria-label={t('msg.structuredAnswer')}
-            className="relative overflow-hidden rounded-card border border-white/10 bg-gradient-to-br from-bf-surface/70 to-bf-surface/55 text-sm shadow-card"
+            className={`relative overflow-hidden rounded-card border ${originOutlineClass(message)} bg-gradient-to-br from-bf-surface/70 to-bf-surface/55 text-sm shadow-card`}
           >
             {(showVerdict || showConclusions) && (
               <section
@@ -345,7 +345,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
             ? 'bg-bf-coral text-white hc:text-bf-ink rounded-[14px] rounded-br'
             : message.isError
               ? 'bg-bf-coral/10 border border-bf-coral/40 text-bf-coral rounded-[14px] rounded-tl'
-              : 'bg-white/5 border border-white/10 text-bf-text rounded-[14px] rounded-tl'
+              : `bg-white/5 border ${originOutlineClass(message)} text-bf-text rounded-[14px] rounded-tl`
         }`}
       >
         {/* A compare-clarification turn's bubble content is owned by the
@@ -420,6 +420,19 @@ function FollowUpButton({ armed, onClick }: { armed: boolean; onClick: () => voi
   );
 }
 
+/**
+ * Outline colour of an assistant answer surface: a quiet origin cue that
+ * replaced the «IA activa» / «Determinístico» pill. Turquoise when the model
+ * wrote the answer, BF gold when it was deterministic. Web-search and World
+ * Cup turns keep their own pills and the neutral outline.
+ */
+export function originOutlineClass(message: Message): string {
+  if (message.wcResponse != null || message.response == null || message.response.web_search != null) {
+    return 'border-white/10';
+  }
+  return message.llmUsed ? 'border-bf-turquoise/25' : 'border-bf-gold/25';
+}
+
 function OriginBadges({ message }: { message: Message }) {
   const t = useT();
   // World Cup turns: llm_used is true on nearly every turn (the LLM always
@@ -427,8 +440,8 @@ function OriginBadges({ message }: { message: Message }) {
   // origin signal here. Use `grounded` instead — whether a real tool call
   // backed this answer ("Datos verificados") vs an ungrounded LLM reply
   // ("Sin datos del torneo", e.g. a "no tengo datos" refusal).
-  let originBadgeLabel: string;
-  let originBadgeClassName: string;
+  let originBadgeLabel: string | null = null;
+  let originBadgeClassName = '';
   if (message.wcResponse?.source === 'web_search') {
     // Unverified external synthesis — NEVER "Datos verificados". Cyan matches
     // the WcWebSearchCard accent (the system's web/search color).
@@ -444,20 +457,20 @@ function OriginBadges({ message }: { message: Message }) {
     // Unverified external synthesis — same cyan accent as WebSearchCard.
     originBadgeLabel = t('msg.badge.webAi');
     originBadgeClassName = 'border-bf-cyan/40 bg-bf-cyan/10 text-bf-cyan';
-  } else {
-    originBadgeLabel = message.llmUsed ? t('msg.badge.aiOn') : t('msg.badge.deterministic');
-    originBadgeClassName = message.llmUsed
-      ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
-      : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
   }
+  // Plain FPL turns carry no pill: model vs deterministic is the outline colour
+  // of the answer surface instead (originOutlineClass).
+  if (originBadgeLabel == null && !message.degraded) return null;
 
   return (
     <div className="mt-3 flex items-center gap-2">
-      <span
-        className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${originBadgeClassName}`}
-      >
-        {originBadgeLabel}
-      </span>
+      {originBadgeLabel != null && (
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${originBadgeClassName}`}
+        >
+          {originBadgeLabel}
+        </span>
+      )}
       {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
       {message.degraded && (
         <span className="inline-flex items-center rounded-full border border-bf-coral-soft/40 bg-bf-coral-soft/10 px-2 py-1 text-[11px] font-medium text-bf-coral-soft">

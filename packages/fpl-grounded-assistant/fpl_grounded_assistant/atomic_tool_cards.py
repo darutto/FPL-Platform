@@ -233,10 +233,12 @@ def compose_rank_players_card(
 
 
 def _same_slot(matches: list[dict[str, Any]], gap: dict[str, Any]) -> tuple[int, int]:
-    """Listed starts in the role the gap names, and all listed starts (the "Misma casilla 6/6" pill)."""
+    """Listed starts in the role the gap names, and all listed starts (the "Misma casilla 6/6" pill). Played matches
+    only: a predicted XI is shown on its row, never counted."""
     def side(slot: dict[str, Any]) -> Any:
         return slot.get("side") if slot.get("side") in ("left", "right") else None
-    starts = [m["slot"] for m in matches if m.get("player_status") == "started" and m.get("slot")]
+    starts = [m["slot"] for m in matches
+              if m.get("player_status") == "started" and m.get("slot") and m.get("played", True)]
     same = sum(1 for s in starts if (s.get("detailed_position"), side(s)) == (gap.get("detailed_position"), gap.get("side")))
     return same, len(starts)
 
@@ -308,7 +310,8 @@ def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, An
         role = {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}
         frm = {"fpl_position": gap.get("fpl_position"), "line": gap.get("fpl_position")}
         to = {**role, "line": gap.get("played_line")}
-        gws = [m.get("gameweek") for m in raw_output.get("matches") or [] if m.get("player_status") == "started"]
+        gws = [m.get("gameweek") for m in raw_output.get("matches") or []
+               if m.get("player_status") == "started" and m.get("played", True)]
         labels = {"from": t("gcard.position_changes.pill_fpl", locale,
                             fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)),
                   "to": t("gcard.position_changes.pitch_role", locale, gws=_gw_span(gws, locale), role=role_text(role, locale)),
@@ -376,6 +379,10 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             else:
                 slot = t("renderer.position_changes.not_listed", locale)
             notes: list[str] = []
+            if pstatus == "started" and m.get("played") is False:
+                # A lineup stored before the match: shown as the predicted XI, outside every count.
+                notes.append(t("gcard.position_changes.note_predicted", locale))
+                adds = True
             if pitch:
                 pass  # the pitch already says the starting role and how it changed
             elif m.get("change") and m["change"].get("kind") == "line":

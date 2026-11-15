@@ -112,7 +112,7 @@ describe('the zones card', () => {
       'Where to attack', 'The greener, the bigger your edge.', 'Inside the box', 'Edge of the box',
       'Left', 'Centre', 'Right', 'your best zone', 'slight edge', 'no edge', '≈ average',
       'expected goals above an average league side', 'Player', 'Zone', 'Fit',
-      'Penalties (excluded):', 'AI on', 'small sample',
+      'Penalties (excluded):', 'small sample',
     ]) {
       expect(strings.some((s) => s.includes(expected))).toBe(true);
     }
@@ -269,7 +269,7 @@ describe('the squad pitch', () => {
     const detail = screen.getByRole('region', { name: 'Details for Cole Palmer' });
     expect(within(detail).getByText('MID')).toBeInTheDocument();
     for (const label of ['GW pts', 'Sel.', 'Form']) expect(within(detail).getByText(label)).toBeInTheDocument();
-    fireEvent.click(within(detail).getByRole('button', { name: /Ask AI/ }));
+    fireEvent.click(within(detail).getByRole('button', { name: 'Assistant →' }));
     expect(onAskPlayer).toHaveBeenCalledWith('Tell me about Cole Palmer — should I start this player this week?');
     const strings = onScreen(container);
     expect(strings.filter((s) => SPANISH_UI_WORDS.test(s))).toEqual([]);
