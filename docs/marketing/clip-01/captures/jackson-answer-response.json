@@ -1,0 +1,234 @@
+{
+  "url": "http://localhost:3100/api/proxy",
+  "status": 200,
+  "request": "{\"question\":\"Cuéntame sobre N.Jackson — ¿lo alineo esta semana?\",\"locale\":\"es\",\"intent_hint\":null,\"squad_context\":{\"itb\":18,\"free_transfers\":1,\"chips_remaining\":[\"wildcard\"],\"chips_used\":[{\"chip\":\"bench_boost\",\"event\":1},{\"chip\":\"triple_captain\",\"event\":3},{\"chip\":\"free_hit\",\"event\":4},{\"chip\":\"wildcard\",\"event\":6}]},\"team_id\":330340,\"web_search_requested\":false}",
+  "body": {
+    "final_text": "Sí: **alinea a N. Jackson esta semana**.\n\nTiene un cruce especialmente atractivo **en casa contra Sunderland**, mantiene una buena racha y su calendario inmediato también es favorable. Además, tienes a los tres delanteros en tu XI; no veo una alternativa de banca que justifique sacarlo.\n\nEstá disponible, suma **722 minutos** esta temporada y no tiene noticias negativas. También conserva el brazalete de vicecapitán. La lectura zonal es favorable para sus próximos tres partidos, aunque la muestra de esa métrica todavía es corta.",
+    "outcome": "ok",
+    "supported": true,
+    "intent": "player_snapshot",
+    "review_passed": true,
+    "llm_used": true,
+    "debug": null,
+    "comparison": null,
+    "captain": null,
+    "captain_ranking": null,
+    "pool_source": null,
+    "pool_size": null,
+    "synthesis_turn": true,
+    "presentation": null,
+    "squad_source": null,
+    "squad_excluded": null,
+    "sub_responses": null,
+    "transfer": null,
+    "chip": null,
+    "fixture_run": null,
+    "differential": null,
+    "orch_outcome": "ok",
+    "degraded": false,
+    "player_form": null,
+    "injury_list": null,
+    "price_changes": null,
+    "team_calendar": null,
+    "team_schedule": null,
+    "position_fixture_run": null,
+    "transfer_suggestion": null,
+    "zonal_opportunity": null,
+    "fixture_outlook": null,
+    "player_snapshot": {
+      "id": 166,
+      "web_name": "N.Jackson",
+      "team_short": "AVL",
+      "position": "FWD",
+      "minutes_played_season": 722,
+      "status": "Available",
+      "news": "",
+      "news_added": null,
+      "chance_of_playing_this_round": null,
+      "form": 8.8,
+      "total_points": 54,
+      "points_per_game": 6,
+      "expected_goals": 3.46,
+      "expected_assists": 0.9,
+      "expected_goal_involvements": 4.36,
+      "expected_goals_conceded": 10.63,
+      "ict_index": 66.5,
+      "influence": 258.6,
+      "creativity": 123.6,
+      "threat": 284,
+      "saves": 0,
+      "yellow_cards": 2,
+      "red_cards": 0,
+      "expected_goals_per_90": 0.43,
+      "expected_assists_per_90": 0.11,
+      "expected_goal_involvements_per_90": 0.54,
+      "ict_index_per_90": 8.289473684210526,
+      "defensive_contribution": 27,
+      "defensive_contribution_per_90": 3.37,
+      "now_cost": 71,
+      "selected_by_percent": 31.4,
+      "transfers_in_event": 339503,
+      "transfers_out_event": 9870,
+      "penalties_order": 3,
+      "direct_freekicks_order": null,
+      "corners_and_indirect_freekicks_order": null,
+      "fixtures": [
+        {
+          "gameweek": 11,
+          "opponent_short": "SUN",
+          "is_home": true,
+          "difficulty": 2
+        },
+        {
+          "gameweek": 12,
+          "opponent_short": "IPS",
+          "is_home": false,
+          "difficulty": 2
+        },
+        {
+          "gameweek": 13,
+          "opponent_short": "EVE",
+          "is_home": true,
+          "difficulty": 3
+        },
+        {
+          "gameweek": 14,
+          "opponent_short": "CRY",
+          "is_home": true,
+          "difficulty": 2
+        },
+        {
+          "gameweek": 15,
+          "opponent_short": "COV",
+          "is_home": false,
+          "difficulty": 2
+        }
+      ],
+      "team_fdr_context": {
+        "avg_fdr": 2.2,
+        "difficulty_label": "easy",
+        "gw_from": 11,
+        "gw_to": 15
+      },
+      "zonal": {
+        "zones": [
+          {
+            "zone": "in-box / central",
+            "share": 0.5709
+          },
+          {
+            "zone": "in-box / left",
+            "share": 0.2744
+          }
+        ],
+        "gw_from": 11,
+        "gw_to": 13,
+        "fixtures": [
+          {
+            "gameweek": 11,
+            "fixture_id": 101,
+            "opponent": "Sunderland",
+            "opponent_short": "SUN",
+            "is_home": true,
+            "status": "favorable",
+            "matches": [
+              {
+                "zone": "in-box / central",
+                "delta_vs_avg": 0.3824,
+                "player_share": 0.5709
+              },
+              {
+                "zone": "in-box / left",
+                "delta_vs_avg": 0.0342,
+                "player_share": 0.2744
+              }
+            ]
+          },
+          {
+            "gameweek": 12,
+            "fixture_id": 116,
+            "opponent": "Ipswich Town",
+            "opponent_short": "IPS",
+            "is_home": false,
+            "status": "favorable",
+            "matches": [
+              {
+                "zone": "in-box / central",
+                "delta_vs_avg": 0.5922,
+                "player_share": 0.5709
+              }
+            ]
+          },
+          {
+            "gameweek": 13,
+            "fixture_id": 121,
+            "opponent": "Everton",
+            "opponent_short": "EVE",
+            "is_home": true,
+            "status": "favorable",
+            "matches": [
+              {
+                "zone": "in-box / central",
+                "delta_vs_avg": 0.1113,
+                "player_share": 0.5709
+              }
+            ]
+          }
+        ],
+        "verdict_kind": "favorable",
+        "verdict": "N.Jackson genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en J11 (Sunderland) y J12 (Ipswich Town) y J13 (Everton).",
+        "data_provenance": {
+          "season": "2026-2027",
+          "season_label": "2026-27",
+          "live_season": "2026-2027",
+          "is_current": true,
+          "status": "thin",
+          "label": "⚠ Datos de 2026-27, sólo 8 jornadas de liga — muestra corta para una lectura de liga",
+          "ingested_at": "2026-10-26T07:07:20Z",
+          "n_matches": 80,
+          "n_shots": 2192
+        }
+      },
+      "status_label": "Disponible",
+      "news_label": "",
+      "strip_axis": "attack",
+      "conclusions": [
+        {
+          "key": "zonal",
+          "params": {
+            "opponents": [
+              "SUN",
+              "IPS",
+              "EVE"
+            ]
+          },
+          "evidence": null
+        },
+        {
+          "key": "starts",
+          "params": {
+            "starts": 9,
+            "games": 10
+          },
+          "evidence": null
+        }
+      ],
+      "signals": [
+        {
+          "kind": "zone",
+          "label": "Quién del AVL explota al SUN",
+          "send_text": "¿Qué jugadores del Aston Villa pueden explotar las zonas débiles del Sunderland?"
+        }
+      ]
+    },
+    "generic_card": null,
+    "suggestions": null,
+    "resource_rows": null,
+    "table_conclusions": null,
+    "route_source": null,
+    "classifier_confidence": null,
+    "route_conflict": false,
+    "clarification_asked": false,
+    "web_search": null
+  }
+}

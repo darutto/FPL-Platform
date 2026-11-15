@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard clip 01</title>
+<style>
+  @font-face { font-family: Barlow; font-weight: 400; src: url(fonts/barlow-400.woff2) format('woff2'); }
+  @font-face { font-family: Barlow; font-weight: 600; src: url(fonts/barlow-600.woff2) format('woff2'); }
+  @font-face { font-family: Barlow; font-weight: 700; src: url(fonts/barlow-700.woff2) format('woff2'); }
+  @font-face { font-family: 'Archivo Black'; font-weight: 400; src: url(fonts/archivo-black-400.woff2) format('woff2'); }
+  :root {
+    --bg: #12111a; --surface: #1c1a26; --card: #211F29; --coral: #FF6A4D; --turq: #02EBAE;
+    --cyan: #04C4D9; --gold: #F2C572; --gray: #ABA9AC; --text: #f0f0f0; --line: #2e2b3b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Barlow, system-ui, sans-serif; }
+  .page { max-width: 1900px; margin: 0 auto; padding: 40px 32px 48px; }
+  header h1 { font-family: 'Archivo Black'; font-weight: 400; font-size: 34px; margin: 0 0 6px; letter-spacing: .3px; }
+  header h1 span { color: var(--coral); }
+  header p { margin: 4px 0; color: var(--gray); font-size: 16px; line-height: 1.45; max-width: 1500px; }
+  header p b { color: var(--text); font-weight: 600; }
+  .status { display: inline-block; margin: 10px 0 0; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 14px; letter-spacing: .6px; text-transform: uppercase; }
+  .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; margin-top: 28px; align-items: start; }
+  .col { min-width: 0; }
+
+  /* 9:16 frame, 360x640 CSS px = 1080x1920 at 3x. Anchor (180,300) = (540,900). */
+  .frame { position: relative; width: 360px; max-width: 100%; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 14px; background: var(--bg); outline: 1px solid var(--line); margin: 0 auto; }
+  .frame .bgblur { position: absolute; inset: -40px; background-size: cover; background-position: center; filter: blur(16px) brightness(.38) saturate(1.1); }
+  .frame .fg { position: absolute; overflow: hidden; border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+  .frame .fg img { position: absolute; display: block; max-width: none; }
+  .frame .safe { position: absolute; left: 0; right: 0; top: 93.3px; height: 406.7px; border-top: 1px dashed rgba(255,255,255,.14); border-bottom: 1px dashed rgba(255,255,255,.14); pointer-events: none; }
+  .frame .cross { position: absolute; left: 180px; top: 300px; width: 18px; height: 18px; margin: -9px 0 0 -9px; pointer-events: none; }
+  .frame .cross::before, .frame .cross::after { content: ''; position: absolute; background: rgba(255,255,255,.35); }
+  .frame .cross::before { left: 8.5px; top: 0; width: 1px; height: 18px; }
+  .frame .cross::after { top: 8.5px; left: 0; height: 1px; width: 18px; }
+  .frame .tag { position: absolute; top: 12px; left: 12px; font-size: 11px; font-weight: 700; letter-spacing: .8px; color: var(--text); background: rgba(18,17,26,.75); border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; }
+  .frame .caption { position: absolute; left: 18px; right: 18px; top: 104px; text-align: center; font-weight: 700; font-size: 25px; line-height: 1.12; text-shadow: 0 2px 14px rgba(0,0,0,.7); }
+  .frame .caption em { font-style: normal; color: var(--turq); }
+  .frame .ring { position: absolute; border-radius: 50%; border: 2px solid var(--turq); box-shadow: 0 0 0 6px rgba(2,235,174,.18), 0 0 22px rgba(2,235,174,.55); pointer-events: none; }
+  .frame .hl { position: absolute; border-radius: 10px; border: 2px solid var(--coral); box-shadow: 0 0 0 5px rgba(255,106,77,.18), 0 0 20px rgba(255,106,77,.5); pointer-events: none; }
+  .frame .logo { position: absolute; left: 180px; top: 300px; width: 150px; height: 150px; margin: -75px 0 0 -75px; filter: drop-shadow(0 0 28px rgba(242,197,114,.45)); }
+  .frame .pill { position: absolute; left: 50%; top: 392px; transform: translateX(-50%); white-space: nowrap; background: var(--coral); color: #fff; font-weight: 700; font-size: 19px; padding: 10px 20px; border-radius: 999px; box-shadow: 0 10px 30px rgba(255,106,77,.35); }
+  .frame .handle { position: absolute; left: 0; right: 0; top: 450px; text-align: center; color: var(--gray); font-weight: 600; font-size: 15px; letter-spacing: .4px; }
+
+  .meta { margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 14.5px; line-height: 1.42; }
+  .meta h2 { margin: 0 0 2px; font-size: 19px; font-weight: 700; }
+  .meta h2 .n { font-family: 'Archivo Black'; font-weight: 400; color: var(--coral); margin-right: 6px; }
+  .meta .time { color: var(--turq); font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .meta dl { margin: 0; display: grid; grid-template-columns: 82px 1fr; gap: 5px 10px; }
+  .meta dt { color: var(--gray); font-weight: 600; font-size: 12px; letter-spacing: .5px; text-transform: uppercase; padding-top: 2px; }
+  .meta dd { margin: 0; }
+  .meta code { font-size: 12.5px; color: var(--cyan); word-break: break-all; }
+  footer { margin-top: 26px; color: var(--gray); font-size: 14px; line-height: 1.5; border-top: 1px solid var(--line); padding-top: 14px; }
+  footer b { color: var(--text); }
+  @media (max-width: 1100px) { .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .page { padding: 24px 16px; } .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Clip 01 · <span>Toca. Pregunta. Entiende.</span></h1>
+    <p>15 s · 1080×1920 · 30 fps. Ancla en el centro exacto (540, 900): todo nace, cambia y muere ahí. Transiciones por <b>transformación del objeto</b> (morph), nunca cross-dissolve. Línea discontinua = zona segura (y 280–1500). Cruz = centro.</p>
+    <p><b>Todas las imágenes son capturas de la app real</b> (<code>packages/fpl-ui</code> en local contra el backend de producción) en móvil 390×844 a 3x. Capturado el <b>15 nov 2026</b>, con la J10 cerrada y antes del deadline de la J11 (21 nov, 11:00 UTC). Equipo FPL <b>330340</b>. La respuesta del asistente es la que devolvió producción a la pregunta del Squad, sin tocar ninguna cifra.</p>
+    <span class="status">Pendiente de aprobación · Leo</span>
+  </header>
+
+  <div class="row" id="row"></div>
+
+  <footer>
+    <b>Fuentes</b>: <code>docs/marketing/clip-01/captures/</code> (PNG 1170×2532, respuesta JSON y videos de pantalla). Pasada 1 en vivo: Squad → toque → "Asistente →" → pregunta → respuesta (<code>video/flow-live.mp4</code>). Pasada 2: el mismo flujo con <b>la misma respuesta guardada</b>, reproducida en la app real para grabar el scroll de la tarjeta hasta Zonas sin gastar otra pregunta de la cuota (<code>video/flow-scroll-replay.mp4</code>). El texto en pantalla y el logo se añaden en la animación; el resto es la UI tal cual.
+  </footer>
+</div>
+
+<script>
+// Each shot: the real capture, the source rectangle (in capture px, 1170x2532) to frame, and annotations in capture px.
+const CAP = '../captures/';
+const SHOTS = [
+  { n: 1, title: 'Hook', time: '0–2 s · frames 0–60', img: '01-squad.png',
+    rect: [0, 830, 560, 1390], box: [340, 330],
+    rings: [[279, 1108, 70]],
+    caption: '¿Lo alineo esta semana?',
+    image: 'Squad real sobre el césped. La ficha de N.Jackson late en el centro mientras el resto del equipo se asienta.',
+    move: 'Push-in lento 1.00→1.06 sobre la ficha N.J; fondo desenfocado.',
+    trans: 'La cámara se acerca a N.J y la ficha se ilumina (toque) → pasa al plano 2.',
+    src: 'captures/01-squad.png' },
+  { n: 2, title: 'Toca', time: '2–5 s · frames 60–150', img: '02-jackson-detail.png',
+    rect: [0, 1040, 1170, 1880], box: [340, 330],
+    rings: [[279, 1108, 70]], hls: [[878, 1538, 1110, 1668]],
+    caption: 'Toca a cualquier jugador.',
+    image: 'N.Jackson seleccionado (coral). La mini ficha real: DEL · AVL · £7.1m · 11 Pts GW · 31.4% Sel. · 8.8 Forma, con el botón "Asistente →".',
+    move: 'La ficha se despliega hacia abajo en la mini ficha; pulso sobre "Asistente →".',
+    trans: 'El botón "Asistente →" se estira y se convierte en la burbuja del chat (morph).',
+    src: 'captures/02-jackson-detail.png' },
+  { n: 3, title: 'Pregunta', time: '5–8 s · frames 150–240', img: '03-question-sent.png',
+    rect: [40, 470, 1130, 900], box: [340, 330],
+    caption: 'Pregúntale a tu asistente.',
+    image: 'La burbuja real de la pregunta: "Cuéntame sobre N.Jackson — ¿lo alineo esta semana?" y debajo "Pensando…".',
+    move: 'La pregunta se escribe palabra a palabra dentro de la burbuja.',
+    trans: '"Pensando…" se pliega en un rectángulo que se dibuja como el área del mini campo de Zonas.',
+    src: 'captures/03-question-sent.png' },
+  { n: 4, title: 'Entiende (hero)', time: '8–12.5 s · frames 240–375', img: '07-zonas.png',
+    rect: [45, 790, 1125, 2120], box: [340, 330],
+    caption: 'Dónde dispara él. <em>Dónde concede Sunderland.</em>',
+    image: 'Zonas real (J11–J13): área centro 57% y área izq 27% de su xG sin penalti, ambas en turquesa. "J11 Sunderland (L) · Cruce favorable · Área centro, Área izq".',
+    move: 'Las celdas se rellenan; sube 0→57% y después 0→27%; se enciende el chip de Sunderland (acento musical).',
+    trans: 'Las líneas del campo se recogen al centro y forman el contorno del logo.',
+    src: 'captures/07-zonas.png (pasada 2) · 07b-zonas-live.png (pasada 1, mismas cifras)' },
+  { n: 5, title: 'CTA', time: '12.5–15 s · frames 375–450', img: '07-zonas.png', logo: true,
+    caption: '',
+    image: 'Logo real (logo-icon.png) en el centro con brillo. Debajo, pastilla coral "FPL Asistente · Prueba gratis" y "benditofantasy".',
+    move: 'El logo se asienta con un brillo; la pastilla sube 24 px.',
+    trans: '— Último fotograma fijo 0.5 s para el loop.',
+    src: 'packages/fpl-ui/public/logo-icon.png' },
+];
+
+const row = document.getElementById('row');
+for (const s of SHOTS) {
+  const col = document.createElement('div'); col.className = 'col';
+  const f = document.createElement('div'); f.className = 'frame'; f.id = 'shot-' + s.n;
+  const bg = document.createElement('div'); bg.className = 'bgblur'; bg.style.backgroundImage = `url(${CAP + s.img})`; f.appendChild(bg);
+  if (s.rect) {
+    const [x0, y0, x1, y1] = s.rect, w = x1 - x0, h = y1 - y0;
+    const k = Math.min(s.box[0] / w, s.box[1] / h);
+    const fw = w * k, fh = h * k, fx = 180 - fw / 2, fy = 330 - fh / 2;
+    const fg = document.createElement('div'); fg.className = 'fg';
+    Object.assign(fg.style, { left: fx + 'px', top: fy + 'px', width: fw + 'px', height: fh + 'px' });
+    const im = new Image(); im.src = CAP + s.img; im.alt = s.title;
+    Object.assign(im.style, { width: 1170 * k + 'px', left: -x0 * k + 'px', top: -y0 * k + 'px' });
+    fg.appendChild(im); f.appendChild(fg);
+    for (const [cx, cy, r] of s.rings || []) {
+      const d = document.createElement('div'); d.className = 'ring'; const rr = r * k;
+      Object.assign(d.style, { left: fx + (cx - x0) * k - rr + 'px', top: fy + (cy - y0) * k - rr + 'px', width: 2 * rr + 'px', height: 2 * rr + 'px' });
+      f.appendChild(d);
+    }
+    for (const [a, b, c, e] of s.hls || []) {
+      const d = document.createElement('div'); d.className = 'hl';
+      Object.assign(d.style, { left: fx + (a - x0) * k + 'px', top: fy + (b - y0) * k + 'px', width: (c - a) * k + 'px', height: (e - b) * k + 'px' });
+      f.appendChild(d);
+    }
+  }
+  if (s.logo) {
+    const lg = new Image(); lg.src = 'logo-icon.png'; lg.className = 'logo'; lg.alt = 'Logo Bendito Fantasy'; f.appendChild(lg);
+    const p = document.createElement('div'); p.className = 'pill'; p.textContent = 'FPL Asistente · Prueba gratis'; f.appendChild(p);
+    const h = document.createElement('div'); h.className = 'handle'; h.textContent = 'benditofantasy'; f.appendChild(h);
+  }
+  if (s.caption) { const c = document.createElement('div'); c.className = 'caption'; c.innerHTML = s.caption; f.appendChild(c); }
+  const safe = document.createElement('div'); safe.className = 'safe'; f.appendChild(safe);
+  const cr = document.createElement('div'); cr.className = 'cross'; f.appendChild(cr);
+  const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = `#${s.n} · ${s.time.split(' · ')[0]}`; f.appendChild(tag);
+  col.appendChild(f);
+  const m = document.createElement('div'); m.className = 'meta';
+  m.innerHTML = `<h2><span class="n">${s.n}</span>${s.title}</h2><div class="time">${s.time}</div><dl>
+    <dt>Texto</dt><dd>${s.caption ? '“' + s.caption.replace(/<[^>]+>/g, '') + '”' : '“FPL Asistente · Prueba gratis” + “benditofantasy”'}</dd>
+    <dt>Imagen</dt><dd>${s.image}</dd>
+    <dt>Movimiento</dt><dd>${s.move}</dd>
+    <dt>Transición</dt><dd>${s.trans}</dd>
+    <dt>Fuente</dt><dd><code>${s.src}</code></dd></dl>`;
+  col.appendChild(m); row.appendChild(col);
+}
+</script>
+</body>
+</html>

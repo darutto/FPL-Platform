@@ -85,3 +85,11 @@ Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
 - Guion VO ajustado: "Mira dónde dispara él… y dónde concede Sunderland."
 - Texto en pantalla en ES (las capturas están en EN): "Área centro · 57% de su xG sin penalti", "Cruce favorable".
 - Vigencia: el clip debe publicarse **antes del deadline de la GW11**, o se actualiza con el siguiente rival.
+
+## Storyboard visual con capturas reales (15 nov, pendiente de aprobación)
+- Jackson no está en el equipo 68643. Leo indicó usar el **330340**, donde es titular.
+- Capturas de la app real (backend de producción, J10 cerrada, antes del deadline de la J11): `clip-01/captures/` (ver su README).
+- Storyboard: `clip-01/storyboard/index.html`, `contact-sheet.png` y `frames/shot-0N.png` (1080×1920).
+- La respuesta real coincide con `data.json`: 57% área centro, 27% área izq y "Cruce favorable · Área centro, Área izq" contra Sunderland (L) en la J11.
+- Mini ficha del plano 2: muestra **11 Pts GW** (puntos de la J10), no 54. Los 54 pts totales salen en la ficha de la respuesta.
+- No se produce el video hasta que Leo apruebe.
