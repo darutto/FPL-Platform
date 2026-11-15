@@ -115,3 +115,9 @@ Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
   - **15 s.**
 - Zonas, ajuste de rodaje: el texto se divide en dos siguiendo la cámara. "Dónde dispara él." va sobre las celdas y "Dónde concede Sunderland." sobre la fila de Sunderland, con un paneo hacia abajo.
 - Siguiente paso: aprobación visual de la v2. Después, sonido (música, SFX y voz).
+
+### v3 (15 nov): pausa en el veredicto
+- Leo: al aparecer la respuesta, el scroll empezaba demasiado rápido y había demasiado texto para entenderlo.
+- Ahora la cámara se detiene en el **veredicto** (204–262) y lo destaca: "Cruce zonal favorable: SUN, IPS, EVE" · "Titular en 9 de 10" · "Sí: alinea a N. Jackson esta semana". El resto del texto queda en penumbra. Es la respuesta directa al hook.
+- Tiempos nuevos: 3a Pregunta 6–6.8 s · 3b Veredicto 6.8–8.9 s · 3c Scroll 8.9–9.7 s · 4 Zonas 9.7–13.2 s · 5 CTA 13.2–15 s.
+- Archivo: `clip-01/clip01-v3-nosound.mp4`.

@@ -32,7 +32,7 @@ const SHOTS: Shot[] = [
   { from: 78, src: '01-squad.png', h: 2532 }, // tap on the SQUAD tab: the app switches instantly
   { from: 120, src: '02-jackson-detail.png', h: 2532 }, // tap on N.J
   { from: 180, src: '03-question-sent.png', h: 2532, chat: true }, // "Asistente →" opens Chat
-  { from: 210, src: '09-answer-tall.png', h: 6147, chat: true }, // the answer replaces "Pensando…"
+  { from: 204, src: '09-answer-tall.png', h: 6147, chat: true }, // the answer replaces "Pensando…"
 ];
 const shotAt = (f: number) => [...SHOTS].reverse().find((s) => f >= s.from)!;
 
@@ -52,13 +52,15 @@ const CAM: Cam[] = [
   [142, 585, 1450, 1.02], // follow the card unfolding below the pitch
   [178, 640, 1520, 1.08],
   [180, 585, 760, 1.12], // Chat: the question bubble
-  [210, 585, 760, 1.16],
-  [240, 585, 1080, 1.06], // the verdict
-  [264, 585, 3990, 1.0], // real scroll down the same answer to Zonas: his zones
-  [300, 585, 4000, 1.04],
-  [318, 585, 4010, 1.04],
-  [342, 585, 4480, 1.04], // down to the Sunderland row
-  [384, 585, 4500, 1.1],
+  [204, 585, 760, 1.14],
+  [218, 585, 940, 1.1], // the answer arrives: settle on the verdict and hold it
+  [262, 585, 950, 1.1],
+  [266, 585, 1000, 1.08],
+  [290, 585, 3990, 1.0], // real scroll down the same answer to Zonas: his zones
+  [322, 585, 4000, 1.04],
+  [336, 585, 4010, 1.04],
+  [356, 585, 4480, 1.04], // down to the Sunderland row
+  [396, 585, 4500, 1.1],
 ];
 function camera(f: number) {
   const at = (i: 1 | 2 | 3) => kf(f, CAM.map((c) => [c[0], c[i]] as [number, number]));
@@ -81,6 +83,8 @@ const CELLS = { x: 201, y: 3767, w: 512, h: 384 };
 const SUNDERLAND = { x: 105, y: 4805, w: 960, h: 72 };
 // Manager's name next to the team in the chat header: blurred for privacy.
 const PRIVACY = { x: 100, y: 360, w: 440, h: 66 };
+// The verdict: the three lines that answer the hook, spotlit while the camera holds.
+const VERDICT = { x: 100, y: 750, w: 970, h: 380 };
 
 const Pulse: React.FC<{ f: number; x: number; y: number; r: number }> = ({ f, x, y, r }) => {
   if (f < 0 || f > 16) return null;
@@ -112,15 +116,15 @@ export const Clip01: React.FC = () => {
   const cam = camera(f);
 
   // Shot 5: the screen collapses into the centre and the logo takes its place.
-  const out = p(f, 384, 22);
+  const out = p(f, 396, 22);
   const z = cam.z * (1 - out * 0.92);
   const left = ANCHOR.x - cam.x * z;
   const top = ANCHOR.y - cam.y * z;
-  const blur = f >= 240 && f < 268 ? Math.min(26, scrollSpeed(f) / 9) : 0;
+  const blur = f >= 266 && f < 292 ? Math.min(26, scrollSpeed(f) / 9) : 0;
 
-  const logoIn = p(f, 396, 20);
-  const pillIn = p(f, 410, 14);
-  const handleIn = p(f, 418, 14);
+  const logoIn = p(f, 408, 18);
+  const pillIn = p(f, 420, 12);
+  const handleIn = p(f, 428, 12);
 
   return (
     <AbsoluteFill style={{ backgroundColor: C.bg, overflow: 'hidden' }}>
@@ -134,7 +138,7 @@ export const Clip01: React.FC = () => {
 
       {/* the real screen under the camera */}
       <div style={{ position: 'absolute', left, top, width: SCREEN_W, height: shot.h, transform: `scale(${z})`, transformOrigin: '0 0',
-        opacity: 1 - p(f, 396, 10) }}>
+        opacity: 1 - p(f, 408, 10) }}>
         <div style={{ position: 'absolute', inset: 0, borderRadius: 64, overflow: 'hidden', boxShadow: '0 40px 120px rgba(0,0,0,0.6)',
           filter: blur ? 'url(#vblur)' : undefined }}>
           <Img src={cap(shot.src)} style={{ width: SCREEN_W, height: shot.h, display: 'block' }} />
@@ -144,10 +148,18 @@ export const Clip01: React.FC = () => {
           )}
         </div>
         {TAPS.map((t) => <Pulse key={t.at} f={f - t.at} x={t.x} y={t.y} r={t.r} />)}
+        {shot.src === '09-answer-tall.png' && f < 272 && (() => {
+          const on = p(f, 214, 10) * (1 - p(f, 262, 8));
+          return (
+            <div style={{ position: 'absolute', left: VERDICT.x, top: VERDICT.y, width: VERDICT.w, height: VERDICT.h, borderRadius: 34,
+              boxShadow: `0 0 0 6000px rgba(18,17,26,${0.72 * on}), 0 0 ${50 * on}px ${C.turquoise}66`,
+              border: `5px solid rgba(2,235,174,${on})` }} />
+          );
+        })()}
         {shot.src === '09-answer-tall.png' && (
           <>
-            <Glow f={f - 282} box={CELLS} radius={10} color={C.turquoise} />
-            <Glow f={f - 336} box={SUNDERLAND} radius={40} color={C.turquoise} />
+            <Glow f={f - 300} box={CELLS} radius={10} color={C.turquoise} />
+            <Glow f={f - 358} box={SUNDERLAND} radius={40} color={C.turquoise} />
           </>
         )}
       </div>
@@ -159,12 +171,12 @@ export const Clip01: React.FC = () => {
       <Caption text="¿Lo alineo esta semana?" start={4} end={70} y={300} />
       <Caption text="Tu equipo, en la cancha." start={80} end={114} y={300} />
       <Caption text="Toca a cualquier jugador." start={124} end={174} y={300} />
-      <Caption text="Pregúntale a tu asistente." start={184} end={238} y={300} />
-      <Caption text="Dónde dispara él." start={268} end={316} y={300} />
-      <Caption text="Dónde concede Sunderland." start={326} end={378} y={300} accent={["Sunderland"]} />
+      <Caption text="Pregúntale a tu asistente." start={184} end={212} y={300} />
+      <Caption text="Dónde dispara él." start={294} end={332} y={300} />
+      <Caption text="Dónde concede Sunderland." start={344} end={392} y={300} accent={["Sunderland"]} />
 
       {/* CTA: official SVG logo, then the coral pill */}
-      {f >= 392 && (
+      {f >= 404 && (
         <>
           <Img src={staticFile('assets/logo-bf.svg')} style={{ position: 'absolute', left: 540 - 230, top: 900 - 230, width: 460, height: 460,
             transform: `scale(${0.35 + 0.65 * logoIn})`, opacity: logoIn,
