@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-14",
+  "updated": "2026-11-15",
   "cards": [
     {
       "id": "s1",
@@ -2684,6 +2684,18 @@
       "col": "shipped",
       "title": "Línea de posición en el veredicto + pills «Explorar»",
       "desc": "Fusionada (PR #633, 13/11). El veredicto de la tarjeta de jugador suma una línea de posición («Juega de extremo · 8 de 10», según últimas 10 titularidades con alineación guardada, mínimo 3, mitad fuera de su línea FPL) leída del índice de alineaciones de #634 sin latencia añadida, y una sección «EXPLORAR» con pills Posición ›/Zonas › que solo aparecen si la conclusión correspondiente fue emitida tras el tope de #639, cada una enviando la pregunta de get_position_changes o get_zonal_opportunity.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s89",
+      "col": "shipped",
+      "title": "Veredicto para tablas de ranking (table_conclusions)",
+      "desc": "Fusionada (PR #648, #649, 15/11). Las tablas de ranking (rank_players_by_metric y los recursos top_form/top_xg/top_points/top_minutes/popular) suman un veredicto table_conclusions de hasta 3 conclusiones deterministas (gap, concentración, oportunidad, lectura de total) que la UI pinta en la franja de veredicto en vez del dump de filas sobre la tarjeta de tabla.",
       "tags": [
         "Backend",
         "UI",
