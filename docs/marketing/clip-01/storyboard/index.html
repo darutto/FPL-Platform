@@ -21,7 +21,7 @@
   header p { margin: 4px 0; color: var(--gray); font-size: 16px; line-height: 1.45; max-width: 1500px; }
   header p b { color: var(--text); font-weight: 600; }
   .status { display: inline-block; margin: 10px 0 0; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 14px; letter-spacing: .6px; text-transform: uppercase; }
-  .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px; margin-top: 28px; align-items: start; }
+  .row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; margin-top: 28px; align-items: start; }
   .col { min-width: 0; }
 
   /* 9:16 frame, 360x640 CSS px = 1080x1920 at 3x. Anchor (180,300) = (540,900). */
@@ -61,11 +61,12 @@
 <div class="page">
   <header>
     <h1>Clip 01 · <span>Toca. Pregunta. Entiende.</span></h1>
-    <p>15 s · 1080×1920 · 30 fps. Ancla en el centro exacto (540, 900): todo nace, cambia y muere ahí. Transiciones por <b>transformación del objeto</b> (morph), nunca cross-dissolve. Línea discontinua = zona segura (y 280–1500). Cruz = centro.</p>
+    <p>15 s · 1080×1920 · 30 fps. Ancla en el centro exacto (540, 900): todo nace, cambia y muere ahí. Transiciones por <b>transformación del objeto</b> o por el <b>scroll real</b> de la app, nunca cross-dissolve. Del 3a al 4 es una sola pantalla: pregunta → respuesta → scroll hasta Zonas. Línea discontinua = zona segura (y 280–1500). Cruz = centro.</p>
     <p><b>Todas las imágenes son capturas de la app real</b> (<code>packages/fpl-ui</code> en local contra el backend de producción) en móvil 390×844 a 3x. Capturado el <b>15 nov 2026</b>, con la J10 cerrada y antes del deadline de la J11 (21 nov, 11:00 UTC). Equipo FPL <b>330340</b>. La respuesta del asistente es la que devolvió producción a la pregunta del Squad, sin tocar ninguna cifra.</p>
     <span class="status">Pendiente de aprobación · Leo</span>
   </header>
 
+  <svg width="0" height="0" style="position:absolute"><filter id="mblur"><feGaussianBlur stdDeviation="0 2.2"/></filter></svg>
   <div class="row" id="row"></div>
 
   <footer>
@@ -93,18 +94,33 @@ const SHOTS = [
     move: 'La ficha se despliega hacia abajo en la mini ficha; pulso sobre "Asistente →".',
     trans: 'El botón "Asistente →" se estira y se convierte en la burbuja del chat (morph).',
     src: 'captures/02-jackson-detail.png' },
-  { n: 3, title: 'Pregunta', time: '5–8 s · frames 150–240', img: '03-question-sent.png',
+  { n: '3a', title: 'Pregunta', time: '5–6.3 s · frames 150–190', img: '03-question-sent.png',
     rect: [40, 470, 1130, 900], box: [340, 330],
     caption: 'Pregúntale a tu asistente.',
     image: 'La burbuja real de la pregunta: "Cuéntame sobre N.Jackson — ¿lo alineo esta semana?" y debajo "Pensando…".',
-    move: 'La pregunta se escribe palabra a palabra dentro de la burbuja.',
-    trans: '"Pensando…" se pliega en un rectángulo que se dibuja como el área del mini campo de Zonas.',
+    move: 'La pregunta entra rápida; "Pensando…" se ve solo ~0.4 s (frames 177–190). En la app tarda más, pero el clip no espera: basta con mostrar que piensa.',
+    trans: '"Pensando…" da paso a la respuesta en el mismo sitio, igual que en la app.',
     src: 'captures/03-question-sent.png' },
-  { n: 4, title: 'Entiende (hero)', time: '8–12.5 s · frames 240–375', img: '07-zonas.png',
+  { n: '3b', title: 'Respuesta', time: '6.3–7.5 s · frames 190–225', img: '04-answer-verdict.png',
+    rect: [40, 470, 1130, 1960], box: [340, 330],
+    caption: 'Pregúntale a tu asistente.',
+    image: 'La respuesta real arranca bajo la pregunta: veredicto "Cruce zonal favorable: SUN, IPS, EVE" · "Titular en 9 de 10" y "Sí: alinea a N. Jackson esta semana".',
+    move: 'La tarjeta aparece; pausa corta para leer el veredicto.',
+    trans: 'Arranca el scroll real de la tarjeta (misma pantalla, sin corte).',
+    src: 'captures/04-answer-verdict.png' },
+  { n: '3c', title: 'Scroll', time: '7.5–8.5 s · frames 225–255', img: '05-answer-player.png', blur: true,
+    rect: [40, 420, 1130, 1500], box: [340, 330],
+    caption: '',
+    image: 'Scroll real por la ficha (54 pts · £7.1m · 31.4% · forma 8.8, xG/xA) y el calendario (SUN · IPS · EVE · CRY).',
+    move: 'Aceleración con desenfoque de movimiento vertical: se lee como "bajamos por la misma respuesta".',
+    trans: 'Frena en seco en Zonas (misma pantalla).',
+    src: 'video/flow-scroll-replay.mp4 · captures/05-answer-player.png · 06-answer-fixtures.png' },
+  { n: 4, title: 'Entiende (hero)', time: '8.5–12.5 s · frames 255–375', img: '07-zonas.png',
     rect: [45, 790, 1125, 2120], box: [340, 330],
+    hls: [[100, 1860, 1065, 1945]],
     caption: 'Dónde dispara él. <em>Dónde concede Sunderland.</em>',
     image: 'Zonas real (J11–J13): área centro 57% y área izq 27% de su xG sin penalti, ambas en turquesa. "J11 Sunderland (L) · Cruce favorable · Área centro, Área izq".',
-    move: 'Las celdas se rellenan; sube 0→57% y después 0→27%; se enciende el chip de Sunderland (acento musical).',
+    move: 'Push-in sobre 57% / 27%; brillo en la fila de Sunderland (acento musical). Las cifras son las de la captura, sin reanimarlas.',
     trans: 'Las líneas del campo se recogen al centro y forman el contorno del logo.',
     src: 'captures/07-zonas.png (pasada 2) · 07b-zonas-live.png (pasada 1, mismas cifras)' },
   { n: 5, title: 'CTA', time: '12.5–15 s · frames 375–450', img: '07-zonas.png', logo: true,
@@ -126,7 +142,7 @@ for (const s of SHOTS) {
     const fw = w * k, fh = h * k, fx = 180 - fw / 2, fy = 330 - fh / 2;
     const fg = document.createElement('div'); fg.className = 'fg';
     Object.assign(fg.style, { left: fx + 'px', top: fy + 'px', width: fw + 'px', height: fh + 'px' });
-    const im = new Image(); im.src = CAP + s.img; im.alt = s.title;
+    const im = new Image(); im.src = CAP + s.img; im.alt = s.title; if (s.blur) im.style.filter = 'url(#mblur)';
     Object.assign(im.style, { width: 1170 * k + 'px', left: -x0 * k + 'px', top: -y0 * k + 'px' });
     fg.appendChild(im); f.appendChild(fg);
     for (const [cx, cy, r] of s.rings || []) {

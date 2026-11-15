@@ -93,3 +93,9 @@ Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
 - La respuesta real coincide con `data.json`: 57% área centro, 27% área izq y "Cruce favorable · Área centro, Área izq" contra Sunderland (L) en la J11.
 - Mini ficha del plano 2: muestra **11 Pts GW** (puntos de la J10), no 54. Los 54 pts totales salen en la ficha de la respuesta.
 - No se produce el video hasta que Leo apruebe.
+
+### Cambio de Leo (15 nov): del 3 al 4 es un scroll, no un morph
+- Del 3 al 4 se muestra **la misma pantalla de la app**: pregunta → respuesta → scroll real hasta Zonas. Desaparece el morph de "Pensando…" al área del campo.
+- "Pensando…" aparece solo ~0.4 s. La app tarda más, pero el clip no espera.
+- Tiempos nuevos: 3a Pregunta 5–6.3 s · 3b Respuesta (veredicto) 6.3–7.5 s · 3c Scroll con desenfoque de movimiento 7.5–8.5 s · 4 Zonas 8.5–12.5 s. El 1, el 2 y el 5 no cambian.
+- En el plano 4, las cifras se muestran tal como salen en la captura, sin animarlas de 0 a 57%. El énfasis lo hacen el push-in y el brillo en la fila de Sunderland.
