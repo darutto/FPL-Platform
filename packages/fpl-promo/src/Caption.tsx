@@ -12,12 +12,14 @@ interface Props {
   size?: number;
   /** Words to colour turquoise. */
   accent?: string[];
+  /** Colour every word from this index on turquoise. */
+  accentFrom?: number;
 }
 
 const PER_WORD = 4;
 
 /** Word-by-word slide-up in place, clipped by a mask: no bounce, no letter fades. */
-export const Caption: React.FC<Props> = ({ text, start, end, y = 330, size = 64, accent = [] }) => {
+export const Caption: React.FC<Props> = ({ text, start, end, y = 330, size = 64, accent = [], accentFrom }) => {
   const frame = useCurrentFrame();
   if (frame < start - 1 || frame > end + 14) return null;
   const words = text.split(' ');
@@ -53,7 +55,7 @@ export const Caption: React.FC<Props> = ({ text, start, end, y = 330, size = 64,
               style={{
                 display: 'inline-block',
                 transform: `translateY(${ty}%)`,
-                color: accent.includes(clean) ? C.turquoise : undefined,
+                color: accent.includes(clean) || (accentFrom !== undefined && i >= accentFrom) ? C.turquoise : undefined,
               }}
             >
               {w}

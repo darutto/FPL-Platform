@@ -24,6 +24,7 @@ Capturado el **15 nov 2026**, con la J10 cerrada y antes del deadline de la J11 
 | `07-zonas.png` | Zonas: 57% área centro y 27% área izq; Cruce favorable con SUN, IPS y EVE | 2 |
 | `07b-zonas-live.png` | Las mismas Zonas, pasada en vivo | 1 |
 | `08-answer-end-live.png` | Final de la tarjeta (aviso de muestra corta y "Seguir conversación") | 1 |
+| `09-answer-tall.png` | Respuesta completa en una sola imagen (1170×6147): viewport alto y la misma respuesta guardada. Es la fuente del scroll del video | 4 (sin cuota) |
 | `video/flow-live.mp4` | Flujo completo en vivo, 42 s | 1 |
 | `video/flow-scroll-replay.mp4` | Flujo completo con scroll lento desde el veredicto hasta Zonas, 25 s | 2 |
 

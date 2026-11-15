@@ -105,3 +105,13 @@ Fuente: `clip-01/data.json` y capturas en `clip-01/ref/`.
 - El hook en texto, "¿Lo alineo esta semana?", se mantiene en 0–2.5 s sobre la conexión. El plano del Squad pasa a decir "Tu equipo, en la cancha."
 - Tiempos (15 s): 0a Inicio 0–1 · 0b Conecta 1–2.5 · 1 Squad 2.5–4 · 2 Toca 4–6 · 3a Pregunta 6–7 · 3b Respuesta 7–8 · 3c Scroll 8–8.8 · 4 Zonas 8.8–12.8 · 5 CTA 12.8–15.
 - Logo: SVG oficial de Leo en `docs/marketing/assets/logo-bf.svg`, usado en el plano 5.
+
+## ✅ Storyboard v3 aprobado por Leo (15 nov) → video v2 sin sonido
+- `clip-01/clip01-v2-nosound.mp4` (15 s, 1080×1920, 30 fps), compuesto en `packages/fpl-promo` (Remotion) **solo con capturas reales**. Sustituye a la v1, que recreaba la UI y fue rechazada.
+- Decisiones aplicadas por defecto (Leo puede cambiarlas):
+  - Mini ficha con **11 Pts GW**, el dato real de la J10.
+  - Nombre del mánager en la cabecera del chat **desenfocado**.
+  - **Del 2 al 3 se usa el cambio de pestaña real** (corte instantáneo, como en la app) en lugar del morph del botón a la burbuja.
+  - **15 s.**
+- Zonas, ajuste de rodaje: el texto se divide en dos siguiendo la cámara. "Dónde dispara él." va sobre las celdas y "Dónde concede Sunderland." sobre la fila de Sunderland, con un paneo hacia abajo.
+- Siguiente paso: aprobación visual de la v2. Después, sonido (música, SFX y voz).
