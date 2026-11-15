@@ -61,6 +61,8 @@ class FixtureMeta:
     kickoff: str | None  # ISO 8601, UTC
     home: str
     away: str
+    #: FPL's own flag (``finished`` or ``finished_provisional``); None when the fixture list did not say.
+    finished: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,17 @@ def _lineups(snapshots: pd.DataFrame, slots: pd.DataFrame) -> dict[tuple[int, st
             fixture_id, team, str(snap["observed_at"]), bool(snap["confirmed"]), _clean(snap["formation"]),
             int(snap["n_starters"]), starters, bench)
     return lineups
+
+
+def _played(meta: FixtureMeta, lineup: _Lineup) -> bool:
+    """Whether the match has been played: FPL's fixture list decides (``finished`` / ``finished_provisional``).
+
+    A lineup is stored before kickoff (provisional, then confirmed), so a stored start may be a PREDICTED XI: it is
+    shown as such but never counted as a start ("Juega de ..." / "N de M" are about matches played). The provider's
+    state on the stored observation cannot decide it (a lineup observed before kickoff keeps "scheduled" after the
+    match), so when FPL does not say, the match counts as played, as before this flag existed.
+    """
+    return meta.finished is not False
 
 
 def _order_key(fixture_id: int, fixtures: Mapping[int, FixtureMeta]) -> tuple[str, int, int]:
@@ -163,6 +176,88 @@ def _person(element: int, names: Mapping[int, Mapping[str, Any]]) -> dict[str, A
     return {"player_id": element, "web_name": info.get("web_name"), "team_short": info.get("team_short")}
 
 
+def _club_records(
+    element: int,
+    usable: Mapping[tuple[int, str], _Lineup],
+    squad: pd.DataFrame,
+    fixtures: Mapping[int, FixtureMeta],
+) -> tuple[str | None, str | None, list[_Lineup], list[dict[str, Any]]]:
+    """``(missing_reason, club, club matches, one record per club match he was with the club for)``, oldest first.
+
+    The window both the position card (:func:`analyse`) and the player card's verdict line
+    (:func:`recent_windows_by_element`) read, so the two count the same matches. *squad* is the squad-membership
+    rows of this element only. A record carries no change data yet (``change`` None, no associations).
+    """
+    # The club: the one on the most recent lineup row of the player; else the latest squad record.
+    appearances = [(key, lu) for key, lu in usable.items() if element in lu.starters or element in lu.bench]
+    if appearances:
+        appearances.sort(key=lambda item: _order_key(item[0][0], fixtures))
+        team = appearances[-1][0][1]
+    else:
+        if squad.empty:
+            return "player_not_in_licensed_store", None, [], []
+        team = str(squad.sort_values("observed_at").iloc[-1]["team"])
+    first_seen = min(
+        [str(r["observed_at"]) for r in squad[squad["team"] == team].to_dict("records")]
+        + [lu.observed_at for (_fid, t), lu in appearances if t == team],
+        default=None,
+    )
+
+    matches = sorted((lu for (fid, t), lu in usable.items() if t == team), key=lambda lu: _order_key(lu.fixture_id, fixtures))
+    if not matches:
+        return "no_lineups_for_the_players_club", team, [], []
+
+    def status_of(lu: _Lineup) -> str:
+        if element in lu.starters:
+            return "started"
+        if element in lu.bench:
+            return "bench"
+        # Before the player is first seen with this club he is not "missing" from its lineups.
+        return "not_listed" if first_seen is not None and first_seen <= lu.observed_at else "not_with_club"
+
+    records: list[dict[str, Any]] = []
+    for i, lu in enumerate(matches):
+        meta = fixtures[lu.fixture_id]
+        status = status_of(lu)
+        if status == "not_with_club":
+            continue
+        slot = _slot(lu.starters[element], lu.formation) if status == "started" else None
+        is_home = meta.home == team
+        record: dict[str, Any] = {
+            "gameweek": meta.gameweek, "kickoff": meta.kickoff, "opponent": meta.away if is_home else meta.home,
+            "is_home": is_home, "lineup_status": "confirmed" if lu.confirmed else "provisional",
+            "player_status": status, "slot": slot, "claim_status": OBSERVED, "played": _played(meta, lu),
+            "change": None, "associations": [], "_index": i, "_fixture_id": lu.fixture_id,
+        }
+        records.append(record)
+    return None, team, matches, records
+
+
+def recent_windows_by_element(
+    snapshots: pd.DataFrame,
+    slots: pd.DataFrame,
+    squad_membership: pd.DataFrame,
+    fixtures: Mapping[int, FixtureMeta],
+    limit: int = DEFAULT_LIMIT,
+) -> dict[int, list[dict[str, Any]]]:
+    """Every listed player's position-card window from ONE read of the tables: the same ``matches`` that
+    :func:`analyse` returns for ``limit`` (his club's latest matches, bench and not-listed included), slimmed to
+    ``gameweek`` / ``player_status`` / ``slot`` / ``played``. Feed it to :func:`fpl_position_gap` for the card's own
+    count (played matches only)."""
+    limit = max(1, min(int(limit), MAX_LIMIT))
+    usable = {key: lu for key, lu in _lineups(snapshots, slots).items() if key[0] in fixtures}
+    elements = {e for lu in usable.values() for e in (*lu.starters, *lu.bench)}
+    squads = {int(k): g for k, g in squad_membership.groupby(squad_membership["element"].astype(int))} if len(squad_membership) else {}
+    empty = squad_membership.iloc[0:0]
+    out: dict[int, list[dict[str, Any]]] = {}
+    for element in elements:
+        reason, _team, _matches, records = _club_records(element, usable, squads.get(element, empty), fixtures)
+        if reason is None and records:
+            out[element] = [{"gameweek": r["gameweek"], "player_status": r["player_status"], "slot": r["slot"],
+                             "played": r["played"]} for r in records[-limit:]]
+    return out
+
+
 def analyse(
     *,
     element: int,
@@ -185,57 +280,17 @@ def analyse(
     without_meta = sum(1 for (fid, _t) in lineups if fid not in fixtures)
     usable = {key: lu for key, lu in lineups.items() if key[0] in fixtures}
 
-    # The club: the one on the most recent lineup row of the player; else the latest squad record.
-    appearances = [(key, lu) for key, lu in usable.items() if element in lu.starters or element in lu.bench]
-    if appearances:
-        appearances.sort(key=lambda item: _order_key(item[0][0], fixtures))
-        team = appearances[-1][0][1]
-    else:
-        squad = squad_membership[squad_membership["element"].astype(int) == element]
-        if squad.empty:
-            return _missing("player_not_in_licensed_store", without_meta)
-        team = str(squad.sort_values("observed_at").iloc[-1]["team"])
-    first_seen = min(
-        [str(r["observed_at"]) for r in squad_membership[
-            (squad_membership["element"].astype(int) == element) & (squad_membership["team"] == team)
-        ].to_dict("records")]
-        + [lu.observed_at for (_fid, t), lu in appearances if t == team],
-        default=None,
-    )
-
-    matches = sorted((lu for (fid, t), lu in usable.items() if t == team), key=lambda lu: _order_key(lu.fixture_id, fixtures))
-    if not matches:
-        return _missing("no_lineups_for_the_players_club", without_meta)
-
-    def status_of(lu: _Lineup) -> str:
-        if element in lu.starters:
-            return "started"
-        if element in lu.bench:
-            return "bench"
-        # Before the player is first seen with this club he is not "missing" from its lineups.
-        return "not_listed" if first_seen is not None and first_seen <= lu.observed_at else "not_with_club"
-
-    records: list[dict[str, Any]] = []
-    for i, lu in enumerate(matches):
-        meta = fixtures[lu.fixture_id]
-        status = status_of(lu)
-        if status == "not_with_club":
-            continue
-        slot = _slot(lu.starters[element], lu.formation) if status == "started" else None
-        is_home = meta.home == team
-        record: dict[str, Any] = {
-            "gameweek": meta.gameweek, "kickoff": meta.kickoff, "opponent": meta.away if is_home else meta.home,
-            "is_home": is_home, "lineup_status": "confirmed" if lu.confirmed else "provisional",
-            "player_status": status, "slot": slot, "claim_status": OBSERVED,
-            "change": None, "associations": [], "_index": i, "_fixture_id": lu.fixture_id,
-        }
-        records.append(record)
+    squad = squad_membership[squad_membership["element"].astype(int) == element]
+    reason, team, matches, records = _club_records(element, usable, squad, fixtures)
+    if reason is not None:
+        return _missing(reason, without_meta)
 
     # Changes against the player's own prior starts, and the teammates missing in the same match.
     started_so_far: list[tuple[int, dict[str, Any]]] = []
     for record in records:
         lu = matches[record["_index"]]
-        if record["player_status"] == "started":
+        # A predicted XI (match not played) is shown, but it is no start: no change claim, no baseline.
+        if record["player_status"] == "started" and record["played"]:
             prior = started_so_far[-BASELINE_STARTS:]
             if len(prior) >= MIN_BASELINE_STARTS:
                 base_role = _mode(_role(s) for _i, s in prior)
@@ -293,7 +348,7 @@ def analyse(
         result["absence_focus"] = absence
     if cover is not None:
         result["slot_cover"] = cover
-    switch = role_switch(records)
+    switch = role_switch([r for r in records if r.get("played", True)])
     if switch is not None:
         result["role_switch"] = switch
     return result
@@ -498,7 +553,8 @@ def fpl_position_gap(element_type: Any, matches: Iterable[Mapping[str, Any]]) ->
         return None
     lines: list[tuple[str, Mapping[str, Any]]] = []
     for m in matches:
-        if m.get("player_status") == "started" and m.get("slot"):
+        # A start in a match not played yet (a predicted XI) is not a start.
+        if m.get("player_status") == "started" and m.get("slot") and m.get("played", True):
             line = played_line(m["slot"])
             if line is not None:
                 lines.append((line, m["slot"]))

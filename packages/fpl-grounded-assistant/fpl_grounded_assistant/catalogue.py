@@ -1476,6 +1476,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "renderer.position_changes.slot_none": {"en": "  No usual slot measured yet for {player} (stored starts: {n}), so nobody is named for his slot.", "es": "  Aún no hay casilla habitual medida para {player} (titularidades guardadas: {n}); no se nombra a nadie en su casilla."},
     "renderer.position_changes.out_summary": {"en": "  Listed as out in FPL since {date}: {n} of these matches.", "es": "  Consta como baja en FPL desde el {date}: {n} de estos partidos."},
     "renderer.position_changes.provisional": {"en": " (provisional lineup)", "es": " (alineaci\u00f3n provisional)"},
+    # A lineup stored before the match is played: the predicted XI, never counted as a start.
+    "renderer.position_changes.predicted": {"en": " (predicted XI, not played yet)", "es": " (XI previsto, a\u00fan sin jugar)"},
     "renderer.position_changes.changed": {"en": "    started in a different slot than in his recent starts (before: {before})", "es": "    empez\u00f3 en otra casilla que en sus \u00faltimos partidos (antes: {before})"},
     "renderer.position_changes.changed_line_forward": {"en": "    same role, different line: further forward than in his recent starts", "es": "    mismo rol, otra línea: más adelantado que en sus últimos partidos"},
     "renderer.position_changes.changed_line_deeper": {"en": "    same role, different line: deeper than in his recent starts", "es": "    mismo rol, otra línea: más retrasado que en sus últimos partidos"},
@@ -1649,6 +1651,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "gcard.position_changes.pill_with": {"en": "Only {m} matches with {name}", "es": "Solo {m} partidos con {name}"},
     "gcard.position_changes.note_assoc_more": {"en": "and {n} more", "es": "y {n} m\u00e1s"},
     "gcard.position_changes.pill_provisional": {"en": "Provisional lineup", "es": "Alineaci\u00f3n provisional"},
+    "gcard.position_changes.note_predicted": {"en": "Predicted XI, not counted", "es": "XI previsto, sin contar"},
     "gcard.position_changes.code_GKP": {"en": "GKP", "es": "POR"},
     "gcard.position_changes.code_DEF": {"en": "DEF", "es": "DEF"},
     "gcard.position_changes.code_MID": {"en": "MID", "es": "MED"},
@@ -1786,10 +1789,15 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # players who can exploit a rival's weak zones, scoped to his club by
     # naming it). The verdict line's wording lives in the UI (concl.*).
     "signals.pill.position": {"en": "Position", "es": "Posición"},
-    "signals.pill.zone": {"en": "Zones", "es": "Zonas"},
     "signals.position.ask": {
         "en": "What position does {player} really play?",
         "es": "¿En qué posición juega {player}?",
+    },
+    # The team zonal link (player card «Zonas» section, fixture-cell answer):
+    # names its destination with the clubs' short codes.
+    "signals.zone.link": {
+        "en": "Who at {team} exploits {opp}",
+        "es": "Quién del {team} explota al {opp}",
     },
     "signals.zone.ask": {
         "en": "Which {team} players can exploit {opp}'s weak zones?",
