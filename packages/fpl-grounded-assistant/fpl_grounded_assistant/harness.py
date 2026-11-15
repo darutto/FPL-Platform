@@ -154,6 +154,22 @@ from .tool_dispatch import run_tool
 #   correct and expected.
 # ---------------------------------------------------------------------------
 
+def _tool_table_conclusions(tool: Any, raw_output: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
+    """``table_conclusions`` for a ``rank_players_by_metric`` turn; None for any other tool or when none fires."""
+    if tool != "rank_players_by_metric":
+        return None
+    from .table_conclusions import tool_ranking_conclusions  # noqa: PLC0415
+    return tool_ranking_conclusions(raw_output, bootstrap) or None
+
+
+def _resource_table_conclusions(decision: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
+    """``table_conclusions`` for an ``@resource`` ranking; None for ``injuries`` etc. or when none fires."""
+    from .table_conclusions import resource_ranking_conclusions  # noqa: PLC0415
+    return resource_ranking_conclusions(
+        decision.get("resource"), decision.get("resource_rows"), bootstrap,
+    ) or None
+
+
 ROUTING_TRACE_REQUIRED_KEYS: frozenset[str] = frozenset({
     "branch",
     "decision_kind",
@@ -901,6 +917,8 @@ def ask_v2(
             "kind":          "resource",
             "resource":      decision.get("resource"),
             "resource_rows": decision.get("resource_rows"),
+            # The table's verdict (table_conclusions): None unless a rule fires.
+            "table_conclusions": _resource_table_conclusions(decision, actual_bootstrap),
             "routing_trace": routing_trace,
             **_none_meta,  # resource branch: no deterministic tool ran → all 14 keys are None
         }
@@ -1288,6 +1306,12 @@ def ask_v2(
                 "answer_text":   orch_result.answer_text,
                 "outcome":       _orch_outcome,
                 "kind":          "text",
+                # The table's verdict: only alongside the ranking card it talks
+                # about (same single-tool gate), None unless a rule fires.
+                "table_conclusions": (
+                    _tool_table_conclusions(_orch_tool, _orch_raw, actual_bootstrap)
+                    if _orch_meta.get("generic_card") is not None else None
+                ),
                 # i105: orchestrator_provider / orchestrator_model, what the
                 # orchestrator ran with, for the audit line and debug bundle.
                 **_project_orchestrator_identity(orch_result),

@@ -315,6 +315,12 @@ export interface AskResponse {
   resource_rows: ResourceRows | null;
 
   /**
+   * Table verdict: 0-3 structured one-line conclusions ABOUT a table card (never its rows),
+   * worded by the UI (components/intents/TableConclusions). Absent/null/empty = none.
+   */
+  table_conclusions?: TableConclusion[] | null;
+
+  /**
    * Generic card payload (Track B) — non-null when outcome='ok' and the
    * intent has no bespoke structured component. Renders via GenericCard,
    * the fallback that closes the "plain text block" gap. Optional because
@@ -1107,6 +1113,26 @@ export interface ResourceRows {
   rows: ResourceRankingRow[] | InjuryRow[];
   data_age?: Record<string, unknown> | null;
 }
+
+// ---------------------------------------------------------------------------
+// Table conclusions (table_conclusions payload) — the verdict above a table card
+// ---------------------------------------------------------------------------
+
+/**
+ * One conclusion about a table. `gap`: the leader(s) are clear of the next row on `metric`
+ * (a canonical metric id). `concentration`: `count` of `total` rows share a position or team.
+ * `opportunity`: a row few managers own (`evidence.value` is a percent). `reading`: how to read
+ * the table (a season total rewards minutes).
+ */
+export type TableConclusion =
+  | {
+      key: 'gap';
+      params: { leaders: string[]; metric: string };
+      evidence: { next_rank: number; next_value: number; lead_values: number[] } | null;
+    }
+  | { key: 'concentration'; params: { kind: 'position' | 'team'; value: string; count: number; total: number }; evidence: null }
+  | { key: 'opportunity'; params: { name: string; kind: 'ownership' }; evidence: { value: number } | null }
+  | { key: 'reading'; params: { kind: 'total_metric' }; evidence: null };
 
 // ---------------------------------------------------------------------------
 // Generic card types (Track B — generic_card payload)
