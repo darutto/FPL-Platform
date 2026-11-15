@@ -25,15 +25,12 @@
 import type { TransferMeta, TransferRecommendation } from '@/lib/types';
 import { RECOMMENDATION_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import {
-  TRANSFER_LABEL,
-  TRANSFER_OUT_PILL,
   TRANSFER_CTA_URL,
-  TRANSFER_CTA_LABEL,
   transferVerdict,
-  UNIT_CAPTAIN_PTS,
-  UNIT_PRICE,
 } from '@/lib/copy';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { TriangleField } from './CardOrnaments';
+import type { Locale } from '@/lib/i18n/locale';
 
 interface Props {
   data: TransferMeta;
@@ -47,6 +44,8 @@ const STATUS_ICON: Record<TransferRecommendation, { icon: string; className: str
 };
 
 export default function TransferCard({ data }: Props) {
+  const t = useT();
+  const { locale } = useLocale();
   const {
     player_out,
     player_in,
@@ -58,7 +57,7 @@ export default function TransferCard({ data }: Props) {
     hit_warning,
   } = data;
 
-  const { label } = RECOMMENDATION_CONFIG[recommendation];
+  const { labelKey } = RECOMMENDATION_CONFIG[recommendation];
   const status = STATUS_ICON[recommendation] ?? STATUS_ICON.hold;
   const topReasons = reasons.slice(0, 3);
   const leadReason = topReasons[0];
@@ -70,25 +69,25 @@ export default function TransferCard({ data }: Props) {
       <div className="relative z-10 p-4 space-y-3">
         {/* Header — micro-label */}
         <span className="block text-xs font-extrabold text-bf-coral uppercase tracking-wide">
-          {TRANSFER_LABEL}
+          {t('transfer.label')}
         </span>
 
         {/* ── Block 1: context strip — OUT pill + status check ── */}
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-1">
           <span className="inline-flex items-center rounded-full border border-bf-coral/50 bg-bf-coral/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-bf-coral">
-            {TRANSFER_OUT_PILL}
+            {t('transfer.out')}
           </span>
           <span className="min-w-0 truncate text-xs font-extrabold text-white">{player_out}</span>
           <span className={`ml-auto flex items-center gap-1 pr-1.5 text-[10px] font-bold ${status.className}`}>
             <span className="font-black">{status.icon}</span>
-            <span className="truncate">{label}</span>
+            <span className="truncate">{t(labelKey)}</span>
           </span>
         </div>
 
         {/* ── Block 2: verdict + one-line reason + hero deltas ── */}
         <div className="space-y-2">
           <p className="text-lg font-extrabold leading-tight text-white">
-            {renderVerdict(recommendation, player_in)}
+            {renderVerdict(recommendation, player_in, locale)}
           </p>
           {leadReason && (
             <p className="text-xs leading-snug text-bf-gray line-clamp-2">{leadReason}</p>
@@ -98,20 +97,20 @@ export default function TransferCard({ data }: Props) {
           <div className="relative overflow-hidden rounded-xl border border-bf-coral/40 bg-bf-coral/[0.08] p-3">
             {recommendation !== 'hold' && (
               <span className="absolute right-0 top-0 rounded-bl-lg bg-bf-coral px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">
-                Pick
+                {t('cmp.pick')}
               </span>
             )}
             <div className="truncate pr-10 text-[15px] font-extrabold text-white">{player_in}</div>
             <div className="mt-2 flex items-end gap-5">
               <HeroDelta
                 value={formatScoreDelta(score_delta)}
-                unit={UNIT_CAPTAIN_PTS}
+                unit={t('unit.captainPts')}
                 positive={score_delta > 0}
               />
               {price_delta !== 0 && (
                 <HeroDelta
                   value={formatPriceDelta(price_delta)}
-                  unit={UNIT_PRICE}
+                  unit={t('unit.price')}
                   muted
                 />
               )}
@@ -135,10 +134,10 @@ export default function TransferCard({ data }: Props) {
 
           {/* Warning banners */}
           {budget_constraint && (
-            <Banner tone="warning">Supera tu presupuesto disponible</Banner>
+            <Banner tone="warning">{t('transfer.overBudget')}</Banner>
           )}
           {hit_warning && (
-            <Banner tone="caution">Usar una transferencia adicional costará −4 puntos</Banner>
+            <Banner tone="caution">{t('transfer.hit')}</Banner>
           )}
         </div>
 
@@ -149,7 +148,7 @@ export default function TransferCard({ data }: Props) {
           rel="noopener noreferrer"
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-bf-coral px-3 py-2.5 text-xs font-extrabold tracking-wide text-white transition-opacity hover:opacity-90"
         >
-          {TRANSFER_CTA_LABEL}
+          {t('transfer.cta')}
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path
               d="M3 3h6v6M3 9l6-6"
@@ -166,8 +165,8 @@ export default function TransferCard({ data }: Props) {
 }
 
 /** Verdict headline with the recommended name accented. Wording from lib/copy. */
-function renderVerdict(recommendation: TransferRecommendation, playerIn: string) {
-  const text = transferVerdict(recommendation, playerIn);
+function renderVerdict(recommendation: TransferRecommendation, playerIn: string, locale: Locale) {
+  const text = transferVerdict(recommendation, playerIn, locale);
   const idx = text.indexOf(playerIn);
   if (idx === -1) return text;
   return (

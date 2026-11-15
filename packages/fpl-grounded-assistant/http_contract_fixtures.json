@@ -38,6 +38,12 @@
           "required": false,
           "default": null,
           "description": "Optional pre-classifier routing bias. Allowlisted to 8 values. Fires only on deterministic router miss. Invalid values are silently ignored."
+        },
+        "locale": {
+          "type": "string|null",
+          "required": false,
+          "default": null,
+          "description": "i18n S0. 'es' or 'en' (case-insensitive). Anything else, or absent, is the default locale 'es'. Selects the language of the whole answer: the orchestrator and evaluator prompts, the deterministic composers and fallbacks, the quota upgrade text. Not identity; the UI decides who may select 'en'."
         }
       },
       "POST /session/{session_id}/ask": {
@@ -66,6 +72,12 @@
           "required": false,
           "default": null,
           "description": "Per-turn only. Not stored in session state. Does not affect subsequent turns."
+        },
+        "locale": {
+          "type": "string|null",
+          "required": false,
+          "default": null,
+          "description": "Same as POST /ask. Per-turn: a later turn may change it, and its answer follows the new value."
         }
       }
     },

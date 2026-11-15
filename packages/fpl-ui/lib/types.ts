@@ -164,6 +164,11 @@ export type IntentHint = (typeof INTENT_HINT_ALLOWLIST)[number];
 export interface AskRequest {
   /** Required. FPL question in natural language or slash command text. */
   question: string;
+  /**
+   * Language of the whole answer, prose and cards. The UI always sends the language it is showing;
+   * the backend falls back to Spanish when it is absent.
+   */
+  locale?: 'es' | 'en';
   /** Stable FPL element id chosen from a player-disambiguation wizard. */
   selected_player_id?: number | null;
   /**
@@ -308,6 +313,12 @@ export interface AskResponse {
 
   /** Resource payload — non-null for @resource turns, null otherwise. (A1 post-graduation) */
   resource_rows: ResourceRows | null;
+
+  /**
+   * Table verdict: 0-3 structured one-line conclusions ABOUT a table card (never its rows),
+   * worded by the UI (components/intents/TableConclusions). Absent/null/empty = none.
+   */
+  table_conclusions?: TableConclusion[] | null;
 
   /**
    * Generic card payload (Track B) — non-null when outcome='ok' and the
@@ -911,6 +922,12 @@ export interface DefensiveZonesMeta {
    * there is a genuine "zero players fit" finding worth showing.
    */
   has_exploiters?: boolean;
+  /**
+   * The 3 edge-of-box cells (left, central, right), same shape as `zones`.
+   * The headline can name a frontal zone, so the pitch draws them; absent/
+   * empty on older payloads (the card then draws the box only).
+   */
+  frontal_zones?: DefensiveZoneCell[];
 }
 
 // ---------------------------------------------------------------------------
@@ -971,7 +988,50 @@ export interface PlayerSnapshotMeta {
    * compatibility with older API deployments.
    */
   zonal?: PlayerZonalOutlookMeta | null;
+  /**
+   * The fixture strip's axis from the role he was listed to start in (backend, licensed
+   * lineups). Absent/null = the strip goes by FPL position.
+   */
+  strip_axis?: FixtureAxis | null;
+  /**
+   * The verdict above the card: 0-3 conclusions the card itself doesn't show, in priority order.
+   * Structured, worded by the UI. Absent/empty = no verdict block.
+   */
+  conclusions?: PlayerConclusion[];
+  /**
+   * «Explorar» pills at the foot of the card, one per verdict line that has a deeper card
+   * (position, zonal), display order. Empty/absent = no section at all.
+   */
+  signals?: PlayerSignal[];
 }
+
+/** One «Explorar» pill. `label` names the destination and `send_text` (sent verbatim on tap) arrive localized. */
+export interface PlayerSignal {
+  kind: 'position' | 'zone';
+  label: string;
+  send_text: string;
+}
+
+/** The verdict's position line: the role word when his off-line starts agree on it, else the line word. */
+export type PlayerPositionRole =
+  | 'winger' | 'wing_back' | 'forward' | 'attacking_mid' | 'central_mid' | 'holding_mid' | 'centre_back' | 'full_back';
+
+export type PlayerPosition = 'GKP' | 'DEF' | 'MID' | 'FWD';
+export type SetPiece = 'penalties' | 'free_kicks' | 'corners';
+
+/** "top N %" of his FPL position on a per-90 metric (players with 450+ minutes). */
+export interface PlayerConclusionEvidence {
+  metric: 'xgi_per_90' | 'dc_per_90' | 'cs_per_90';
+  top_pct: number;
+  position: PlayerPosition;
+}
+
+export type PlayerConclusion =
+  | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
+  | { key: 'position'; params: { role?: PlayerPositionRole; line?: PlayerPosition; starts: number; games: number }; evidence: null }
+  | { key: 'set_pieces'; params: { pieces: SetPiece[] }; evidence: null }
+  | { key: 'starts'; params: { starts: number; games: number }; evidence: null }
+  | { key: 'zonal'; params: { opponents: string[] }; evidence: null };
 
 /** A zone where the player concentrates xG. `share` is a 0-1 FRACTION of his non-penalty xG; convert to % once, at display time. */
 export interface PlayerZonalZone {
@@ -1055,6 +1115,26 @@ export interface ResourceRows {
 }
 
 // ---------------------------------------------------------------------------
+// Table conclusions (table_conclusions payload) — the verdict above a table card
+// ---------------------------------------------------------------------------
+
+/**
+ * One conclusion about a table. `gap`: the leader(s) are clear of the next row on `metric`
+ * (a canonical metric id). `concentration`: `count` of `total` rows share a position or team.
+ * `opportunity`: a row few managers own (`evidence.value` is a percent). `reading`: how to read
+ * the table (a season total rewards minutes).
+ */
+export type TableConclusion =
+  | {
+      key: 'gap';
+      params: { leaders: string[]; metric: string };
+      evidence: { next_rank: number; next_value: number; lead_values: number[] } | null;
+    }
+  | { key: 'concentration'; params: { kind: 'position' | 'team'; value: string; count: number; total: number }; evidence: null }
+  | { key: 'opportunity'; params: { name: string; kind: 'ownership' }; evidence: { value: number } | null }
+  | { key: 'reading'; params: { kind: 'total_metric' }; evidence: null };
+
+// ---------------------------------------------------------------------------
 // Generic card types (Track B — generic_card payload)
 // Fallback structured card for intents without a bespoke component.
 // ---------------------------------------------------------------------------
@@ -1109,6 +1189,56 @@ export interface GenericCardMeta {
   columns: GenericCardColumn[];
   rows: string[][];
   footer: string | null;
+  /** R6 two-player comparison (get_player_involvement with compare_player); null/absent on every other card. */
+  involvement_compare?: InvolvementCompareMeta | null;
+  /** Position changes: the mini-pitch (old -> new starting role, or FPL listing -> played role); null elsewhere. */
+  position_pitch?: PositionPitchMeta | null;
+}
+
+export type InvolvementSide = 'a' | 'b';
+export type InvolvementTrend = 'up' | 'down' | 'flat';
+
+/** One per-90 row. winner null = tie at the shown precision, unknown, or a metric without a winner (backward share). */
+export interface InvolvementPer90Row {
+  metric: 'touches' | 'key_passes' | 'passes' | 'pass_accuracy' | 'backward_share';
+  label: string;
+  a: number | null;
+  b: number | null;
+  winner: InvolvementSide | null;
+  unit: '' | '%';
+}
+
+/** One per-match series on the shared gameweek axis. null = no value (not played that gameweek, or unknown), never 0. */
+export interface InvolvementSeriesMetric {
+  metric: 'touches' | 'key_passes' | 'passes';
+  label: string;
+  a: (number | null)[];
+  b: (number | null)[];
+  trend_a: InvolvementTrend | null;
+  trend_b: InvolvementTrend | null;
+  avg_a: number | null;
+  avg_b: number | null;
+  avg_winner: InvolvementSide | null;
+}
+
+/** Built by the backend (atomic_tool_cards.compose_involvement_compare_card); every string is already localized. */
+export interface InvolvementCompareMeta {
+  a: { name: string; team: string | null };
+  b: { name: string; team: string | null };
+  per90: InvolvementPer90Row[];
+  series: { gameweeks: (number | null)[]; gw_labels: string[]; metrics: InvolvementSeriesMetric[] };
+  labels: {
+    title: string;
+    view_per90: string;
+    view_series: string;
+    avg: string;
+    trend_up: string;
+    trend_down: string;
+    trend_flat: string;
+  };
+  footer: string;
+  note: string | null;
+  provenance: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1153,4 +1283,26 @@ export interface QuotaStatus {
   upgrade_prompt_es: string | null;
   /** English upgrade prompt — non-null when allowed=false. */
   upgrade_prompt_en: string | null;
+}
+
+/** A starting role as the provider names it, plus its FPL line. Never a grid cell (its columns flip between matches). */
+export interface PitchRole {
+  detailed_position?: string | null;
+  side?: string | null;
+  line?: string | null;
+  /** Only on the FPL listing end of a gap: the position FPL lists the player in (DEF/MID/FWD). */
+  fpl_position?: string | null;
+}
+
+/** Built by the backend (atomic_tool_cards._position_pitch); every string is already localized, numbers are raw. */
+export interface PositionPitchMeta {
+  kind: 'switch' | 'fpl_listing';
+  from: PitchRole;
+  to: PitchRole;
+  labels: { from: string; to: string; table: string; before: string; after: string };
+  rows: Array<{ metric: string; label: string; before?: number | null; after?: number | null; value?: number | null }>;
+  note: string | null;
+  /** One observed line: teammates whose absence from the XI coincided with the starts shown (never a cause). */
+  associations?: string | null;
+  claim_status: string;
 }

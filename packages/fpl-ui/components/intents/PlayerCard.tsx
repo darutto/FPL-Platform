@@ -12,9 +12,10 @@
  *   expected_assists, expected_goal_involvements, ict_index,
  *   minutes_played_season.
  *
- * Also shows a compact next-5-fixtures strip (fixtures field, reusing
- * FixtureRunTable's FixtureChip) when the player's team is covered by
- * bootstrap["team_fixtures"] — empty array otherwise, strip omitted.
+ * Also shows a compact next-5-fixtures strip (fixtures field) when the
+ * player's team is covered by bootstrap["team_fixtures"] — empty array
+ * otherwise, strip omitted. The strip is gated by plan: see
+ * PlayerFixtureStrip (Free = FPL FDR chips, Premium = own band + Europe/cups).
  *
  * When `zonal` is present it appends the «Zonas» section
  * (PlayerZonasSection); absent/null leaves the card as it was.
@@ -27,9 +28,6 @@
 import type { PlayerSnapshotMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE } from '@/lib/theme';
 import {
-  UNIT_PRICE,
-  UNIT_FORM,
-  UNIT_OWNERSHIP,
   UNIT_PPG,
   UNIT_XG,
   UNIT_XA,
@@ -41,12 +39,13 @@ import {
   UNIT_XGI_PER_90,
   UNIT_ICT_PER_90,
   UNIT_DC_PER_90,
-  UNIT_MINUTES,
 } from '@/lib/copy';
+import { useT } from '@/lib/i18n/LocaleProvider';
 import { FingerprintWaves } from './CardOrnaments';
 import { resolveStatusBadge } from './InjuriesTable';
-import { FixtureChip, fixtureKey } from './FixtureRunTable';
+import { PlayerFixtureStrip } from './PlayerFixtureStrip';
 import PlayerZonasSection from './PlayerZonasSection';
+import PlayerSignals from './PlayerSignals';
 
 interface Props {
   data: PlayerSnapshotMeta;
@@ -55,6 +54,7 @@ interface Props {
 const ACCENT = 'purple' as const;
 
 export default function PlayerCard({ data }: Props) {
+  const t = useT();
   const {
     web_name,
     team_short,
@@ -118,7 +118,7 @@ export default function PlayerCard({ data }: Props) {
         <div>
           <div className="flex items-baseline gap-0.5 font-display leading-none tracking-tighter text-bf-purple">
             <span style={{ fontSize: 30 }}>{total_points}</span>
-            <span className="text-[11px] font-bold text-bf-gray">pts</span>
+            <span className="text-[11px] font-bold text-bf-gray">{t('unit.pts')}</span>
           </div>
           <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
             {UNIT_PPG} {points_per_game.toFixed(1)}
@@ -127,9 +127,9 @@ export default function PlayerCard({ data }: Props) {
 
         {/* Primary stat grid */}
         <div className="grid grid-cols-3 gap-2.5">
-          <Stat label={UNIT_PRICE} value={`£${(now_cost / 10).toFixed(1)}m`} />
-          <Stat label={UNIT_OWNERSHIP} value={`${selected_by_percent.toFixed(1)}%`} />
-          <Stat label={UNIT_FORM} value={form.toFixed(1)} />
+          <Stat label={t('unit.price')} value={`£${(now_cost / 10).toFixed(1)}m`} />
+          <Stat label={t('unit.ownership')} value={`${selected_by_percent.toFixed(1)}%`} />
+          <Stat label={t('unit.form')} value={form.toFixed(1)} />
         </div>
 
         {/* Underlying stats — muted secondary row */}
@@ -151,22 +151,23 @@ export default function PlayerCard({ data }: Props) {
         </div>
 
         <div className="text-[10px] text-bf-gray">
-          {minutes_played_season} {UNIT_MINUTES}
+          {minutes_played_season} {t('unit.minutes')}
         </div>
 
-        {/* Next-5 fixture strip — reuses FixtureRunTable's chip so the two
-            cards stay visually identical for the same underlying data. */}
-        {fixtures.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-t border-white/10 pt-2.5">
-            {fixtures.map((f) => (
-              <FixtureChip key={fixtureKey(f)} entry={f} />
-            ))}
-          </div>
-        )}
+        {/* Next-5 fixture strip, by plan. Free/unknown reuse FixtureRunTable's chip. */}
+        <PlayerFixtureStrip
+          fixtures={fixtures}
+          teamShort={team_short}
+          position={position}
+          observedAxis={data.strip_axis ?? null}
+        />
 
         {/* Bloque 10: zonal profile vs the pending matches of the next 3
             gameweeks. Absent/null -> no section, card unchanged. */}
         {zonal && <PlayerZonasSection zonal={zonal} />}
+
+        {/* Signals: up to 3 tappable pills; none -> nothing rendered. */}
+        <PlayerSignals signals={data.signals} />
       </div>
     </div>
   );

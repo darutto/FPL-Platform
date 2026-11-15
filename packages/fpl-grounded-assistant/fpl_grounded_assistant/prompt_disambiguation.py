@@ -72,20 +72,26 @@ def _fold(value: Any) -> str:
     return " ".join(stripped.casefold().split())
 
 
-def _strip_command(question: str, prompt_name: str) -> str | None:
-    """Return the argument text following ``/{prompt_name}``, or ``None``.
+def _split_command(question: str, prompt_name: str) -> tuple[str, str] | None:
+    """Return ``(typed_head, argument_text)`` for ``/{prompt_name}``, or ``None``.
 
-    ``None`` means the question is not the slash form this prompt was reached
-    by (e.g. it arrived as an alias, or through a path that rewrote it), so
-    there is no original text to rewrite faithfully.
+    ``typed_head`` is the command exactly as the user typed it (``/compare``,
+    ``/comparar``), so a rewrite stays in their language. An alias of the
+    prompt (``/compare`` -> ``comparar``) counts as the prompt.
+
+    ``None`` means the question is not a slash form of this prompt (e.g. it
+    was rewritten upstream), so there is no original text to rewrite faithfully.
     """
+    from .prompt_registry import resolve_prompt  # noqa: PLC0415 - registry imports dispatcher
+
     text = (question or "").strip()
     if not text.startswith("/"):
         return None
     head, _, rest = text.partition(" ")
-    if _fold(head.lstrip("/")) != _fold(prompt_name):
+    typed = head.lstrip("/")
+    if _fold(typed) != _fold(prompt_name) and resolve_prompt(typed) != prompt_name:
         return None
-    return rest.strip()
+    return head, rest.strip()
 
 
 def rebuild_with_choice(
@@ -103,7 +109,10 @@ def rebuild_with_choice(
     chips": a wrong rewrite would silently run a different comparison than the
     user asked for.
     """
-    args_text = _strip_command(question, prompt_name)
+    split = _split_command(question, prompt_name)
+    if split is None:
+        return None
+    head, args_text = split
     if not args_text or not str(ambiguous_query).strip() or not str(chosen_name).strip():
         return None
     if _FLAG_RE.search(args_text):
@@ -116,13 +125,13 @@ def rebuild_with_choice(
     # the slot, so it is replaced outright.
     parts = _CONNECTOR_CAPTURE_RE.split(args_text, maxsplit=1)
     if len(parts) == 1:
-        return f"/{prompt_name} {replacement}" if _fold(args_text) == target else None
+        return f"{head} {replacement}" if _fold(args_text) == target else None
 
     left, separator, right = parts[0], parts[1], parts[2]
     if _fold(left) == target:
-        return f"/{prompt_name} {replacement}{separator}{right}"
+        return f"{head} {replacement}{separator}{right}"
     if _fold(right) == target:
-        return f"/{prompt_name} {left}{separator}{replacement}"
+        return f"{head} {left}{separator}{replacement}"
     return None
 
 

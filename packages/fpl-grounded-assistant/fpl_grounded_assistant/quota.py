@@ -329,10 +329,16 @@ PATREON_URL: str = "https://www.patreon.com/fpl_asistente"
 class TierOffer:
     """One rung of the paid ladder, as presented in a quota message."""
 
-    tier:        str    # key into TIERS
-    display_es:  str    # the tier's name as it reads on Patreon
-    price_usd:   int
-    web_search:  bool   # headline differentiator from patreon_plus up
+    tier:           str    # key into TIERS
+    display_es:     str    # the tier's name as it reads on Patreon
+    price_usd:      int
+    web_search:     bool   # headline differentiator from patreon_plus up
+    #: The name the membership page heads this tier with (fpl-ui lib/tiers.ts
+    #: SUBSCRIPTION_TIERS.name). Can be longer than display_es.
+    page_name:      str = ""
+    #: The English descriptor the English page adds after it (fpl-ui
+    #: lib/i18n/en.ts plan.<id>.descriptor). Spanish shows no descriptor.
+    descriptor_en:  str = ""
 
 
 #: Ordered cheapest -> priciest. Names, prices and the web-search flag mirror
@@ -344,10 +350,14 @@ class TierOffer:
 #: bucket (see TIERS), so a Tribuna patron who hits their limit is a real
 #: upgrade candidate, not someone being asked to join a second time.
 UPGRADE_LADDER: tuple[TierOffer, ...] = (
-    TierOffer("patreon_tribuna", "Tribuna",          1,  False),
-    TierOffer("patreon_basic",   "Gafete de cancha", 5,  False),
-    TierOffer("patreon_plus",    "Socio Junior",     10, True),
-    TierOffer("patreon_premium", "Ejecutivo",        15, True),
+    TierOffer("patreon_tribuna", "Tribuna",          1,  False,
+              page_name="Tribuna",                    descriptor_en="Supporter"),
+    TierOffer("patreon_basic",   "Gafete de cancha", 5,  False,
+              page_name="Gafete de cancha",           descriptor_en="Pitch Pass"),
+    TierOffer("patreon_plus",    "Socio Junior",     10, True,
+              page_name="Socio Junior",               descriptor_en="Junior Member"),
+    TierOffer("patreon_premium", "Ejecutivo",        15, True,
+              page_name="Ejecutivo: carné de plata",  descriptor_en="Executive: Silver Card"),
 )
 
 _TIER_RANK: dict[str, int] = {
@@ -418,7 +428,9 @@ def _upgrade_prompts(tier_name: str, reason: str | None = None) -> tuple[str, st
             es.append(f"• {o.display_es} (${o.price_usd}) — "
                       f"{n_es} mensajes {win_es}"
                       + (" + búsqueda web" if o.web_search else ""))
-            en.append(f"• {o.display_es} (${o.price_usd}) — "
+            # English names the tier as the membership page does ("Tribuna ·
+            # Supporter"); Spanish keeps the short name, as the page does.
+            en.append(f"• {o.page_name} · {o.descriptor_en} (${o.price_usd}) — "
                       f"{n_es} messages "
                       + ("a month" if monthly else "a day")
                       + (" + web search" if o.web_search else ""))

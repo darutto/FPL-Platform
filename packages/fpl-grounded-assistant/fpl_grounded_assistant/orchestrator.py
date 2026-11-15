@@ -122,7 +122,7 @@ from .provider_client import (
 from .catalogue import t
 from .final_text_guard import looks_like_raw_payload
 from .evaluator import MODEL_VIEW_KEY, EvaluatorVerdict, evaluate_response
-from .locale_types import DEFAULT_LOCALE
+from .locale_types import DEFAULT_LOCALE, Locale
 from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
@@ -469,8 +469,13 @@ _SYSTEM_PROMPT: str = (
     "  - PLAIN_LANGUAGE: never show the user internal field names, enum codes or raw values from tool outputs -- no snake_case keys (dgw_teams, bgw_teams, fixture_context, squad_fit), no codes (conditions_unfavorable, status 'a'), no notation like field=[] / null / true, and no backticks or code formatting for data. Say what the value MEANS in plain words instead (\"no hay equipos con doble jornada\", \"disponible\", \"sin datos de calendario para esta jornada\").\n"
     "  - NO_TOOL_TALK: never talk about where the facts came from -- never mention \"la herramienta\", \"la salida\", \"el sistema\", \"el resultado\", \"los datos (disponibles/recibidos)\" or a \"campo\"; state the fact itself. When something is not known, say it ONCE in one short plain sentence (\"No sé si tus suplentes tienen minutos asegurados.\", \"No hay noticias de lesión.\") without explaining or justifying why, and never guess beyond the data (no speculating about double or blank gameweeks it does not show).\n"
     "  - PLAYER_ZONAL: when get_player_snapshot returns a zonal block, add ONE short sentence to the player profile with its verdict (which of the pending matches of the next 3 gameweeks suit where the player generates his xG, or that the rivals' zonal data is not available), framed as the opportunity; never list every zone or repeat the whole table. When its data_provenance.status is not current (thin, stale_season, unverified, unknown), say the caveat of its label in a short clause (the sample is short, or the data is from another season). If the block is absent, say nothing about zones. Never buy/sell/transfer wording.\n"
+    "  - CARD_NO_RESTATE: the answer is shown above the card of the tool that ran, so do not restate what that card shows: no stat bullets or table, no list or numbered ranking of its rows, no gameweek-by-gameweek walk-through, and no bullet or sentence whose only job is to report one of its values (\"lleva 50 puntos\", \"forma 5.0\", \"900 minutos\", \"J12: Everton, fuera, dificultad 3\"). Write what the card cannot show: your judgement, the why, the context, in short prose. A card value may appear only as the evidence for a judgement in the same sentence, never on its own. Numbers from a tool whose card is NOT shown (for example get_team_snapshot players in a match read) are not on the card and stay. What each card shows:\n"
+    "      get_player_snapshot: price, ownership, points, points per game, form, minutes, xG/xA/xGI, ICT, defensive contribution, news and the next 5 fixtures. Name only the one or two fixtures that decide your judgement. Keep what it cannot show: your reading of the player, set-piece duties, whether the fixture run looks good and why, the zonal matchup, availability and news context, his profile.\n"
+    "      get_fixture_outlook, get_team_schedule, get_team_fixture_calendar, get_player_fixture_run, get_position_fixture_run: every opponent, venue and difficulty per gameweek, the average and the verdict (relative strength included). Keep why the run looks good or hard and what it means for attack and defence.\n"
+    "      compare_players: the winner, margin, reasons and the side-by-side stats. get_captain_score / rank_captain_candidates: the score, tier and ranked list. get_chip_advice: the verdict, the window signal and the favoured players. get_transfer_advice / get_transfer_suggestion: the picks and their score and price deltas. get_zonal_opportunity / get_zonal_weakness: the zones, their share and the players with their fit. rank_players_by_metric, get_player_form, get_differential_picks, get_position_changes, get_price_changes, get_injury_list: their table rows, so say what stands out instead of listing them.\n"
     "  - CHIP_NAMES: write the chip names in English, as FPL names them -- Wildcard, Free Hit, Bench Boost, Triple Captain -- never comodín, ficha libre, golpe de suerte, impulso de banca, banco extra or triple capitán.\n"
-    "  - MATCH_COMPOSITION: when a ONE MATCH question ran get_fixture_outlook AND get_team_snapshot (both FPL_DATA, same turn), the answer keeps the calendar read (opponent, venue, difficulty, relative strength) AND names 2-3 of that team's top_players from the snapshot, each with ONE number the tool returned (form, expected_goals, expected_assists, total_points; for a DEF/GKP expected_goals_conceded, saves or defensive_contribution). When the calendar ran on BOTH axes (attack and defence), the answer has BOTH sides: the attacking read (dificultad ofensiva + the attackers) and the defensive read (dificultad para portería a cero + a DEF/GKP if the snapshot returned one; if none is among the top_players, say the defensive side rests on the calendar read). Never a name or number that is not in the tool output. Frame every player as the opportunity in THIS match. NEVER use transaction or urgency words: comprar/vender/fichar/traspasar/urgente/peligro, buy/sell/transfer in/bring in -- not even to say you are NOT recommending one (no disclaimers about fichajes/transfers).\n"
+    "  - DECIMALS: write decimals with a point, in Spanish too (the audience is Latin American) -- \"forma 10.7\", \"7.4 pts\", \"82.0 %\" -- never a comma (10,7).\n"
+    "  - MATCH_COMPOSITION: when a ONE MATCH question ran get_fixture_outlook AND get_team_snapshot (both FPL_DATA, same turn), the answer keeps the calendar read (what the opponent, venue and difficulty mean for this match; the card shows the values, see CARD_NO_RESTATE) AND names 2-3 of that team's top_players from the snapshot, each with ONE number the tool returned (form, expected_goals, expected_assists, total_points; for a DEF/GKP expected_goals_conceded, saves or defensive_contribution). When the calendar ran on BOTH axes (attack and defence), the answer has BOTH sides: the attacking read (dificultad ofensiva + the attackers) and the defensive read (dificultad para portería a cero + a DEF/GKP if the snapshot returned one; if none is among the top_players, say the defensive side rests on the calendar read). Each read says what its difficulty means for this match, not the 1-5 value or the strength comparison (the card shows both). Never a name or number that is not in the tool output. Frame every player as the opportunity in THIS match. NEVER use transaction or urgency words: comprar/vender/fichar/traspasar/urgente/peligro, buy/sell/transfer in/bring in -- not even to say you are NOT recommending one (no disclaimers about fichajes/transfers).\n"
     + chip_composition_rule()
     + captain_list_rule()
     + "\n"
@@ -671,6 +676,9 @@ _TOOL_OUTPUT_MAX_LIST_ITEMS: int = 10
 #: LLM here -- the real tool output, the trace and the audit keep them.
 _MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
     "get_chip_advice": frozenset({"squad_fit", "squad_source", "linked_squad_error"}),
+    # Player-card signals: UI pills (label + the question a tap sends). The
+    # model has nothing to say about them; shown, it could echo the question.
+    "get_player_snapshot": frozenset({"signals"}),
 }
 
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({
@@ -896,6 +904,40 @@ def _build_multi_tool_follow_up(
 # ---------------------------------------------------------------------------
 # P1.e Lever 2: Prompt caching helpers
 # ---------------------------------------------------------------------------
+
+#: i18n S0 (D1=B): appended to the STATIC prompt ONLY when locale == 'en'. The es
+#: prompt is exactly the pre-i18n bytes (sha256-pinned in
+#: tests/test_locale_s0_plumbing.py); it keeps ``respond_lang = user_lang``.
+_EN_LOCALE_LINE: str = (
+    "\nLOCALE=en: write the whole answer in British English, whatever language the"
+    " question is written in (chip names stay in English; keep player and team names as given)."
+    " This overrides respond_lang = user_lang above: a Spanish question, Spanish example phrases in tool"
+    " descriptions or Spanish text anywhere in this prompt do not change the answer language; when a tool"
+    " description quotes a Spanish phrase, say its English equivalent."
+)
+
+
+def static_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
+    """The static orchestrator system prompt for *locale* (es == pre-i18n bytes)."""
+    base = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
+    return base + _EN_LOCALE_LINE if locale == "en" else base
+
+
+#: A local request capture (en locale, Spanish question, OpenAI path) showed the line above reaches the model on every
+#: round but sits in ``instructions``, followed only by English context; the last thing the model reads is the question
+#: (or the tool results). So for en, OpenAI Responses requests also carry this one note as the LAST input item. It
+#: names no question language. It is added to a COPY of the input at each provider call, never stored in ``messages``
+#: or a follow-up list, so it cannot accumulate or be replayed. The evaluator has its own prompt and request, which
+#: are deliberately unchanged. Anthropic and Gemini keep only the line above (the whole LLM runs on OpenAI).
+_EN_TURN_NOTE: str = "LOCALE=en: write the whole answer in British English, whatever language the question is in."
+
+
+def _with_locale_note(provider: str | None, locale: Locale, messages: list[Any]) -> list[Any]:
+    """*messages* plus the en turn note as the last item, for OpenAI only; the same list otherwise (es is untouched)."""
+    if locale != "en" or provider != PROVIDER_OPENAI:
+        return messages
+    return [*messages, {"role": "developer", "content": _EN_TURN_NOTE}]
+
 
 def _build_anthropic_system_blocks(
     system_text: str,
@@ -1374,6 +1416,7 @@ def _run_synthesis_extra_round(
     system_blocks: list[dict[str, Any]] | None,
     actual_bootstrap: dict[str, Any],
     valid_tool_names: set[str] | frozenset[str],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> tuple[str | None, int, int, int]:
     """i46 (b): one extra tool round when synthesis asks for a tool, not prose.
 
@@ -1467,7 +1510,7 @@ def _run_synthesis_extra_round(
         model=model,
         system=system,
         tools=tools,
-        messages=follow_up,
+        messages=_with_locale_note(provider_label, locale, follow_up),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -1601,6 +1644,7 @@ def _apply_evaluator(
     _primary_input_tokens: int = 0,
     _primary_output_tokens: int = 0,
     _primary_cache_read_tokens: int = 0,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Apply the second-layer evaluator to a primary answer.
 
@@ -1622,9 +1666,12 @@ def _apply_evaluator(
     _primary_count = len(tool_calls_trace)
 
     # ------------------------------------------------------------------
-    # E0. Skip evaluator if disabled via env flag
+    # E0. Skip evaluator if disabled via env flag -- or when there is no text
+    #     to judge: an ok card-only answer (player snapshot, empty render) is
+    #     the tool's own deterministic card. Judging "" would only invite a
+    #     rejection and a paid retry of the primary.
     # ------------------------------------------------------------------
-    if _eval_disabled() or eval_client is None:
+    if _eval_disabled() or eval_client is None or (not answer_text and outcome == OUTCOME_OK):
         _total = _primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
         return OrchestratorResult(
             question=question,
@@ -1650,6 +1697,7 @@ def _apply_evaluator(
     # E1. Call the evaluator (cheap model, same provider)
     # ------------------------------------------------------------------
     verdict: EvaluatorVerdict = evaluate_response(
+        locale=locale,
         question=question,
         primary_response=answer_text,
         # i124 (C): each call with the payload the primary read -- the same
@@ -1737,7 +1785,7 @@ def _apply_evaluator(
         model=model,
         system=system,
         tools=tools,
-        messages=[{"role": "user", "content": retry_question}],
+        messages=_with_locale_note(_provider_label, locale, [{"role": "user", "content": retry_question}]),
         timeout_s=_timeout_s,
         max_retries=_max_retries,
         client=resolved_client,
@@ -1924,7 +1972,7 @@ def _apply_evaluator(
                 tool_chosen=_rtname,
                 tool_args=_rtargs,
                 tool_output={},
-                answer_text=f"Tool execution raised an error for {_rtname!r}.",
+                answer_text=t("orch_err.tool_raised", locale, tool=repr(_rtname)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_TOOL_ERROR,
@@ -1988,7 +2036,7 @@ def _apply_evaluator(
         model=model,
         system=system,
         tools=tools,
-        messages=_retry_follow_up,
+        messages=_with_locale_note(_provider_label, locale, _retry_follow_up),
         timeout_s=_timeout_s,
         max_retries=_max_retries,
         client=resolved_client,
@@ -2055,7 +2103,7 @@ def _apply_evaluator(
         _r_synthesis_turn = True
     else:
         try:
-            _r_answer_text = render(_r_tool_name, _r_raw_output)
+            _r_answer_text = render(_r_tool_name, _r_raw_output, locale=locale)
         except Exception:  # noqa: BLE001
             _r_answer_text = f"[{_r_tool_status or 'unknown'}]"
         _r_synthesis_turn = False
@@ -2101,6 +2149,12 @@ def _apply_evaluator(
     )
 
 
+#: Partial-selection weight of an ``ok`` payload that renders no text because its
+#: card carries the answer (the player snapshot). About what the snapshot's old text
+#: dump measured (5-6 lines): above a one-line render, below a multi-row answer.
+_CARD_ONLY_PARTIAL_WEIGHT: int = 240
+
+
 def _select_partial(
     successful: list[tuple[str | None, str | None, dict[str, Any], dict[str, Any]]],
 ) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
@@ -2119,12 +2173,19 @@ def _select_partial(
     Pure by construction: no I/O, no config reads, no provider knowledge, so it
     can be replayed offline against recorded traces. ``successful`` is never
     empty -- every call site guards on it.
+
+    A payload that renders NO text but is ``ok`` (the player snapshot since the
+    2026-11-11 verdict redesign: its card carries everything) weighs
+    ``_CARD_ONLY_PARTIAL_WEIGHT`` instead of zero, so the card still beats a
+    one-line render but not a multi-row answer -- the ranking it had before.
     """
     best = successful[0]
     best_len = -1
     for item in successful:
         try:
             rendered_len = len(render(item[1], item[3]))
+            if rendered_len == 0 and item[3].get("status") == "ok":
+                rendered_len = _CARD_ONLY_PARTIAL_WEIGHT
         except Exception:  # noqa: BLE001
             # A call whose payload cannot be rendered is not a usable answer.
             rendered_len = 0
@@ -2158,6 +2219,7 @@ def _run_bounded_loop(
     primary_input_tokens: int,
     primary_output_tokens: int,
     primary_cache_read_tokens: int,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Execute cumulative provider-native tool rounds until convergence or cap."""
     messages: list[Any] = [{"role": "user", "content": question}]
@@ -2224,6 +2286,7 @@ def _run_bounded_loop(
             _primary_input_tokens=prim_in,
             _primary_output_tokens=prim_out,
             _primary_cache_read_tokens=prim_cache,
+            locale=locale,
         )
         return _result_with_observability(
             result,
@@ -2242,12 +2305,12 @@ def _run_bounded_loop(
                 selected = successful[0]
                 if not answer:
                     try:
-                        answer = render(selected[1], selected[3])
+                        answer = render(selected[1], selected[3], locale=locale)
                     except Exception:  # noqa: BLE001
                         answer = f"[{selected[3].get('status', 'unknown')}]"
                 return _evaluated_result(answer, selected, synthesis_turn=_had_model_text)
 
-            no_tool_answer = answer or "No encontr\u00e9 una herramienta para responder a esto."
+            no_tool_answer = answer or t("orchestrator.no_tool_found", locale)
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None,
@@ -2339,7 +2402,7 @@ def _run_bounded_loop(
             model=model,
             system=system,
             tools=tools,
-            messages=messages,
+            messages=_with_locale_note(provider_label, locale, messages),
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
@@ -2381,10 +2444,10 @@ def _run_bounded_loop(
     if successful:
         selected = _select_partial(successful)
         try:
-            rendered = render(selected[1], selected[3])
+            rendered = render(selected[1], selected[3], locale=locale)
         except Exception:  # noqa: BLE001
             rendered = f"[{selected[3].get('status', 'unknown')}]"
-        incomplete = f"Respuesta incompleta ({terminal_reason}): {rendered}"
+        incomplete = t("orchestrator.incomplete_answer", locale, reason=terminal_reason, rendered=rendered)
         return _evaluated_result(
             incomplete,
             selected,
@@ -2397,9 +2460,11 @@ def _run_bounded_loop(
         tool_chosen=None,
         tool_args={},
         tool_output={},
-        answer_text=(
-            "No se pudo completar una llamada de herramienta correctamente"
-            + (f" ({terminal_reason})." if terminal_reason else ".")
+        answer_text=t(
+            "orchestrator.tool_call_failed" if not terminal_reason
+            else "orchestrator.tool_call_failed_reason",
+            locale,
+            reason=terminal_reason or "",
         ),
         llm_used=True,
         model=model,
@@ -2435,6 +2500,7 @@ def ask_orchestrated(
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2460,26 +2526,29 @@ def ask_orchestrated(
         _gate=_gate,
         _orch_request_fn=_orch_request_fn,
         _eval_client=_eval_client,
+        locale=locale,
     )
     # i106: the final-text guard, applied HERE, once, to whatever any of the
     # body's return sites produced -- a render() that was the last word
     # (retry, normal, partial, no-text) or a synthesis that quoted HTML or an
     # error back. outcome, tool_output and the trace are untouched; the
     # blocked text is kept whole for the audit line.
-    result = _guard_final_text(result)
+    result = _guard_final_text(result, locale)
     # i108 E3: a chip answer is general -> particular, both parts computed.
     # After the guard, so a blocked text never gets a header or a sentence.
-    result = _compose_chip_answer(result, bootstrap)
+    result = _compose_chip_answer(result, bootstrap, locale)
     # i125(a): a captain answer opens with the tool's own top N; the model's
     # text is the commentary under it. Same placement and gate as the chip.
-    result = _compose_captain_answer(result, question)
+    result = _compose_captain_answer(result, question, locale)
     if not result.llm_used:
         return result
     _label = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     return replace(result, provider=_label)
 
 
-def _compose_captain_answer(result: OrchestratorResult, question: str) -> OrchestratorResult:
+def _compose_captain_answer(
+    result: OrchestratorResult, question: str, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Prepend the tool's top N to an ok captain answer (``captain_list``).
 
     Only when the turn ended ``ok``, the final-text guard did not fire, and
@@ -2491,7 +2560,7 @@ def _compose_captain_answer(result: OrchestratorResult, question: str) -> Orches
     output = last_captain_output(result.tool_calls_trace)
     if output is None:
         return result
-    composed = compose_captain_answer(result.answer_text or "", output, question)
+    composed = compose_captain_answer(result.answer_text or "", output, question, locale)
     if composed == (result.answer_text or ""):
         return result
     return replace(result, answer_text=composed)
@@ -2523,7 +2592,9 @@ def _only_no_team_squad_failed(result: OrchestratorResult) -> bool:
     return saw_no_team
 
 
-def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> OrchestratorResult:
+def _compose_chip_answer(
+    result: OrchestratorResult, bootstrap: Any, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Wrap an ok chip answer in its deterministic header and closing sentence.
 
     Only when the turn ended ``ok`` (or i111: its only failures are
@@ -2546,13 +2617,15 @@ def _compose_chip_answer(result: OrchestratorResult, bootstrap: Any) -> Orchestr
         for t in (bs or {}).get("teams", []) or []
         if isinstance(t, dict) and t.get("id") is not None and t.get("name")
     }
-    composed = compose_chip_answer(result.answer_text or "", chip_output, team_names)
+    composed = compose_chip_answer(result.answer_text or "", chip_output, team_names, locale)
     if composed == (result.answer_text or ""):
         return result
     return replace(result, answer_text=composed)
 
 
-def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
+def _guard_final_text(
+    result: OrchestratorResult, locale: Locale = DEFAULT_LOCALE,
+) -> OrchestratorResult:
     """Replace a raw-payload ``answer_text`` with an honest sentence.
 
     ``looks_like_raw_payload`` decides (closed reasons); this only swaps the
@@ -2566,9 +2639,9 @@ def _guard_final_text(result: OrchestratorResult) -> OrchestratorResult:
         result.tool_calls_trace[-1].get("name") if result.tool_calls_trace else None
     )
     if tool:
-        honest = t("orchestrator.final_text_guarded_tool", DEFAULT_LOCALE, tool=tool)
+        honest = t("orchestrator.final_text_guarded_tool", locale, tool=tool)
     else:
-        honest = t("orchestrator.final_text_guarded", DEFAULT_LOCALE)
+        honest = t("orchestrator.final_text_guarded", locale)
     return replace(
         result,
         answer_text=honest,
@@ -2592,6 +2665,7 @@ def _ask_orchestrated_impl(
     _gate: _FailureGate | None = None,
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2704,7 +2778,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="LLM call failed during orchestration.",
+                answer_text=t("orch_err.llm_failed", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_LLM_ERROR,
                 error="_orch_request_fn requires FPL_ORCH_TEST_INJECTION to be set",
@@ -2717,7 +2791,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="OPENAI_API_KEY not configured",
@@ -2728,7 +2802,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="GOOGLE_API_KEY not configured",
@@ -2741,7 +2815,7 @@ def _ask_orchestrated_impl(
             return OrchestratorResult(
                 question=question,
                 tool_chosen=None, tool_args={}, tool_output={},
-                answer_text="No LLM client available for orchestration.",
+                answer_text=t("orch_err.no_client", locale),
                 llm_used=False, model="none",
                 outcome=OUTCOME_NO_CLIENT,
                 error="no LLM client available",
@@ -2772,7 +2846,7 @@ def _ask_orchestrated_impl(
     # P1.e Lever 2: for Anthropic, also build system_blocks with cache_control
     # applied to the last block so the system prompt prefix is cached.
     # ------------------------------------------------------------------
-    _static_prompt = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
+    _static_prompt = static_system_prompt(locale)
     try:
         from .context_builder import build_orchestration_context  # noqa: PLC0415
         _ctx = build_orchestration_context(actual_bootstrap)
@@ -2809,7 +2883,7 @@ def _ask_orchestrated_impl(
             tool_chosen=None,
             tool_args={},
             tool_output={},
-            answer_text="LLM provider temporarily unavailable (cooldown active).",
+            answer_text=t("orch_err.cooldown", locale),
             llm_used=False,
             model="none",
             outcome=OUTCOME_COOLDOWN,
@@ -2825,7 +2899,7 @@ def _ask_orchestrated_impl(
         model=model,
         system=system,
         tools=tools,
-        messages=[{"role": "user", "content": question}],
+        messages=_with_locale_note(_provider_label, locale, [{"role": "user", "content": question}]),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -2869,9 +2943,9 @@ def _ask_orchestrated_impl(
     if orch_call.error_code is not None:
         _active_gate.record_failure(orch_call.error_code)
         if orch_call.error_code == PERR_AUTH:
-            answer_text = "LLM authentication failed during orchestration."
+            answer_text = t("orch_err.auth_failed", locale)
         else:
-            answer_text = "LLM call failed during orchestration."
+            answer_text = t("orch_err.llm_failed", locale)
         # Token fields default to 0 here, and that is not a shortcut: every
         # provider branch in call_orch_provider() only extracts usage when
         # the raw request succeeded (raw.success and raw.response is not
@@ -2897,6 +2971,7 @@ def _ask_orchestrated_impl(
 
     if is_orch_loop_enabled():
         return _run_bounded_loop(
+            locale=locale,
             question=question,
             initial_response=response,
             actual_bootstrap=actual_bootstrap,
@@ -2946,7 +3021,7 @@ def _ask_orchestrated_impl(
         _no_tool_answer = (
             _no_tool_text
             if _no_tool_text
-            else "No encontré una herramienta para responder a esto."
+            else t("orchestrator.no_tool_found", locale)
         )
         return OrchestratorResult(
             question=question,
@@ -2975,7 +3050,7 @@ def _ask_orchestrated_impl(
                 tool_chosen=_tool_name,
                 tool_args={},
                 tool_output={},
-                answer_text=f"Model selected an unknown tool: {_tool_name!r}.",
+                answer_text=t("orch_err.unknown_tool", locale, tool=repr(_tool_name)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_UNKNOWN_TOOL,
@@ -3022,7 +3097,7 @@ def _ask_orchestrated_impl(
                 tool_chosen=_tool_name,
                 tool_args=_tool_args,
                 tool_output={},
-                answer_text=f"Tool execution raised an error for {_tool_name!r}.",
+                answer_text=t("orch_err.tool_raised", locale, tool=repr(_tool_name)),
                 llm_used=True,
                 model=model,
                 outcome=OUTCOME_TOOL_ERROR,
@@ -3068,7 +3143,7 @@ def _ask_orchestrated_impl(
         model=model,
         system=system,
         tools=tools,
-        messages=follow_up_messages,
+        messages=_with_locale_note(_provider_label, locale, follow_up_messages),
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
@@ -3108,6 +3183,7 @@ def _ask_orchestrated_impl(
             _prim_out_mt   = _prim_out
             _prim_cache_mt = _prim_cache
             return _apply_evaluator(
+                locale=locale,
                 question=question,
                 answer_text=_second_text,
                 tool_chosen=tool_name,
@@ -3162,6 +3238,7 @@ def _ask_orchestrated_impl(
             system_blocks=_system_blocks,
             actual_bootstrap=actual_bootstrap,
             valid_tool_names=_valid_tool_names,
+            locale=locale,
         )
         _prim_in    += _x_in
         _prim_out   += _x_out
@@ -3170,6 +3247,7 @@ def _ask_orchestrated_impl(
             tool_status = raw_output.get("status")
             outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
             return _apply_evaluator(
+                locale=locale,
                 question=question,
                 answer_text=_extra_text,
                 tool_chosen=tool_name,
@@ -3215,7 +3293,7 @@ def _ask_orchestrated_impl(
     outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR
 
     try:
-        answer_text: str = render(tool_name, raw_output)
+        answer_text: str = render(tool_name, raw_output, locale=locale)
     except Exception:  # noqa: BLE001
         # Renderer failed; surface status as minimal fallback
         answer_text = f"[{tool_status or 'unknown'}]"
@@ -3225,15 +3303,19 @@ def _ask_orchestrated_impl(
     # and the extra round did not rescue it. Keep shipping it (a table beats
     # nothing) but say so, rather than letting a raw dump pass for an answer.
     #
-    # Locale: DEFAULT_LOCALE, matching the render() call directly above, which
-    # takes the same default. ask_orchestrated has no locale parameter — when
-    # locale reaches this layer, both calls take it together or the notice
-    # would disagree with the table it introduces.
-    answer_text = (
-        f"{t('orchestrator.raw_render_notice', DEFAULT_LOCALE)}\n\n{answer_text}"
-    )
+    # Locale: the same value as the render() call directly above, so the notice
+    # never disagrees with the table it introduces.
+    #
+    # A card-only payload (ok, empty render: the player snapshot since the
+    # verdict redesign) gets no notice: the card and its conclusions ARE the
+    # answer, and a notice followed by nothing would read as a failure.
+    if answer_text or tool_status != "ok":
+        answer_text = (
+            f"{t('orchestrator.raw_render_notice', locale)}\n\n{answer_text}"
+        )
 
     return _apply_evaluator(
+        locale=locale,
         question=question,
         answer_text=answer_text,
         tool_chosen=tool_name,

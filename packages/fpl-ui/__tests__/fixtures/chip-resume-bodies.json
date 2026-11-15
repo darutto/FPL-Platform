@@ -1,0 +1,74 @@
+{
+  "position_changes": {
+    "final_text": "Which one did you mean?",
+    "outcome": "ambiguous",
+    "supported": true,
+    "intent": "unsupported",
+    "suggestions": [
+      {
+        "label": "João Pedro (CHE)",
+        "send_text": "¿Quién sustituye a João Pedro Junqueira de Jesus si no juega?",
+        "kind": "prompt_rewrite"
+      },
+      {
+        "label": "Costinha (BHA)",
+        "send_text": "¿Quién sustituye a João Pedro Loureiro da Costa si no juega?",
+        "kind": "prompt_rewrite"
+      }
+    ]
+  },
+  "involvement": {
+    "final_text": "Which one did you mean?",
+    "outcome": "ambiguous",
+    "supported": true,
+    "intent": "unsupported",
+    "suggestions": [
+      {
+        "label": "Palmer (CHE)",
+        "send_text": "Compara los toques y pases clave de Cole Palmer y Saka",
+        "kind": "prompt_rewrite"
+      },
+      {
+        "label": "Palmer (MUN)",
+        "send_text": "Compara los toques y pases clave de Alex Palmer y Saka",
+        "kind": "prompt_rewrite"
+      }
+    ]
+  },
+  "snapshot": {
+    "final_text": "Which one did you mean?",
+    "outcome": "ambiguous",
+    "supported": true,
+    "intent": "player_snapshot",
+    "suggestions": [
+      {
+        "label": "Palmer (CHE)",
+        "send_text": "Compara los toques y pases clave de Cole Palmer y Saka",
+        "kind": "prompt_rewrite"
+      },
+      {
+        "label": "Palmer (MUN)",
+        "send_text": "Compara los toques y pases clave de Alex Palmer y Saka",
+        "kind": "prompt_rewrite"
+      }
+    ]
+  },
+  "form": {
+    "final_text": "Which one did you mean?",
+    "outcome": "ambiguous",
+    "supported": true,
+    "intent": "player_form",
+    "suggestions": [
+      {
+        "label": "Palmer (CHE)",
+        "send_text": "¿Cómo viene la forma de Cole Palmer?",
+        "kind": "prompt_rewrite"
+      },
+      {
+        "label": "Palmer (MUN)",
+        "send_text": "¿Cómo viene la forma de Alex Palmer?",
+        "kind": "prompt_rewrite"
+      }
+    ]
+  }
+}

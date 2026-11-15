@@ -174,6 +174,610 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "No obtuve una respuesta útil para esto. Prueba a reformular o pregunta otra cosa.",
     },
 
+    # -- i18n S0: orchestrator fallbacks that used to be inline Spanish ------
+    "orchestrator.no_tool_found": {
+        "en": "I couldn't find a tool to answer that.",
+        "es": "No encontré una herramienta para responder a esto.",
+    },
+    "orchestrator.tool_call_failed": {
+        "en": "A tool call could not be completed.",
+        "es": "No se pudo completar una llamada de herramienta correctamente.",
+    },
+    "orchestrator.tool_call_failed_reason": {
+        "en": "A tool call could not be completed ({reason}).",
+        "es": "No se pudo completar una llamada de herramienta correctamente ({reason}).",
+    },
+    "orchestrator.incomplete_answer": {
+        "en": "Incomplete answer ({reason}): {rendered}",
+        "es": "Respuesta incompleta ({reason}): {rendered}",
+    },
+
+    # -- i18n S3: advantage phrases shared by the comparison and the transfer
+    # cards (one source, both cards). es is what comparison.py / transfer_advisor.py
+    # / scoring_shared.py said inline; the venue letters are the cards' L/V.
+    "advantage.form": {
+        "en": "better form ({a} vs {b})",
+        "es": "mejor forma ({a} vs {b})",
+    },
+    "advantage.easier_fixture": {
+        "en": "easier fixture (FDR {a}{av} vs {b}{bv})",
+        "es": "partido más fácil (FDR {a}{av} vs {b}{bv})",
+    },
+    "advantage.xgi": {"en": "higher xGI per 90", "es": "más xGI por 90"},
+    "advantage.minutes": {"en": "more secure minutes", "es": "minutos más asegurados"},
+    "advantage.set_piece": {"en": "set-piece advantage", "es": "ventaja a balón parado"},
+    "advantage.venue_home": {"en": "H", "es": "L"},
+    "advantage.venue_away": {"en": "A", "es": "V"},
+    "advantage.clause": {
+        "en": "  Advantages: {reasons}.",
+        "es": "  Ventajas: {reasons}.",
+    },
+    "set_piece_short.penalty_taker_1": {"en": "penalties", "es": "penales"},
+    "set_piece_short.penalty_taker_2": {"en": "2nd on penalties", "es": "2.º en penales"},
+    "set_piece_short.freekick_taker_1": {"en": "free kicks", "es": "tiros libres"},
+    "set_piece_short.freekick_taker_2": {"en": "2nd on free kicks", "es": "2.º en tiros libres"},
+
+    # -- comparison.py: the recommendation sentence (served as the answer text
+    # on the deterministic path, and carrying the reasons above).
+    "comparison.tie": {
+        "en": "{a} ({sa}) and {b} ({sb}) are level on score.",
+        "es": "{a} ({sa}) y {b} ({sb}) empatan en puntuación.",
+    },
+    "comparison.beats": {
+        "en": "{winner} ({ws}) beats {loser} ({ls}) — {label} margin ({margin}).",
+        "es": "{winner} ({ws}) supera a {loser} ({ls}) — diferencia {label} ({margin}).",
+    },
+    "comparison.margin.narrow": {"en": "narrow", "es": "ajustada"},
+    "comparison.margin.moderate": {"en": "moderate", "es": "moderada"},
+    "comparison.margin.clear": {"en": "clear", "es": "clara"},
+
+    # -- transfer_advisor.py: the recommendation sentence.
+    "transfer.price_cost": {"en": "  Net cost: +£{m}m.", "es": "  Coste neto: +£{m}m."},
+    "transfer.price_saving": {"en": "  Net saving: £{m}m.", "es": "  Ahorro neto: £{m}m."},
+    "transfer.rec_in": {
+        "en": "Recommendation: bring in {inn}. Score: {si} vs {so} for {out} (+{d}).{reasons}{price}",
+        "es": "Recomendación: incorpora a {inn}. Puntuación: {si} vs {so} de {out} (+{d}).{reasons}{price}",
+    },
+    "transfer.rec_marginal": {
+        "en": "Close call: consider {inn} instead of {out}. Score: {si} vs {so} (+{d}).{reasons}{price}",
+        "es": "Ajustado: valora a {inn} en lugar de {out}. Puntuación: {si} vs {so} (+{d}).{reasons}{price}",
+    },
+    "transfer.rec_hold": {
+        "en": "Recommendation: keep {out}. Score: {so} vs {si} for {inn} ({d}).{reasons}",
+        "es": "Recomendación: mantén a {out}. Puntuación: {so} vs {si} de {inn} ({d}).{reasons}",
+    },
+
+    # -- i18n S3b: generic_card labels (titles, pills, column headers, FDR bands).
+    # es is what generic_card.py said inline. The injury column headers keep the
+    # UI adapter's keyword vocabulary (InjuryListTable HEADER_MATCHERS already
+    # accepts player/team/pos/status/chance/news/date).
+    "gcard.fdr.1": {"en": "Very favourable", "es": "Muy favorable"},
+    "gcard.fdr.2": {"en": "Favourable", "es": "Favorable"},
+    "gcard.fdr.3": {"en": "Average", "es": "Media"},
+    "gcard.fdr.4": {"en": "Tough", "es": "Exigente"},
+    "gcard.fdr.5": {"en": "Very tough", "es": "Muy exigente"},
+    "gcard.venue.home": {"en": "Home", "es": "Casa"},
+    "gcard.venue.away": {"en": "Away", "es": "Fuera"},
+    "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
+    "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
+    "gcard.form.col_gw": {"en": "GW", "es": "JOR"},
+    "gcard.price.title": {"en": "PRICE CHANGES", "es": "CAMBIOS DE PRECIO"},
+    "gcard.price.rising": {"en": "{n} RISING", "es": "{n} SUBEN"},
+    "gcard.price.falling": {"en": "{n} FALLING", "es": "{n} BAJAN"},
+    "gcard.col.player": {"en": "PLAYER", "es": "JUGADOR"},
+    "gcard.col.team": {"en": "TEAM", "es": "EQUIPO"},
+    "gcard.col.price": {"en": "PRICE", "es": "PRECIO"},
+    "gcard.col.change": {"en": "CHANGE", "es": "CAMBIO"},
+    "gcard.cal.title": {"en": "FIXTURES", "es": "CALENDARIO"},
+    "gcard.cal.title_position": {"en": "FIXTURES BY POSITION", "es": "CALENDARIO POR POSICI\u00d3N"},
+    "gcard.cal.mode.easiest": {"en": "Most favourable fixtures", "es": "Calendario m\u00e1s favorable"},
+    "gcard.cal.mode.hardest": {"en": "Toughest fixtures", "es": "Calendario m\u00e1s exigente"},
+    "gcard.cal.horizon": {"en": "{n} GAMEWEEKS", "es": "{n} JORNADAS"},
+    "gcard.cal.col_fixtures": {"en": "FIXTURES", "es": "PARTIDOS"},
+    "gcard.cal.col_avg_fdr": {"en": "AVG FDR", "es": "FDR MEDIO"},
+    "gcard.cal.col_difficulty": {"en": "DIFFICULTY", "es": "DIFICULTAD"},
+    "gcard.sched.fixtures": {"en": "{n} FIXTURES", "es": "{n} PARTIDOS"},
+    "gcard.sched.dgw": {"en": "DOUBLE GAMEWEEK", "es": "DOBLE JORNADA"},
+    "gcard.sched.bgw": {"en": "BLANK GAMEWEEK", "es": "JORNADA EN BLANCO"},
+    "gcard.sched.col_gw": {"en": "GW", "es": "JOR"},
+    "gcard.sched.col_opp": {"en": "OPP", "es": "RIVAL"},
+    "gcard.sched.col_venue": {"en": "VENUE", "es": "SEDE"},
+    "gcard.gw.title": {"en": "CURRENT GAMEWEEK", "es": "JORNADA ACTUAL"},
+    "gcard.gw.hero": {"en": "GAMEWEEK IN PROGRESS", "es": "JORNADA EN CURSO"},
+    "gcard.inj.title": {"en": "INJURIES", "es": "LESIONES"},
+    "gcard.inj.injured": {"en": "{n} INJURED", "es": "{n} LESIONADOS"},
+    "gcard.inj.doubtful": {"en": "{n} DOUBTFUL", "es": "{n} EN DUDA"},
+    "gcard.inj.unavailable": {"en": "{n} UNAVAILABLE", "es": "{n} NO DISPONIBLES"},
+    "gcard.inj.col_status": {"en": "STATUS", "es": "ESTADO"},
+    "gcard.inj.col_chance": {"en": "CHANCE %", "es": "PROBABILIDAD %"},
+    "gcard.inj.col_news": {"en": "NEWS", "es": "NOTICIA"},
+    "gcard.inj.col_date": {"en": "DATE", "es": "FECHA"},
+
+    # -- i18n S3b: needs_clarification prompts (final_response). The en side is
+    # the wording these had before (they were English-only, so a Spanish user
+    # saw English); es is new, tuteo, opportunity framing (no buy/sell words).
+    "clarify.captain": {
+        "en": (
+            "Are you looking for captaincy advice or player rankings for this gameweek? "
+            "Try asking 'who should I captain?' or 'best captain options'."
+        ),
+        "es": (
+            "\u00bfBuscas consejo de capitan\u00eda o un ranking de jugadores para esta jornada? "
+            "Prueba con '\u00bfa qui\u00e9n capitaneo?' o 'mejores opciones de capit\u00e1n'."
+        ),
+    },
+    "clarify.compare": {
+        "en": "Are you comparing two players? Try asking 'compare [Player A] vs [Player B]'.",
+        "es": "\u00bfQuieres comparar a dos jugadores? Prueba con 'compara [Jugador A] vs [Jugador B]'.",
+    },
+    "clarify.transfer": {
+        "en": (
+            "Are you looking for transfer suggestions? "
+            "Try asking 'who should I transfer in?' or 'best players to buy under \u00a38m'."
+        ),
+        "es": (
+            "\u00bfBuscas ideas para mejorar tu plantilla? "
+            "Prueba con '\u00bfa qui\u00e9n incorporo?' o 'mejores jugadores por menos de \u00a38m'."
+        ),
+    },
+    "clarify.form": {
+        "en": (
+            "Are you asking about a player's recent form? "
+            "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
+        ),
+        "es": (
+            "\u00bfPreguntas por la forma reciente de un jugador? "
+            "Prueba con '\u00bfc\u00f3mo est\u00e1 jugando [jugador]?' o 'estad\u00edsticas de [jugador] en los \u00faltimos 5 partidos'."
+        ),
+    },
+    "clarify.player_fixture_run": {
+        "en": "Are you asking about a player's upcoming fixtures? Try 'upcoming fixtures for [player]'.",
+        "es": "\u00bfPreguntas por los pr\u00f3ximos partidos de un jugador? Prueba con 'pr\u00f3ximos partidos de [jugador]'.",
+    },
+    "clarify.injury": {
+        "en": "Are you asking about injuries or availability? Try 'who is injured this gameweek?'.",
+        "es": "\u00bfPreguntas por lesiones o disponibilidad? Prueba con '\u00bfqui\u00e9n est\u00e1 lesionado esta jornada?'.",
+    },
+    "clarify.price": {
+        "en": "Are you asking about price changes? Try 'who has gone up in price?' or 'recent price risers'.",
+        "es": "\u00bfPreguntas por cambios de precio? Prueba con '\u00bfqui\u00e9n ha subido de precio?' o '\u00faltimas subidas de precio'.",
+    },
+    "clarify.chip": {
+        "en": (
+            "Are you asking about when to use a chip? "
+            "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
+        ),
+        "es": (
+            "\u00bfPreguntas por cu\u00e1ndo usar un chip? "
+            "Prueba con '\u00bfdebo usar mi Wildcard?' o '\u00bfcu\u00e1ndo uso mi Bench Boost?'."
+        ),
+    },
+    "clarify.differential": {
+        "en": "Are you looking for differential picks? Try 'low-ownership players worth picking'.",
+        "es": "\u00bfBuscas diferenciales? Prueba con 'jugadores de baja propiedad que merezcan la pena'.",
+    },
+    "clarify.calendar": {
+        "en": "Are you looking at fixture difficulty? Try 'which teams have the best fixtures coming up?'.",
+        "es": "\u00bfMiras la dificultad de los partidos? Prueba con '\u00bfqu\u00e9 equipos tienen mejor calendario?'.",
+    },
+    "clarify.suggestion": {
+        "en": (
+            "Are you looking for specific player recommendations? "
+            "Try 'best midfielders under \u00a37m' or 'top Arsenal players to buy'."
+        ),
+        "es": (
+            "\u00bfBuscas recomendaciones de jugadores concretos? "
+            "Prueba con 'mejores centrocampistas por menos de \u00a37m' o 'mejores jugadores del Arsenal'."
+        ),
+    },
+    "clarify.fallback": {
+        "en": (
+            "I'm not sure what you're looking for. "
+            "Try rephrasing \u2014 for example, 'who should I captain?' or 'compare Saka vs Palmer'."
+        ),
+        "es": (
+            "No estoy seguro de qu\u00e9 buscas. "
+            "Prueba a reformularlo, por ejemplo '\u00bfa qui\u00e9n capitaneo?' o 'compara Saka vs Palmer'."
+        ),
+    },
+
+    # -- i18n S5a: renderer.py inline answer text. es is what renderer.py said
+    # inline (byte-for-byte); en is new except for the rank_captain strings that
+    # already had an inline English branch. Param values are pre-formatted by the
+    # caller so the number formatting stays where it was.
+    "renderer.error_unexpected": {"en": "Unexpected error.", "es": "Error inesperado."},
+    # fallbacks shown only when a tool result carries no message of its own
+    "renderer.fallback.error": {
+        "en": "An unexpected error occurred.",
+        "es": "Ocurrió un error inesperado.",
+    },
+    "renderer.fallback.chip_error": {
+        "en": "An unexpected chip advice error occurred.",
+        "es": "Ocurrió un error inesperado con el consejo de chips.",
+    },
+    "renderer.fallback.transfer_error": {
+        "en": "An unexpected transfer advice error occurred.",
+        "es": "Ocurrió un error inesperado con el consejo de traspasos.",
+    },
+    "renderer.fallback.form_unavailable": {
+        "en": "Player match history unavailable.",
+        "es": "El historial de partidos del jugador no está disponible.",
+    },
+    "renderer.fallback.form_error": {
+        "en": "An unexpected player form error occurred.",
+        "es": "Ocurrió un error inesperado con la forma del jugador.",
+    },
+    "renderer.fallback.season_points_error": {
+        "en": "An unexpected error occurred looking up season points.",
+        "es": "Ocurrió un error inesperado al buscar los puntos de la temporada.",
+    },
+    "renderer.fallback.price_none": {
+        "en": "No price-change data available.",
+        "es": "No hay datos de cambios de precio.",
+    },
+    "renderer.fallback.price_error": {
+        "en": "An unexpected price changes error occurred.",
+        "es": "Ocurrió un error inesperado con los cambios de precio.",
+    },
+    "renderer.fallback.schedule_unavailable": {
+        "en": "Fixture schedule data not available.",
+        "es": "El calendario de partidos no está disponible.",
+    },
+    "renderer.fallback.unknown_position": {
+        "en": "Unknown position.",
+        "es": "Posición desconocida.",
+    },
+    "renderer.fallback.team_not_found": {
+        "en": "Team not found.",
+        "es": "Equipo no encontrado.",
+    },
+    "renderer.fallback.no_player": {
+        "en": "No player found matching '{query}'.",
+        "es": "No se encontró ningún jugador que coincida con '{query}'.",
+    },
+    "renderer.fallback.resolve_player": {
+        "en": "Could not resolve player '{ep}'.",
+        "es": "No se pudo identificar al jugador '{ep}'.",
+    },
+    # differential picks (the rows keep the FPL price format: £x.xm)
+    "renderer.differentials.header": {
+        "en": "Top differentials (ownership < {threshold}%):",
+        "es": "Mejores diferenciales (propiedad < {threshold}%):",
+    },
+    "renderer.differentials.none": {
+        "en": "No differential picks found (ownership < {threshold}%).",
+        "es": "No se encontraron diferenciales (propiedad < {threshold}%).",
+    },
+    "renderer.differentials.empty": {
+        "en": "No differential picks found.",
+        "es": "No se encontraron diferenciales.",
+    },
+    "renderer.differentials.error": {
+        "en": "An unexpected differential picks error occurred.",
+        "es": "Ocurrió un error inesperado al buscar diferenciales.",
+    },
+    "renderer.differentials.row": {
+        "en": "  {rank}. {name} ({team}, {position}) — score {score}, {owned}% owned, £{cost}m",
+        "es": "  {rank}. {name} ({team}, {position}) — puntuación {score}, {owned}% de propiedad, £{cost}m",
+    },
+    "renderer.captain.pool_derived": {
+        "en": "Pool source: derived from bootstrap.",
+        "es": "Origen del pool: derivado del bootstrap.",
+    },
+    "renderer.captain.pool_caller": {
+        "en": "Pool source: caller-supplied candidates.",
+        "es": "Origen del pool: candidatos indicados por el usuario.",
+    },
+    "renderer.captain.no_hipster": {
+        "en": "No hipster: nobody lightly owned clears the bar.",
+        "es": "Sin hipster: nadie de poca propiedad llega al minimo.",
+    },
+    "renderer.captain.share": {"en": " - owned by {v}%", "es": " - {v}% de propiedad"},
+    "renderer.captain.your_squad": {"en": " \u00b7 your squad", "es": " \u00b7 tu plantilla"},
+    "renderer.captain.owned_header": {
+        "en": "A) Candidates from your squad:",
+        "es": "A) Candidatos de tu plantilla:",
+    },
+    "renderer.captain.owned_none": {
+        "en": "There are no available candidates in your squad.",
+        "es": "No hay candidatos disponibles en tu plantilla.",
+    },
+    "renderer.captain.squad_unavailable": {
+        "en": "I could not load your squad, so I am showing only the global ranking.",
+        "es": "No pude cargar tu plantilla; te muestro solo el ranking global.",
+    },
+    "renderer.captain.not_connected": {
+        "en": "No team is connected, so I am showing only the global ranking.",
+        "es": "No hay equipo conectado; te muestro solo el ranking global.",
+    },
+    "renderer.captain.excl_unavailable": {"en": "unavailable", "es": "no disponible"},
+    "renderer.captain.excl_unresolved": {"en": "unresolved", "es": "sin resolver"},
+    "renderer.captain.not_evaluated": {
+        "en": "Not evaluated for captaincy: {items}.",
+        "es": "No evaluados para capitan\u00eda: {items}.",
+    },
+    "renderer.captain.global_header": {
+        "en": "B) Best global candidates:",
+        "es": "B) Mejores candidatos globales:",
+    },
+    "renderer.captain.worth_knowing": {"en": "Worth knowing: {line}", "es": "Conviene saber: {line}"},
+    "renderer.captain.about": {"en": "On {name}: {note}", "es": "Sobre {name}: {note}"},
+
+    "renderer.team_results.header": {
+        "en": "{name} \u2014 last {n} matches{venue}:",
+        "es": "{name} \u2014 \u00faltimos {n} partidos{venue}:",
+    },
+    "renderer.team_results.venue_home": {"en": " at home", "es": " de local"},
+    "renderer.team_results.venue_away": {"en": " away", "es": " de visitante"},
+    "renderer.team_results.where_home": {"en": "vs", "es": "vs"},
+    "renderer.team_results.where_away": {"en": "at", "es": "en casa de"},
+    "renderer.team_results.gw": {"en": "GW{gw} ", "es": "J{gw} "},
+    "renderer.team_results.summary": {
+        "en": "Summary: {line}.",
+        "es": "Resumen: {line}.",
+    },
+    "renderer.team_results.home": {"en": "Home: {line}.", "es": "Local: {line}."},
+    "renderer.team_results.away": {"en": "Away: {line}.", "es": "Visitante: {line}."},
+    "renderer.team_results.line": {
+        "en": (
+            "{played} P, {won}W {drawn}D {lost}L, GF {gf} GA {ga}, {cs} clean sheets "
+            "(avg {avg_gf} for / {avg_ga} against)"
+        ),
+        "es": (
+            "{played} PJ, {won}G {drawn}E {lost}P, GF {gf} GC {ga}, {cs} porter\u00edas a cero "
+            "(media {avg_gf} a favor / {avg_ga} en contra)"
+        ),
+    },
+    "renderer.team_results.ambiguous": {
+        "en": "'{query}' matches several teams.",
+        "es": "'{query}' coincide con varios equipos.",
+    },
+    "renderer.team_results.not_found": {
+        "en": "I couldn't find the team '{query}'.",
+        "es": "No encontr\u00e9 el equipo '{query}'.",
+    },
+    "renderer.team_results.error": {
+        "en": "Unexpected error while fetching the team's results.",
+        "es": "Error inesperado al consultar los resultados del equipo.",
+    },
+
+    "renderer.top_scorer.none": {
+        "en": "No finished gameweeks for season {season}.",
+        "es": "Sin datos de jornadas terminadas para la temporada {season}.",
+    },
+    "renderer.top_scorer.points": {"en": "{pts} points", "es": "{pts} puntos"},
+    "renderer.top_scorer.no_points": {"en": "points not available", "es": "puntos no disponibles"},
+    "renderer.top_scorer.single": {
+        "en": "Player of gameweek {gw} ({season}): {line}.",
+        "es": "Jugador de la jornada {gw} ({season}): {line}.",
+    },
+    "renderer.top_scorer.season_header": {
+        "en": "Player of the gameweek, season {season}:",
+        "es": "Jugador de la jornada, temporada {season}:",
+    },
+    "renderer.top_scorer.row_gw": {"en": "GW{gw}: {line}", "es": "J{gw}: {line}"},
+    "renderer.top_scorer.not_finished": {
+        "en": "Gameweek {gw} of {season} has not finished yet.",
+        "es": "La jornada {gw} de {season} a\u00fan no ha terminado.",
+    },
+    "renderer.top_scorer.not_found": {
+        "en": "I found no data for that gameweek or season.",
+        "es": "No encontr\u00e9 datos para esa jornada o temporada.",
+    },
+    "renderer.top_scorer.invalid": {"en": "Invalid argument.", "es": "Argumento inv\u00e1lido."},
+    "renderer.top_scorer.error": {
+        "en": "An unexpected error occurred while reading the history.",
+        "es": "Ocurri\u00f3 un error inesperado consultando el hist\u00f3rico.",
+    },
+
+    "renderer.find_players.header": {
+        "en": "Players found for '{query}':",
+        "es": "Jugadores encontrados para '{query}':",
+    },
+    "renderer.find_players.row": {
+        "en": "  - {name} ({team}, {pos}) \u2014 \u00a3{cost}m | Form {form} | {pts}pts | Mins {mins}",
+        "es": "  - {name} ({team}, {pos}) \u2014 \u00a3{cost}m | Forma {form} | {pts}pts | Mins {mins}",
+    },
+    "renderer.find_players.not_found": {
+        "en": "No player found matching '{query}'.",
+        "es": "No se encontr\u00f3 ning\u00fan jugador que coincida con '{query}'.",
+    },
+
+    "renderer.history.header": {
+        "en": "{name} ({team}, {pos}) \u2014 last {n} gameweek(s):",
+        "es": "{name} ({team}, {pos}) \u2014 \u00faltimas {n} jornada(s):",
+    },
+    "renderer.history.empty": {"en": " No history available.", "es": " Sin historial disponible."},
+    "renderer.history.table": {
+        "en": "  GW  | Opp   | Mins | Pts | G | A  | xG   | xA",
+        "es": "  GW  | Rival | Mins | Pts | G | A  | xG   | xA",
+    },
+    "renderer.history.summary": {
+        "en": "\n  Summary: {pts}pts total | Average form: {avg} | Total xGI: {xgi}",
+        "es": "\n  Resumen: {pts}pts totales | Forma media: {avg} | xGI total: {xgi}",
+    },
+    "renderer.history.ambiguous": {
+        "en": "Multiple players match \u2014 please give the full name.",
+        "es": "M\u00faltiples jugadores coinciden \u2014 especifica el nombre.",
+    },
+    "renderer.history.not_found": {"en": "Player not found.", "es": "Jugador no encontrado."},
+
+    "renderer.fixtures_gw.blank": {
+        "en": "\u26a0 Blank gameweek (a team has no fixture)",
+        "es": "\u26a0 Jornada en blanco (alg\u00fan equipo sin partido)",
+    },
+    "renderer.fixtures_gw.double": {
+        "en": "\u26a0 Double gameweek \u2014 teams with 2 fixtures: {teams}",
+        "es": "\u26a0 Jornada doble \u2014 equipos con 2 partidos: {teams}",
+    },
+    "renderer.fixtures_gw.header": {"en": "Fixtures GW{gw}:", "es": "Partidos GW{gw}:"},
+    "renderer.fixtures_gw.row": {
+        "en": "  GW{gw}: {home} vs {away} (kickoff: {ko}) | FDR home {h}, FDR away {a}",
+        "es": "  GW{gw}: {home} vs {away} (kickoff: {ko}) | FDR local {h}, FDR visit {a}",
+    },
+    "renderer.fixtures_gw.none": {
+        "en": "  No fixtures for this gameweek.",
+        "es": "  Sin partidos para esta jornada.",
+    },
+    "renderer.fixtures_gw.bgw_teams": {
+        "en": "  Teams without a fixture (BGW): {teams}",
+        "es": "  Equipos sin partido (BGW): {teams}",
+    },
+    "renderer.fixtures_gw.out_of_range": {
+        "en": "Gameweek number out of range (1-38).",
+        "es": "N\u00famero de jornada fuera de rango (1-38).",
+    },
+
+    "renderer.gw_context.season_over": {"en": "The season is over.", "es": "La temporada ha finalizado."},
+    "renderer.gw_context.line": {
+        "en": "Current gameweek: GW{curr} ({status}). Next gameweek: {next}.",
+        "es": "Jornada actual: GW{curr} ({status}). Pr\u00f3xima jornada: {next}.",
+    },
+    "renderer.gw_context.blank": {
+        "en": "  \u2022 BGW{gw}: teams without a fixture \u2014 {teams}",
+        "es": "  \u2022 BGW{gw}: equipos sin partido \u2014 {teams}",
+    },
+    "renderer.gw_context.double": {
+        "en": "  \u2022 DGW{gw}: teams with a double fixture \u2014 {teams}",
+        "es": "  \u2022 DGW{gw}: equipos con doble partido \u2014 {teams}",
+    },
+    "renderer.gw_context.error": {
+        "en": "Error getting the gameweek context.",
+        "es": "Error obteniendo contexto de jornada.",
+    },
+
+    "renderer.team_snapshot.run_easy": {"en": "easy", "es": "f\u00e1cil"},
+    "renderer.team_snapshot.run_hard": {"en": "tough", "es": "dura"},
+    "renderer.team_snapshot.run_mid": {"en": "average", "es": "media"},
+    "renderer.team_snapshot.header": {
+        "en": "**{name} ({short})** \u2014 {run} run (average FDR: {avg})",
+        "es": "**{name} ({short})** \u2014 racha {run} (FDR medio: {avg})",
+    },
+    "renderer.team_snapshot.fixtures": {"en": "  Upcoming fixtures:", "es": "  Pr\u00f3ximos partidos:"},
+    "renderer.team_snapshot.top_players": {
+        "en": "  Top players (by points):",
+        "es": "  Mejores jugadores (por puntos):",
+    },
+    "renderer.team_snapshot.player_row": {
+        "en": "    {name} ({pos}) \u2014 {pts}pts | form {form} | \u00a3{cost}m",
+        "es": "    {name} ({pos}) \u2014 {pts}pts | forma {form} | \u00a3{cost}m",
+    },
+    "renderer.team_snapshot.leaders": {
+        "en": "  Top scorer: {scorer} | Best form: {form}",
+        "es": "  M\u00e1ximo goleador: {scorer} | Mejor forma: {form}",
+    },
+    "renderer.team_snapshot.ambiguous": {
+        "en": "Multiple teams match '{query}': {shorts}. Please be more specific.",
+        "es": "M\u00faltiples equipos coinciden con '{query}': {shorts}. Por favor especifica.",
+    },
+    "renderer.team_snapshot.not_found": {"en": "Team not found.", "es": "Equipo no encontrado."},
+
+    "renderer.web.error": {
+        "en": "The web search could not be completed.",
+        "es": "No se pudo completar la b\u00fasqueda web.",
+    },
+    "renderer.web.none": {
+        "en": "I found no relevant results for that search.",
+        "es": "No encontr\u00e9 resultados relevantes para esa b\u00fasqueda.",
+    },
+    "renderer.web.found": {"en": "Here is what I found on the web:", "es": "Esto encontr\u00e9 en la web:"},
+    "renderer.fetch.ok": {
+        "en": "Fetched {url} ({length} bytes{trunc}).\n{excerpt}",
+        "es": "Obtenido {url} ({length} bytes{trunc}).\n{excerpt}",
+    },
+    "renderer.fetch.truncated": {"en": " (truncated)", "es": " (truncado)"},
+    "renderer.fetch.refused": {
+        "en": "URL rejected by the allowed-domains list.",
+        "es": "URL rechazada por la lista de dominios permitidos.",
+    },
+    "renderer.fetch.error": {"en": "Error fetching the URL.", "es": "Error al obtener la URL."},
+
+    "renderer.metric.pos_filter": {"en": "position: {pos}", "es": "posici\u00f3n: {pos}"},
+    "renderer.metric.min_minutes": {"en": "min. minutes: {n}", "es": "min. minutos: {n}"},
+    "renderer.metric.none": {
+        "en": "No players for the metric '{metric}'{filters}.",
+        "es": "Sin jugadores para la m\u00e9trica '{metric}'{filters}.",
+    },
+    "renderer.metric.inverted_asc": {
+        "en": "The {n} players with the lowest {metric}{filters}:",
+        "es": "Los {n} jugadores con menor {metric}{filters}:",
+    },
+    "renderer.metric.inverted_desc": {
+        "en": "The {n} players with the highest {metric}{filters}:",
+        "es": "Los {n} jugadores con mayor {metric}{filters}:",
+    },
+    "renderer.metric.top": {
+        "en": "Top {n} players by {metric}{filters}:",
+        "es": "Top {n} jugadores por {metric}{filters}:",
+    },
+    "renderer.metric.table": {
+        "en": "  #  | Player        | Team   | Pos | Metric value",
+        "es": "  #  | Jugador       | Equipo | Pos | Valor m\u00e9trica",
+    },
+    "renderer.metric.unknown": {"en": "Metric not recognised.", "es": "M\u00e9trica no reconocida."},
+
+    "renderer.squad.header": {
+        "en": "Squad of {n} players by {objective} (basis: {basis}):",
+        "es": "Equipo de {n} jugadores por {objective} (base: {basis}):",
+    },
+    "renderer.squad.table": {
+        "en": "  Pos | Player           | Club | Price  | Value  | XI",
+        "es": "  Pos | Jugador          | Club | Precio | Valor  | XI",
+    },
+    "renderer.squad.bench": {"en": "bench", "es": "banca"},
+    "renderer.squad.total": {
+        "en": "  Total cost: {cost}m of {budget}m \u2014 {remaining}m left.",
+        "es": "  Coste total: {cost}m de {budget}m \u2014 queda {remaining}m.",
+    },
+    "renderer.squad.clubs": {
+        "en": "  Per club: {clubs} (maximum allowed {max}).",
+        "es": "  Por club: {clubs} (m\u00e1ximo permitido {max}).",
+    },
+    "renderer.squad.formation": {
+        "en": "  Formation: {formation} (plus goalkeeper).",
+        "es": "  Alineaci\u00f3n: {formation} (m\u00e1s portero).",
+    },
+    "renderer.squad.warning": {"en": "  Note: {warning}", "es": "  Aviso: {warning}"},
+    "renderer.squad.infeasible": {
+        "en": "No legal squad exists with those constraints.",
+        "es": "No existe ning\u00fan equipo legal con esas restricciones.",
+    },
+    "renderer.squad.ambiguous": {"en": "Several players match.", "es": "Varios jugadores coinciden."},
+    "renderer.squad.candidates": {"en": "{message} Candidates: {names}.", "es": "{message} Candidatos: {names}."},
+    "renderer.squad.not_found": {"en": "I couldn't find that player.", "es": "No encontr\u00e9 a ese jugador."},
+    "renderer.squad.invalid": {
+        "en": "Invalid arguments for building the squad.",
+        "es": "Argumentos no v\u00e1lidos para armar el equipo.",
+    },
+
+    # -- i18n S5a: generic orchestrator failure texts. en is the wording these had;
+    # they were English-only, so a Spanish user saw English -- es is new (deliberate
+    # behaviour change, same call as the clarification prompts in S3b).
+    "orch_err.llm_failed": {
+        "en": "LLM call failed during orchestration.",
+        "es": "Falló la llamada al modelo durante la orquestación.",
+    },
+    "orch_err.auth_failed": {
+        "en": "LLM authentication failed during orchestration.",
+        "es": "Falló la autenticación con el modelo durante la orquestación.",
+    },
+    "orch_err.no_client": {
+        "en": "No LLM client available for orchestration.",
+        "es": "No hay un cliente de modelo disponible para la orquestación.",
+    },
+    "orch_err.cooldown": {
+        "en": "LLM provider temporarily unavailable (cooldown active).",
+        "es": "El proveedor del modelo no está disponible por el momento (enfriamiento activo).",
+    },
+    "orch_err.unknown_tool": {
+        "en": "Model selected an unknown tool: {tool}.",
+        "es": "El modelo eligió una herramienta desconocida: {tool}.",
+    },
+    "orch_err.tool_raised": {
+        "en": "Tool execution raised an error for {tool}.",
+        "es": "La ejecución de la herramienta falló para {tool}.",
+    },
+
     # -- position noun, shared by any renderer that names a position group -
     "position_noun.GKP": {"en": "goalkeepers", "es": "porteros"},
     "position_noun.DEF": {"en": "defenders", "es": "defensas"},
@@ -276,6 +880,10 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "Comparison completed.",
         "es": "Comparación completada.",
     },
+    "compare_players.ambiguous": {
+        "en": "More than one player is called '{player}'. Pick the one you mean.",
+        "es": "Hay más de un jugador llamado '{player}'. Elige el que quieres.",
+    },
     "compare_players.not_found_fallback": {
         "en": "Could not resolve player '{player}'.",
         "es": "No pude identificar al jugador '{player}'.",
@@ -286,26 +894,6 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     },
 
     # -- get_player_snapshot -----------------------------------------------
-    "player_snapshot.price_line": {
-        "en": "  Price: £{cost}m | Owned: {own}% | Status: {status_lbl}",
-        "es": "  Precio: £{cost}m | Propiedad: {own}% | Estado: {status_lbl}",
-    },
-    "player_snapshot.points_line": {
-        "en": "  Total pts: {pts} | PPG: {ppg} | Form: {form}",
-        "es": "  Pts totales: {pts} | PPG: {ppg} | Forma: {form}",
-    },
-    "player_snapshot.minutes_line": {
-        "en": "  Minutes: {mins}",
-        "es": "  Minutos: {mins}",
-    },
-    "player_snapshot.chance_line": {
-        "en": "  Chance of playing: {chance}%",
-        "es": "  Prob. de jugar: {chance}%",
-    },
-    "player_snapshot.news_line": {
-        "en": "  News: {news}",
-        "es": "  Noticias: {news}",
-    },
     "player_snapshot.ambiguous_header": {
         "en": "Multiple players match '{query}' — please specify:",
         "es": "Múltiples jugadores coinciden con '{query}' — por favor especifica:",
@@ -588,6 +1176,207 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "captain_reason.tier_differential": {"en": "High-upside differential profile", "es": "Perfil diferencial de alto potencial"},
     "captain_reason.tier_low_confidence": {"en": "Low-confidence captaincy profile", "es": "Perfil de capitanía de baja confianza"},
 
+    "gw_report.no_team_connected": {
+        "en": 'No team is connected. Connect your team from the Squad tab to get your gameweek review.',
+        "es": 'No hay ningún equipo conectado. Conecta tu equipo desde la pestaña Plantilla para ver el resumen de tu jornada.',
+    },
+    "gw_report.team_not_found": {
+        "en": "I couldn't find your connected FPL team. Check that the ID is correct.",
+        "es": 'No encontré tu equipo FPL conectado. Revisa que el ID sea correcto.',
+    },
+    "gw_report.network_error": {
+        "en": "I couldn't fetch your gameweek right now. Try again in a moment.",
+        "es": 'No pude obtener tu jornada en este momento. Intenta de nuevo en un momento.',
+    },
+    "gw_report.invalid_gw": {
+        "en": 'Gameweek must be between {min_gw} and {max_gw}.',
+        "es": 'La jornada debe estar entre {min_gw} y {max_gw}.',
+    },
+    "gw_report.gw_not_finished": {
+        "en": "GW{gw} isn't closed yet, so there is no final review to show. Ask again once FPL closes it.",
+        "es": 'La J{gw} aún no está cerrada, así que todavía no hay un resumen final. Vuelve a preguntar cuando FPL la cierre.',
+    },
+    "gw_report.no_finished_gw": {
+        "en": 'No gameweek has been closed yet this season, so there is no review to show.',
+        "es": 'Todavía no se ha cerrado ninguna jornada esta temporada, así que no hay resumen que mostrar.',
+    },
+    "gw_report.incomplete": {
+        "en": "I don't have complete official data for GW{gw} yet, so I'd rather not show a partial review.",
+        "es": 'Aún no tengo datos oficiales completos de la J{gw}, así que prefiero no mostrar un resumen parcial.',
+    },
+    "gw_report.header": {
+        "en": '**Gameweek review (retrospective) — GW{gw}**{chip_clause}',
+        "es": '**Resumen retrospectivo — J{gw}**{chip_clause}',
+    },
+    "gw_report.points_ok": {
+        "en": "Points: **{gross}**, matching FPL's official total.{hit_clause}",
+        "es": 'Puntos: **{gross}**, coinciden con el total oficial de FPL.{hit_clause}',
+    },
+    "gw_report.points_hit_clause": {
+        "en": ' Transfer cost: −{cost}, net **{net}**.',
+        "es": ' Coste de fichajes: −{cost}, neto **{net}**.',
+    },
+    "gw_report.points_mismatch": {
+        "en": "Heads-up: my sum is {computed} but FPL's official figure is {official} (difference {diff}). Treat the numbers below as unreconciled.",
+        "es": 'Ojo: mi suma es {computed} pero la cifra oficial de FPL es {official} (diferencia {diff}). Toma las cifras de abajo como no reconciliadas.',
+    },
+    "gw_report.points_unverified": {
+        "en": "I couldn't check my sum ({computed}) against FPL's official figure, so treat it as unverified.",
+        "es": 'No pude comprobar mi suma ({computed}) con la cifra oficial de FPL, así que tómala como no verificada.',
+    },
+    "gw_report.provisional_note": {
+        "en": "_FPL hasn't finished checking this gameweek's data; points may still change._",
+        "es": '_FPL aún no termina de verificar los datos de esta jornada; los puntos pueden cambiar._',
+    },
+    "gw_report.xi_header": {
+        "en": '**Effective XI (after automatic substitutions):**',
+        "es": '**Once efectivo (tras las autosustituciones):**',
+    },
+    "gw_report.bench_header": {
+        "en": '**Bench:**',
+        "es": '**Banca:**',
+    },
+    "gw_report.player_line": {
+        "en": '- {name} ({team}, {pos}) · {points} pts · {minutes} min{tags}',
+        "es": '- {name} ({team}, {pos}) · {points} pts · {minutes} min{tags}',
+    },
+    "gw_report.tag_captain": {
+        "en": ' · (C ×{mult})',
+        "es": ' · (C ×{mult})',
+    },
+    "gw_report.tag_vice": {
+        "en": ' · (VC)',
+        "es": ' · (VC)',
+    },
+    "gw_report.tag_sub_in": {
+        "en": ' · came on as an automatic sub',
+        "es": ' · entró por autosustitución',
+    },
+    "gw_report.tag_sub_out": {
+        "en": ' · automatically substituted',
+        "es": ' · sustituido automáticamente',
+    },
+    "gw_report.armband_moved": {
+        "en": 'The armband passed to vice-captain {vice} because captain {captain} did not play.',
+        "es": 'El brazalete pasó al vice-capitán {vice} porque el capitán {captain} no jugó.',
+    },
+    "gw_report.stories_header": {
+        "en": '**What stood out:**',
+        "es": '**Lo que destacó:**',
+    },
+    "gw_report.story.captain_top": {
+        "en": 'Captain: {captain} scored {captain_points} {unit} (×{multiplier} = {contribution}), the highest of your effective XI{tied}.',
+        "es": 'Capitán: {captain} sumó {captain_points} {unit} (×{multiplier} = {contribution}), el máximo de tu once efectivo{tied}.',
+    },
+    "gw_report.story.captain_top_tied": {
+        "en": ' (level with {names})',
+        "es": ' (igualado con {names})',
+    },
+    "gw_report.story.captain_gap": {
+        "en": '{best} was the best of your XI ({best_points} {best_unit}); the armband went to {captain} ({captain_points} {unit}, ×{multiplier}).',
+        "es": '{best} fue el mejor de tu once ({best_points} {best_unit}); el brazalete fue para {captain} ({captain_points} {unit}, ×{multiplier}).',
+    },
+    "gw_report.story.autosub": {
+        "en": 'Automatic substitution: {player_in} came on for {player_out} and scored {points_in} {unit} ({reason}).',
+        "es": 'Autosustitución: {player_in} entró por {player_out} y sumó {points_in} {unit} ({reason}).',
+    },
+    "gw_report.story.autosub_no_fixture": {
+        "en": "{player_out}'s team had no fixture",
+        "es": 'el equipo de {player_out} no tenía partido',
+    },
+    "gw_report.story.autosub_not_played": {
+        "en": '{player_out} did not play',
+        "es": '{player_out} no jugó',
+    },
+    "gw_report.story.bench_points": {
+        "en": 'Bench: {bench_points} {unit} did not count; the highest was {best} with {best_points}.',
+        "es": 'Banca: {bench_points} {unit} sin contar; el mayor fue {best} con {best_points}.',
+    },
+    "gw_report.story.bench_boost": {
+        "en": 'Bench Boost: your bench added {bench_points} {unit}; the highest was {best} with {best_points}.',
+        "es": 'Bench Boost: tu banca aportó {bench_points} {unit}; el mayor fue {best} con {best_points}.',
+    },
+    "gw_report.story.no_add": {
+        "en": '{player} played {minutes} min and scored {points} {unit}{comparison}.',
+        "es": '{player} jugó {minutes} min y sumó {points} {unit}{comparison}.',
+    },
+    "gw_report.story.no_add_comparison": {
+        "en": ' (an average of {avg} pts per match over the previous {n} appearances with minutes; a historical comparison, not an expectation)',
+        "es": ' (en sus {n} partidos previos con minutos promedió {avg} pts por partido; comparación histórica, no una expectativa)',
+    },
+    "gw_report.story.minutes_change": {
+        "en": 'Minutes: {player} played {per_fixture} min this gameweek, against an average of {avg} min over the last {n} appearances with minutes.',
+        "es": 'Minutos: {player} jugó {per_fixture} min en esta jornada, frente a una media de {avg} min en sus últimos {n} partidos con minutos.',
+    },
+    "gw_report.footer": {
+        "en": 'Retrospective review from official FPL data; it is not a forecast.',
+        "es": 'Resumen retrospectivo con datos oficiales de FPL; no es una predicción.',
+    },
+    "gcard.gw_report.title": {
+        "en": 'GW{gw} · RETROSPECTIVE',
+        "es": 'J{gw} · RETROSPECTIVA',
+    },
+    "gcard.gw_report.subtitle": {
+        "en": 'Your picks and points that gameweek',
+        "es": 'Tus fichajes y puntos de esa jornada',
+    },
+    "gcard.gw_report.hero_ok": {
+        "en": 'official points',
+        "es": 'puntos oficiales',
+    },
+    "gcard.gw_report.hero_unreconciled": {
+        "en": 'points (unreconciled)',
+        "es": 'puntos (sin reconciliar)',
+    },
+    "gcard.gw_report.col_player": {
+        "en": 'Player',
+        "es": 'Jugador',
+    },
+    "gcard.gw_report.col_role": {
+        "en": 'Role',
+        "es": 'Rol',
+    },
+    "gcard.gw_report.col_min": {
+        "en": 'Min',
+        "es": 'Min',
+    },
+    "gcard.gw_report.col_pts": {
+        "en": 'Pts',
+        "es": 'Pts',
+    },
+    "gcard.gw_report.role_xi": {
+        "en": 'XI',
+        "es": 'Once',
+    },
+    "gcard.gw_report.role_sub_in": {
+        "en": 'Sub in',
+        "es": 'Entra',
+    },
+    "gcard.gw_report.role_sub_out": {
+        "en": 'Sub out',
+        "es": 'Sale',
+    },
+    "gcard.gw_report.role_bench": {
+        "en": 'Bench',
+        "es": 'Banca',
+    },
+    "gcard.gw_report.pill_reconciled": {
+        "en": 'Matches FPL',
+        "es": 'Cuadra con FPL',
+    },
+    "gcard.gw_report.pill_unreconciled": {
+        "en": "Doesn't match FPL",
+        "es": 'No cuadra con FPL',
+    },
+    "gcard.gw_report.pill_provisional": {
+        "en": 'Provisional data',
+        "es": 'Datos provisionales',
+    },
+    "gcard.gw_report.pill_hit": {
+        "en": 'Hit −{cost}',
+        "es": 'Coste −{cost}',
+    },
+
     # -- get_my_squad (i39) --------------------------------------------------
     # The connected user's own squad. "no_team_connected" is the overwhelming
     # common case for any turn without a linked team -- see get_my_squad.py's
@@ -639,6 +1428,372 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "my_squad.error_fallback": {
         "en": "An unexpected error occurred.",
         "es": "Ocurrió un error inesperado.",
+    },
+    # -- decision_router.py: "top goalscorer" of a PAST season (i82) -------
+    "decision.past_season_goals": {
+        "en": (
+            "I don't have goals per gameweek for past seasons, but I can tell you who "
+            "scored the most **points**. Would that help?"
+        ),
+        "es": (
+            "No tengo goles por jornada de temporadas pasadas; sí puedo decirte quién "
+            "hizo más **puntos**. ¿Te sirve?"
+        ),
+    },
+
+    # B4: starting-slot changes and who was missing (get_position_changes).
+    "renderer.position_changes.header": {"en": "{name} ({team}): where he was listed to start, latest {n} matches with a stored lineup:", "es": "{name} ({team}): d\u00f3nde figur\u00f3 como titular, \u00faltimos {n} partidos con alineaci\u00f3n guardada:"},
+    "renderer.position_changes.gw": {"en": "GW{gw}", "es": "J{gw}"},
+    "renderer.position_changes.home": {"en": "{opp} (H)", "es": "{opp} (L)"},
+    "renderer.position_changes.away": {"en": "{opp} (A)", "es": "{opp} (V)"},
+    "renderer.position_changes.started": {"en": "started: {role}", "es": "titular: {role}"},
+    "renderer.position_changes.bench": {"en": "on the bench", "es": "en el banquillo"},
+    "renderer.position_changes.not_listed": {"en": "not in the stored squad list", "es": "no figura en la convocatoria guardada"},
+    # FPL out-news attributed to a match only when its own date precedes the kickoff (observed, never a cause).
+    "renderer.position_changes.out": {"en": "out: {reason} (FPL, {date})", "es": "baja: {reason} (FPL, {date})"},
+    "renderer.position_changes.reason_knee": {"en": "knee injury", "es": "lesión de rodilla"},
+    "renderer.position_changes.reason_ankle": {"en": "ankle injury", "es": "lesión de tobillo"},
+    "renderer.position_changes.reason_hamstring": {"en": "hamstring injury", "es": "lesión en el isquiotibial"},
+    "renderer.position_changes.reason_calf": {"en": "calf injury", "es": "lesión en el gemelo"},
+    "renderer.position_changes.reason_groin": {"en": "groin injury", "es": "lesión en la ingle"},
+    "renderer.position_changes.reason_thigh": {"en": "thigh injury", "es": "lesión en el muslo"},
+    "renderer.position_changes.reason_foot": {"en": "foot injury", "es": "lesión en el pie"},
+    "renderer.position_changes.reason_back": {"en": "back injury", "es": "lesión de espalda"},
+    "renderer.position_changes.reason_hip": {"en": "hip injury", "es": "lesión de cadera"},
+    "renderer.position_changes.reason_shoulder": {"en": "shoulder injury", "es": "lesión de hombro"},
+    "renderer.position_changes.reason_muscle": {"en": "muscle injury", "es": "lesión muscular"},
+    "renderer.position_changes.reason_illness": {"en": "illness", "es": "enfermedad"},
+    "renderer.position_changes.reason_injury": {"en": "injury", "es": "lesión"},
+    "renderer.position_changes.reason_suspension": {"en": "suspension", "es": "sanción"},
+    "renderer.position_changes.reason_unavailable": {"en": "unavailable", "es": "no disponible"},
+    "renderer.position_changes.slot_row": {"en": "slot: {name}", "es": "casilla: {name}"},
+    "renderer.position_changes.slot_row_closest": {"en": "closest slot: {name}", "es": "casilla más parecida: {name}"},
+    "renderer.position_changes.slot_summary": {"en": "  In the {n} matches without {player}, the {slot} slot was held by {names}.", "es": "  En los {n} partidos sin {player}, la casilla de {slot} quedó ocupada por {names}."},
+    "renderer.position_changes.slot_summary_one": {"en": "  In the match without {player}, the {slot} slot was held by {names}.", "es": "  En el partido sin {player}, la casilla de {slot} quedó ocupada por {names}."},
+    "renderer.position_changes.slot_closest": {"en": "  The formation changed in some matches, so the closest slot is shown there.", "es": "  En algunos partidos cambió la formación; ahí se muestra la casilla más parecida."},
+    "renderer.position_changes.slot_small": {"en": "  Small sample: {n} matches without {player}; a first look at who covers that slot.", "es": "  Muestra pequeña: {n} partidos sin {player}; una primera lectura de quién cubre esa casilla."},
+    "renderer.position_changes.slot_small_one": {"en": "  Small sample: 1 match without {player}; a first look at who covers that slot.", "es": "  Muestra pequeña: 1 partido sin {player}; una primera lectura de quién cubre esa casilla."},
+    "renderer.position_changes.slot_none": {"en": "  No usual slot measured yet for {player} (stored starts: {n}), so nobody is named for his slot.", "es": "  Aún no hay casilla habitual medida para {player} (titularidades guardadas: {n}); no se nombra a nadie en su casilla."},
+    "renderer.position_changes.out_summary": {"en": "  Listed as out in FPL since {date}: {n} of these matches.", "es": "  Consta como baja en FPL desde el {date}: {n} de estos partidos."},
+    "renderer.position_changes.provisional": {"en": " (provisional lineup)", "es": " (alineaci\u00f3n provisional)"},
+    "renderer.position_changes.changed": {"en": "    started in a different slot than in his recent starts (before: {before})", "es": "    empez\u00f3 en otra casilla que en sus \u00faltimos partidos (antes: {before})"},
+    "renderer.position_changes.changed_line_forward": {"en": "    same role, different line: further forward than in his recent starts", "es": "    mismo rol, otra línea: más adelantado que en sus últimos partidos"},
+    "renderer.position_changes.changed_line_deeper": {"en": "    same role, different line: deeper than in his recent starts", "es": "    mismo rol, otra línea: más retrasado que en sus últimos partidos"},
+    "renderer.position_changes.line_unknown": {"en": "    same role; the line cannot be compared with his recent starts (different or unknown formation)", "es": "    mismo rol; la línea no es comparable con sus últimos partidos (formación distinta o desconocida)"},
+    "renderer.position_changes.assoc": {"en": "    coincided with the absence of {name} from the starting XI ({presence}{sidelined}){unmapped}", "es": "    coincidi\u00f3 con la ausencia de {name} en el once inicial ({presence}{sidelined}){unmapped}"},
+    "renderer.position_changes.presence_bench": {"en": "on the bench", "es": "estaba en el banquillo"},
+    "renderer.position_changes.presence_not_listed": {"en": "not in the stored squad list", "es": "no figuraba en la convocatoria guardada"},
+    "renderer.position_changes.sidelined": {"en": "; on the provider's sidelined list that day", "es": "; figuraba en la lista de bajas del proveedor ese d\u00eda"},
+    "renderer.position_changes.unmapped": {"en": " \u2014 the stored lineup is incomplete, so he may have started", "es": " \u2014 la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que pudo ser titular"},
+    "renderer.position_changes.hypothesis": {"en": "    Unproven: he took the position {name} usually holds ({role})", "es": "    Sin demostrar: ocup\u00f3 la posici\u00f3n habitual de {name} ({role})"},
+    "renderer.position_changes.no_change": {"en": "  No change of starting slot against his recent starts.", "es": "  Sin cambio de casilla frente a sus \u00faltimos partidos."},
+    "renderer.position_changes.switch": {"en": "Since GW{gw} he has started as {to} ({n} of {n}); before, {before} ({k} of {m}).", "es": "Desde la J{gw} empieza de {to} ({n} de {n}); antes, {before} ({k} de {m})."},
+    "renderer.position_changes.gap": {"en": "Listed as a {fpl} in FPL; started {n} of {m} as a {played}{side}.", "es": "En FPL es {fpl}; ha empezado {n} de {m} como {played}{side}."},
+    "renderer.position_changes.line_GKP": {"en": "goalkeeper", "es": "portero"},
+    "renderer.position_changes.line_DEF": {"en": "defender", "es": "defensa"},
+    "renderer.position_changes.line_MID": {"en": "midfielder", "es": "medio"},
+    "renderer.position_changes.line_FWD": {"en": "forward", "es": "delantero"},
+    "renderer.position_changes.side_left": {"en": " on the left", "es": " por la izquierda"},
+    "renderer.position_changes.side_right": {"en": " on the right", "es": " por la derecha"},
+    "renderer.position_changes.focus": {"en": "  Without {name} in the starting XI ({k} matches): {without}. With him starting ({m} matches): {with_him}.", "es": "  Sin {name} en el once inicial ({k} partidos): {without}. Con \u00e9l de titular ({m} partidos): {with_him}."},
+    "renderer.position_changes.focus_none": {"en": "no usual position yet", "es": "sin posici\u00f3n habitual todav\u00eda"},
+    "renderer.position_changes.small_sample": {"en": "  Small sample: {n} matches with a stored lineup, so this is a first look, not a trend.", "es": "  Muestra peque\u00f1a: {n} partidos con alineaci\u00f3n guardada; es una primera lectura, no una tendencia."},
+    "renderer.position_changes.small_focus": {"en": "  In the starting XI without {name}: {k}; with him: {m}. It takes at least {min} matches on each side to read a pattern.", "es": "  En el once inicial sin {name}: {k}; con \u00e9l: {m}. Hacen falta al menos {min} partidos de cada lado para leer un patr\u00f3n."},
+    "renderer.position_changes.assoc_more": {"en": "    and {n} more teammates were also out of the starting XI", "es": "    y {n} compa\u00f1eros m\u00e1s tampoco estaban en el once inicial"},
+    "renderer.position_changes.footer": {"en": "  The slot is the announced starting XI, not movement during the match.", "es": "  La casilla es la del once inicial anunciado, no un movimiento durante el partido."},
+    "renderer.position_changes.provenance": {"en": "Source: licensed lineup data, built {built_at}.", "es": "Fuente: datos de alineaciones con licencia, construidos el {built_at}."},
+    "renderer.position_changes.missing": {"en": "There is no licensed lineup data for this question yet.", "es": "Todav\u00eda no hay datos de alineaciones con licencia para esta pregunta."},
+    "renderer.position_changes.not_a_teammate": {"en": "{query} is not a teammate of {name}, so there is nothing to compare.", "es": "{query} no es compa\u00f1ero de equipo de {name}, por lo que no hay nada que comparar."},
+    "renderer.position_changes.ambiguous": {"en": "More than one player matches '{query}'. Which one do you mean?", "es": "Hay m\u00e1s de un jugador que coincide con '{query}'. \u00bfA cu\u00e1l te refieres?"},
+    "renderer.position_changes.not_found": {"en": "I could not find a player called '{query}'.", "es": "No encontr\u00e9 a ning\u00fan jugador llamado '{query}'."},
+
+    # B4: get_position_changes card.
+    "gcard.position_changes.title": {"en": "{name} \u00b7 starting slot", "es": "{name} \u00b7 casilla inicial"},
+    "gcard.position_changes.subtitle": {"en": "Announced starting XI, not movement during the match", "es": "Once inicial anunciado, no un movimiento durante el partido"},
+    # R6: get_player_involvement (renderer text + card).
+    "renderer.player_involvement.header": {"en": "{name} ({team}): involvement in the latest {n} matches with stored statistics:", "es": "{name} ({team}): participaci\u00f3n en los \u00faltimos {n} partidos con estad\u00edsticas guardadas:"},
+    "renderer.player_involvement.row": {"en": "{touches} touches, {passes} passes ({acc}% accurate), {keyp} key passes, {back} backward ({share}% of passes), {mins}'", "es": "{touches} toques, {passes} pases ({acc}% de acierto), {keyp} pases clave, {back} hacia atr\u00e1s ({share}% de sus pases), {mins}'"},
+    "renderer.player_involvement.avg": {"en": "  Per 90 (matches with {min}+ minutes, {n} matches): {touches} touches, {passes} passes, {back} backward passes, {acc}% accurate.", "es": "  Por 90 (partidos con {min}+ minutos, {n} partidos): {touches} toques, {passes} pases, {back} pases hacia atr\u00e1s, {acc}% de acierto."},
+    "renderer.player_involvement.focus_head": {"en": "  In the matches where {name} did not play ({k}): {a} touches per 90. With {name} starting ({m}): {b}.", "es": "  En los partidos en que {name} no jug\u00f3 ({k}): {a} toques por 90. Con {name} de titular ({m}): {b}."},
+    "renderer.player_involvement.focus_more": {"en": "  More touches when {name} did not play; the two coincided, nothing more is claimed.", "es": "  Tuvo m\u00e1s toques cuando {name} no jug\u00f3; ambas cosas coincidieron, no se afirma nada m\u00e1s."},
+    "renderer.player_involvement.focus_fewer": {"en": "  Fewer touches when {name} did not play; the two coincided, nothing more is claimed.", "es": "  Tuvo menos toques cuando {name} no jug\u00f3; ambas cosas coincidieron, no se afirma nada m\u00e1s."},
+    "renderer.player_involvement.focus_similar": {"en": "  Touches were similar with and without {name}.", "es": "  Sus toques fueron parecidos con y sin {name}."},
+    "renderer.player_involvement.focus_none": {"en": "  There is no comparison yet: the stored matches do not include both cases for {name}.", "es": "  Todav\u00eda no hay comparaci\u00f3n: los partidos guardados no incluyen los dos casos para {name}."},
+    "renderer.player_involvement.uncertain": {"en": "  {n} matches left out: the stored lineup is incomplete, so {name} may have played.", "es": "  {n} partidos fuera: la alineaci\u00f3n guardada est\u00e1 incompleta, por lo que {name} pudo jugar."},
+    "renderer.player_involvement.small_sample": {"en": "  Small sample: {n} matches with stored statistics, so this is a first look, not a trend.", "es": "  Muestra peque\u00f1a: {n} partidos con estad\u00edsticas guardadas; es una primera lectura, no una tendencia."},
+    "renderer.player_involvement.footer": {"en": "  Match totals from the provider: no pitch zones and no heat maps.", "es": "  Totales por partido del proveedor: sin zonas del campo ni mapas de calor."},
+    "renderer.player_involvement.provenance": {"en": "Source: licensed match statistics, built {built_at}.", "es": "Fuente: estad\u00edsticas de partido con licencia, construidas el {built_at}."},
+    "renderer.player_involvement.missing": {"en": "There are no licensed match statistics for this question yet.", "es": "Todav\u00eda no hay estad\u00edsticas de partido con licencia para esta pregunta."},
+    "gcard.player_involvement.title": {"en": "{name} \u00b7 involvement", "es": "{name} \u00b7 participaci\u00f3n"},
+    "gcard.player_involvement.subtitle": {"en": "Match totals per game, not where on the pitch", "es": "Totales por partido, no d\u00f3nde en el campo"},
+    "gcard.player_involvement.hero": {"en": "touches per 90", "es": "toques por 90"},
+    "gcard.player_involvement.col_gw": {"en": "GW", "es": "J"},
+    "gcard.player_involvement.col_opponent": {"en": "Opponent", "es": "Rival"},
+    "gcard.player_involvement.col_touches": {"en": "Touches", "es": "Toques"},
+    "gcard.player_involvement.col_passes": {"en": "Passes (acc.)", "es": "Pases (acierto)"},
+    "gcard.player_involvement.col_key": {"en": "Key", "es": "Clave"},
+    "gcard.player_involvement.col_back": {"en": "Backward", "es": "Atr\u00e1s"},
+    "gcard.player_involvement.pill_small": {"en": "Small sample: {n}", "es": "Muestra peque\u00f1a: {n}"},
+    "gcard.player_involvement.pill_more": {"en": "More touches without {name}", "es": "M\u00e1s toques sin {name}"},
+    "gcard.player_involvement.pill_fewer": {"en": "Fewer touches without {name}", "es": "Menos toques sin {name}"},
+    "gcard.player_involvement.pill_similar": {"en": "Similar touches with and without {name}", "es": "Toques parecidos con y sin {name}"},
+    # R6 two players side by side (compare_player): prose + the comparison card.
+    "renderer.player_involvement.invalid_args": {"en": "This question takes another player or a teammate's absence, not both at once.", "es": "Esta pregunta admite otro jugador o la ausencia de un compa\u00f1ero, no las dos cosas a la vez."},
+    "renderer.player_involvement.cmp_head": {"en": "  Per 90, {a} vs {b}:", "es": "  Por 90, {a} frente a {b}:"},
+    "renderer.player_involvement.cmp_touches": {"en": "touches {a} vs {b}", "es": "toques {a} frente a {b}"},
+    "renderer.player_involvement.cmp_key_passes": {"en": "key passes {a} vs {b}", "es": "pases clave {a} frente a {b}"},
+    "renderer.player_involvement.cmp_passes": {"en": "passes {a} vs {b}", "es": "pases {a} frente a {b}"},
+    "renderer.player_involvement.cmp_pass_accuracy": {"en": "accuracy {a}% vs {b}%", "es": "acierto {a}% frente a {b}%"},
+    "renderer.player_involvement.cmp_backward_share": {"en": "backward {a}% vs {b}% of passes", "es": "hacia atr\u00e1s {a}% frente a {b}% de los pases"},
+    "renderer.player_involvement.cmp_missing": {"en": "  {name} has no stored match statistics yet, so there is nothing to put side by side.", "es": "  {name} todav\u00eda no tiene estad\u00edsticas de partido guardadas; no hay nada que poner al lado."},
+    "gcard.involvement_compare.title": {"en": "Comparison \u00b7 involvement", "es": "Comparaci\u00f3n \u00b7 participaci\u00f3n"},
+    "gcard.involvement_compare.col_metric": {"en": "Per 90", "es": "Por 90"},
+    "gcard.involvement_compare.m_touches": {"en": "Touches/90", "es": "Toques/90"},
+    "gcard.involvement_compare.m_key_passes": {"en": "Key/90", "es": "Clave/90"},
+    "gcard.involvement_compare.m_passes": {"en": "Passes/90", "es": "Pases/90"},
+    "gcard.involvement_compare.m_pass_accuracy": {"en": "Accuracy", "es": "Acierto"},
+    "gcard.involvement_compare.m_backward_share": {"en": "Backward", "es": "Atr\u00e1s"},
+    "gcard.involvement_compare.s_touches": {"en": "Touches per match", "es": "Toques por partido"},
+    "gcard.involvement_compare.s_key_passes": {"en": "Key passes per match", "es": "Pases clave por partido"},
+    "gcard.involvement_compare.s_passes": {"en": "Passes per match", "es": "Pases por partido"},
+    "gcard.involvement_compare.view_per90": {"en": "Per 90", "es": "Por 90"},
+    "gcard.involvement_compare.view_series": {"en": "By match", "es": "Por jornada"},
+    "gcard.involvement_compare.avg": {"en": "avg /90", "es": "media /90"},
+    "gcard.involvement_compare.trend_up": {"en": "Trending up over these matches", "es": "Al alza en estos partidos"},
+    "gcard.involvement_compare.trend_down": {"en": "Trending down over these matches", "es": "A la baja en estos partidos"},
+    "gcard.involvement_compare.trend_flat": {"en": "Steady over these matches", "es": "Estable en estos partidos"},
+    "gcard.involvement_compare.footer_same": {"en": "{n} matches \u00b7 match totals, no pitch zones", "es": "{n} partidos \u00b7 totales por partido, sin zonas del campo"},
+    "gcard.involvement_compare.footer_diff": {"en": "{a}: {na} matches \u00b7 {b}: {nb} matches \u00b7 match totals, no pitch zones", "es": "{a}: {na} partidos \u00b7 {b}: {nb} partidos \u00b7 totales por partido, sin zonas del campo"},
+    "gcard.involvement_compare.small_sample": {"en": "Small sample: a first look, not a trend.", "es": "Muestra peque\u00f1a: una primera lectura, no una tendencia."},
+    # --- S5-B fixture outlook / fixture context (run verdicts, short-horizon read, phrases) ---
+    "fxo.gw": {"en": "GW{n}", "es": "J{n}"},
+    "fxo.no_series": {"en": "No fixtures in the horizon.", "es": "Sin fixtures en el horizonte."},
+    "fxo.no_runs": {"en": "No clear runs in the fixture list over the horizon.", "es": "Calendario sin rachas claras en el horizonte."},
+    "fxo.verdict.attack_good": {"en": "Good attacking run: {n} GWs of easy fixtures ({span}).", "es": "Buen tramo ofensivo: {n} jornadas de calendario asequible ({span})."},
+    "fxo.verdict.attack_good_strong": {"en": "Good attacking run: {n} GWs of very easy fixtures ({span}).", "es": "Buen tramo ofensivo: {n} jornadas de calendario muy asequible ({span})."},
+    "fxo.verdict.attack_bad": {"en": "Demanding attacking run: {n} tough GWs ({span}).", "es": "Tramo ofensivo exigente: {n} jornadas duras ({span})."},
+    "fxo.verdict.attack_bad_strong": {"en": "Very demanding attacking run: {n} tough GWs ({span}).", "es": "Tramo ofensivo muy exigente: {n} jornadas duras ({span})."},
+    "fxo.verdict.defence_good": {"en": "Good clean-sheet run: favourable fixtures ({span}).", "es": "Buen tramo para portería a cero: calendario favorable ({span})."},
+    "fxo.verdict.defence_good_strong": {"en": "Good clean-sheet run: very favourable fixtures ({span}).", "es": "Buen tramo para portería a cero: calendario muy favorable ({span})."},
+    "fxo.verdict.defence_bad": {"en": "Tricky run for keeping clean sheets ({span}).", "es": "Tramo complicado para mantener la portería a cero ({span})."},
+    "fxo.verdict.defence_bad_strong": {"en": "Very tricky run for keeping clean sheets ({span}).", "es": "Tramo muy complicado para mantener la portería a cero ({span})."},
+    "fxo.target_past": {"en": "GW{gw} has already been played \u2014 ask about the result, not the outlook.", "es": "La jornada {gw} ya se jug\u00f3 \u2014 pregunta por el resultado, no por el pron\u00f3stico."},
+    "fxo.target_beyond": {"en": "No fixture data up to GW{gw} yet.", "es": "No hay datos de fixtures hasta la jornada {gw} todav\u00eda."},
+    "fxo.band.attack.1": {"en": "very easy", "es": "muy asequible"},
+    "fxo.band.attack.2": {"en": "easy", "es": "asequible"},
+    "fxo.band.attack.3": {"en": "average", "es": "media"},
+    "fxo.band.attack.4": {"en": "demanding", "es": "exigente"},
+    "fxo.band.attack.5": {"en": "very demanding", "es": "muy exigente"},
+    "fxo.band.defence.1": {"en": "very favourable", "es": "muy favorable"},
+    "fxo.band.defence.2": {"en": "favourable", "es": "favorable"},
+    "fxo.band.defence.3": {"en": "average", "es": "media"},
+    "fxo.band.defence.4": {"en": "tricky", "es": "complicada"},
+    "fxo.band.defence.5": {"en": "very tricky", "es": "muy complicada"},
+    "fxo.axis.attack": {"en": "attacking", "es": "ofensiva"},
+    "fxo.axis.defence": {"en": "for clean sheets", "es": "para portería a cero"},
+    "fxo.rest": {"en": "{gw_tag}: {team} have a blank (no match).", "es": "{gw_tag}: {team} descansa (sin partido)."},
+    "fxo.dgw": {"en": " (double gameweek)", "es": " (doble jornada)"},
+    "fxo.venue_home": {"en": "at home to", "es": "en casa ante"},
+    "fxo.venue_away": {"en": "away to", "es": "a domicilio ante"},
+    "fxo.match": {
+        "en": "{gw_tag}: {team} {venue} {opp} \u2014 {axis_label} difficulty {band}/5 ({qualifier})",
+        "es": "{gw_tag}: {team} {venue} {opp} \u2014 dificultad {axis_label} {band}/5 ({qualifier})",
+    },
+    "fxo.edge_team": {"en": "edge {name}", "es": "ventaja {name}"},
+    "fxo.edge_even": {"en": "evenly matched", "es": "fuerzas parejas"},
+    "fxo.strength": {
+        "en": "; overall strength {team} {ours}/5 {ours_venue} vs {opp} {theirs}/5 {theirs_venue} ({edge})",
+        "es": "; fuerza global {team} {ours}/5 {ours_venue} vs {opp} {theirs}/5 {theirs_venue} ({edge})",
+    },
+    "fxo.at_home": {"en": "at home", "es": "en casa"},
+    "fxo.away": {"en": "away", "es": "fuera"},
+    "fxo.ctx.no_runs": {"en": "no marked runs in the fixtures", "es": "calendario sin rachas marcadas"},
+    "fxo.ctx.attack_good": {"en": "favourable attacking fixtures ({span})", "es": "calendario ofensivo favorable ({span})"},
+    "fxo.ctx.attack_bad": {"en": "demanding attacking fixtures ({span})", "es": "calendario ofensivo exigente ({span})"},
+    "fxo.ctx.defmid_good": {"en": "favourable defensive fixtures ({span})", "es": "calendario defensivo favorable ({span})"},
+    "fxo.ctx.defmid_bad": {"en": "demanding defensive fixtures ({span})", "es": "calendario defensivo exigente ({span})"},
+    "fxo.ctx.cs_good": {"en": "good fixtures for clean sheets ({span})", "es": "buen calendario para portería a cero ({span})"},
+    "fxo.ctx.cs_bad": {"en": "tough fixtures for clean sheets ({span})", "es": "calendario difícil para portería a cero ({span})"},
+    "fxo.tiebreak": {"en": "Too close to call; on fixtures \u2014 {parts}.", "es": "Muy parejos; por calendario \u2014 {parts}."},
+    "gcard.position_changes.hero": {"en": "slot changes", "es": "cambios de casilla"},
+    "gcard.position_changes.hero_gap": {"en": "as {line}", "es": "como {line}"},
+    "gcard.position_changes.hero_switch": {"en": "as {role} since GW{gw}", "es": "de {role} desde J{gw}"},
+    "gcard.position_changes.pill_fpl": {"en": "FPL: {fpl}", "es": "FPL: {fpl}"},
+    "gcard.position_changes.pill_before": {"en": "Before: {role} {n}/{m}", "es": "Antes: {role} {n}/{m}"},
+    "gcard.position_changes.pill_same_slot": {"en": "Same slot {n}/{m}", "es": "Misma casilla {n}/{m}"},
+    "gcard.position_changes.gw_span": {"en": "GW{a}–{b}", "es": "J{a}–J{b}"},
+    "gcard.position_changes.gw_one": {"en": "GW{a}", "es": "J{a}"},
+    "gcard.position_changes.pitch_role": {"en": "{gws} · {role}", "es": "{gws} · {role}"},
+    "gcard.position_changes.table_since": {"en": "Since the change, per 90", "es": "Desde el cambio, por 90"},
+    "gcard.position_changes.table_as": {"en": "As {role}, per 90", "es": "Como {role}, por 90"},
+    "gcard.position_changes.col_before": {"en": "Before", "es": "Antes"},
+    "gcard.position_changes.col_after": {"en": "Since", "es": "Después"},
+    "gcard.position_changes.table_note_split": {"en": "{a} and {b} matches with 30+ min", "es": "{a} y {b} partidos con 30+ min"},
+    "gcard.position_changes.table_note_all": {"en": "{n} matches with 30+ min", "es": "{n} partidos con 30+ min"},
+    "gcard.position_changes.table_note_all_one": {"en": "1 match with 30+ min", "es": "1 partido con 30+ min"},
+    "gcard.position_changes.m_touches": {"en": "Touches", "es": "Toques"},
+    "gcard.position_changes.m_key_passes": {"en": "Key passes", "es": "Pases clave"},
+    "gcard.position_changes.m_shots_on_target": {"en": "Shots on target", "es": "Tiros a puerta"},
+    "gcard.position_changes.m_shots": {"en": "Shots", "es": "Tiros"},
+    "gcard.position_changes.m_passes_final_third": {"en": "Final-third passes", "es": "Pases al último tercio"},
+    "gcard.position_changes.m_interceptions": {"en": "Interceptions", "es": "Intercepciones"},
+    "gcard.position_changes.col_gw": {"en": "GW", "es": "J"},
+    "gcard.position_changes.col_opponent": {"en": "Opponent", "es": "Rival"},
+    "gcard.position_changes.col_slot": {"en": "Started", "es": "Casilla"},
+    "gcard.position_changes.col_note": {"en": "Note", "es": "Nota"},
+    "gcard.position_changes.pill_small": {"en": "Only {n} matches with a lineup", "es": "Solo {n} partidos con alineaci\u00f3n"},
+    "gcard.position_changes.pill_small_one": {"en": "Only 1 match with a lineup", "es": "Solo 1 partido con alineaci\u00f3n"},
+    "gcard.position_changes.pill_without_one": {"en": "Only 1 match without {name}", "es": "Solo 1 partido sin {name}"},
+    "gcard.position_changes.pill_with_one": {"en": "Only 1 match with {name}", "es": "Solo 1 partido con {name}"},
+    "gcard.position_changes.pill_without": {"en": "Only {k} matches without {name}", "es": "Solo {k} partidos sin {name}"},
+    "gcard.position_changes.pill_with": {"en": "Only {m} matches with {name}", "es": "Solo {m} partidos con {name}"},
+    "gcard.position_changes.note_assoc_more": {"en": "and {n} more", "es": "y {n} m\u00e1s"},
+    "gcard.position_changes.pill_provisional": {"en": "Provisional lineup", "es": "Alineaci\u00f3n provisional"},
+    "gcard.position_changes.code_GKP": {"en": "GKP", "es": "POR"},
+    "gcard.position_changes.code_DEF": {"en": "DEF", "es": "DEF"},
+    "gcard.position_changes.code_MID": {"en": "MID", "es": "MED"},
+    "gcard.position_changes.code_FWD": {"en": "FWD", "es": "DEL"},
+    "gcard.position_changes.pill_focus": {"en": "Without {name}: {role}", "es": "Sin {name}: {role}"},
+    "gcard.position_changes.note_changed": {"en": "Started in a different slot (before: {before})", "es": "Empez\u00f3 en otra casilla (antes: {before})"},
+    "gcard.position_changes.note_line_forward": {"en": "Same role, different line: further forward", "es": "Mismo rol, otra línea: más adelantado"},
+    "gcard.position_changes.note_line_deeper": {"en": "Same role, different line: deeper", "es": "Mismo rol, otra línea: más retrasado"},
+    "gcard.position_changes.note_line_unknown": {"en": "Same role; line not comparable", "es": "Mismo rol; línea no comparable"},
+    "gcard.position_changes.assoc_line_one": {"en": "In {gws}, coincided with the absence of {names}", "es": "En {gws} coincidió con la ausencia de {names}"},
+    "gcard.position_changes.assoc_line_many": {"en": "In {gws}, coincided with the absence of {names}", "es": "En {gws} coincidió con ausencias de {names}"},
+    "gcard.position_changes.assoc_and": {"en": "and", "es": "y"},
+    "gcard.position_changes.assoc_tail_atleast": {"en": "and at least {n} more", "es": "y al menos {n} más"},
+    "gcard.position_changes.assoc_tail_others": {"en": "and others", "es": "y otros"},
+    "gcard.position_changes.note_assoc": {"en": "Coincided with the absence of {name}", "es": "Coincidi\u00f3 con la ausencia de {name}"},
+    "gcard.position_changes.note_none": {"en": "-", "es": "-"},
+    # --- S5-B atomic cards + tool errors ---
+    "atomic.col_player": {"en": "Player", "es": "Jugador"},
+    "atomic.col_team": {"en": "Team", "es": "Equipo"},
+    "atomic.title_top": {"en": "TOP {n} \u00b7 {header}", "es": "TOP {n} \u00b7 {header}"},
+    "atomic.title_lowest": {"en": "{n} WITH LOWEST \u00b7 {header}", "es": "{n} CON MENOR \u00b7 {header}"},
+    "atomic.title_highest": {"en": "{n} WITH HIGHEST \u00b7 {header}", "es": "{n} CON MAYOR \u00b7 {header}"},
+    "atomic.sub_position": {"en": "position: {pos}", "es": "posici\u00f3n: {pos}"},
+    "atomic.sub_min_minutes": {"en": "min. minutes: {n}", "es": "min. minutos: {n}"},
+    "tool_err.no_team_connected": {
+        "en": "No team is connected. Connect your team from the Squad tab so I can assess it.",
+        "es": "No hay ning\u00fan equipo conectado. Conecta tu equipo desde la pesta\u00f1a Plantilla para que pueda evaluarlo.",
+    },
+    "tool_err.invalid_gw": {"en": "gw must be between {lo} and {hi}.", "es": "gw debe estar entre {lo} y {hi}."},
+    "tool_err.team_not_found": {
+        "en": "I could not find an FPL team with ID {team_id}. Check that the ID is correct.",
+        "es": "No encontr\u00e9 ning\u00fan equipo FPL con el ID {team_id}. Revisa que el ID sea correcto.",
+    },
+    "tool_err.squad_server": {
+        "en": "I could not fetch your squad (FPL server error: {exc}).",
+        "es": "No pude obtener tu plantilla (error del servidor de FPL: {exc}).",
+    },
+    "tool_err.squad_network": {
+        "en": "I could not fetch your squad (network failure: {exc}).",
+        "es": "No pude obtener tu plantilla (fallo de red: {exc}).",
+    },
+    "tool_err.squad_raised": {
+        "en": "get_my_squad raised an unexpected error: {exc}",
+        "es": "get_my_squad raised an unexpected error: {exc}",
+    },
+    "tool_err.results_missing_team": {"en": "The team name is missing.", "es": "Falta el nombre del equipo."},
+    "tool_err.results_venue": {"en": "venue must be one of {venues}, not {venue!r}.", "es": "venue debe ser uno de {venues}, no {venue!r}."},
+    "tool_err.results_last_n": {"en": "last_n must be an integer, not {last_n!r}.", "es": "last_n debe ser un entero, no {last_n!r}."},
+    "tool_err.results_team_not_found": {
+        "en": "I could not find a team matching '{team}'.",
+        "es": "No encontr\u00e9 ning\u00fan equipo que coincida con '{team}'.",
+    },
+    "tool_err.live_prov_unverified": {
+        "en": "Data: current season (live FPL; season could not be verified)",
+        "es": "Datos: temporada en curso (FPL en vivo; temporada no verificable)",
+    },
+    "tool_err.live_prov_suffix": {"en": "{label} (live FPL)", "es": "{label} (FPL en vivo)"},
+    # --- S5-B zonal (backend text of get_zonal_weakness / get_zonal_opportunity / player outlook) ---
+    "zonal.side.left": {"en": "down the left", "es": "por la izquierda"},
+    "zonal.side.right": {"en": "down the right", "es": "por la derecha"},
+    "zonal.side.central": {"en": "through the middle", "es": "por el centro"},
+    "zonal.depth.in-box": {"en": "inside the box", "es": "dentro del \u00e1rea"},
+    "zonal.depth.edge-of-box": {"en": "on the edge of the box", "es": "en la frontal del \u00e1rea"},
+    "zonal.label_clear.in-box": {"en": "Attack inside the box", "es": "Ataca dentro del \u00e1rea"},
+    "zonal.label_clear.edge-of-box": {"en": "Attack the edge of the box", "es": "Ataca la frontal del \u00e1rea"},
+    "zonal.label_marginal.in-box": {"en": "Slight edge inside the box", "es": "Ventaja leve dentro del \u00e1rea"},
+    "zonal.label_marginal.edge-of-box": {"en": "Slight edge on the edge of the box", "es": "Ventaja leve en la frontal del \u00e1rea"},
+    "zonal.label_none": {"en": "No clear edge", "es": "Sin ventaja clara"},
+    "zonal.verdict_none": {
+        "en": "{team} do not concede above the league average in any zone of the box.",
+        "es": "{team} no concede por encima de la media de la liga en ninguna zona del \u00e1rea.",
+    },
+    "zonal.verdict_marginal": {
+        "en": "{team} do not concede clearly above average in any zone \u2014 the most favourable read is {side} {depth} ({pct:+.0f}%), a slight edge.",
+        "es": "{team} no concede claramente por encima de la media en ninguna zona \u2014 la lectura m\u00e1s favorable es {side} {depth} ({pct:+.0f}%), una ventaja leve.",
+    },
+    "zonal.verdict_clear": {
+        "en": "Attack {team} {side} {depth} \u2014 they concede {pct:+.0f}% over an average side there.",
+        "es": "Ataca a {team} {side} {depth} \u2014 concede un {pct:+.0f}% sobre un equipo medio ah\u00ed.",
+    },
+    "zonal.verdict_multi": {
+        "en": "Attack {team} {parts} \u2014 they concede above the league average there.",
+        "es": "Ataca a {team} {parts} \u2014 concede por encima de la media de la liga ah\u00ed.",
+    },
+    "zonal.and": {"en": " and ", "es": " y "},
+    "zonal.prov_unknown": {
+        "en": "\u26a0 The tactical store does not declare which season this data is from",
+        "es": "\u26a0 El almac\u00e9n t\u00e1ctico no declara de qu\u00e9 temporada son estos datos",
+    },
+    "zonal.prov_unverified": {
+        "en": "Data: {label} season (could not verify the current season)",
+        "es": "Datos: temporada {label} (no se pudo verificar la temporada en curso)",
+    },
+    "zonal.prov_stale": {
+        "en": "\u26a0 {label} data, not from the current season ({live})",
+        "es": "\u26a0 Datos de {label}, no de la temporada en curso ({live})",
+    },
+    "zonal.prov_thin": {
+        "en": "\u26a0 {label} data, only {n} {unit} of league data \u2014 short sample for a league-wide read",
+        "es": "\u26a0 Datos de {label}, s\u00f3lo {n} {unit} de liga \u2014 muestra corta para una lectura de liga",
+    },
+    "zonal.gw_one": {"en": "GW", "es": "jornada"},
+    "zonal.gw_many": {"en": "GWs", "es": "jornadas"},
+    "zonal.prov_current": {"en": "Data: {label} season", "es": "Datos: temporada {label}"},
+    "zonal.player_favorable": {
+        "en": "{player} generates his xG right in zones where the opponent concedes above average \u2014 favourable matchup in {gws}.",
+        "es": "{player} genera su xG justo en zonas donde el rival concede por encima de la media \u2014 cruce favorable en {gws}.",
+    },
+    "zonal.player_neutral": {
+        "en": "No standout zonal matchup for {player} in the next {n} GWs.",
+        "es": "Sin cruce zonal destacado para {player} en las pr\u00f3ximas {n} jornadas.",
+    },
+    "zonal.gw_short": {"en": "GW", "es": "J"},
+    "zonal.snap_no_data": {
+        "en": "No zonal data on the opponents in these fixtures, so the matchup cannot be assessed.",
+        "es": "Sin datos zonales de los rivales de estos partidos, no se puede valorar el cruce.",
+    },
+    "zonal.snap_neutral": {
+        "en": "No standout zonal matchup for {player} in the fixtures of the next 3 GWs.",
+        "es": "Sin cruce zonal destacado para {player} en los partidos de las pr\u00f3ximas 3 jornadas.",
+    },
+    "zonal.club_note": {"en": "previously at {club}", "es": "antes en {club}"},
+    "zonal.fixtures_empty": {
+        "en": "{team} have no fixtures in the next {horizon} GWs: league-wide ranking.",
+        "es": "{team} no tiene partidos en las pr\u00f3ximas {horizon} jornadas: ranking de toda la liga.",
+    },
+    "zonal.no_calendar": {
+        "en": "No fixture calendar in context: league-wide ranking.",
+        "es": "Sin calendario en el contexto: ranking de toda la liga.",
+    },
+    # Player-card «Explorar» pills (player_signals.py): the pill names its
+    # destination; the question it sends reuses phrasings the target tool's
+    # description already claims (get_position_changes: 'en que posicion
+    # juega X' / 'what position does X really play'; get_zonal_opportunity:
+    # players who can exploit a rival's weak zones, scoped to his club by
+    # naming it). The verdict line's wording lives in the UI (concl.*).
+    "signals.pill.position": {"en": "Position", "es": "Posición"},
+    "signals.pill.zone": {"en": "Zones", "es": "Zonas"},
+    "signals.position.ask": {
+        "en": "What position does {player} really play?",
+        "es": "¿En qué posición juega {player}?",
+    },
+    "signals.zone.ask": {
+        "en": "Which {team} players can exploit {opp}'s weak zones?",
+        "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
     },
 }
 

@@ -19,6 +19,7 @@
  * All copy here is UI-owned; the backend never dictates the wizard wording.
  */
 import type { Suggestion } from '@/lib/types';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 export interface CompareWizardState {
   /** First player chosen; null until the first chip is tapped. */
@@ -46,18 +47,14 @@ interface Props {
 }
 
 /**
- * Wizard copy. Exported because MessageList renders the same questions as
- * static, non-interactive text once a turn is superseded — keeping both
- * spellings in one place so the live chips and the history bubble can never
- * drift apart.
+ * Wizard copy lives in the dictionary (wizard.*). MessageList renders the same questions as
+ * static, non-interactive text once a turn is superseded, from the same keys, so the live
+ * chips and the history bubble can never drift apart.
  */
-export const COMPARE_STEP1_QUESTION = '¿Cuál es el primer jugador?';
-export const COMPARE_STEP2_QUESTION = '¿Contra quién lo comparamos?';
-export const PICK_ONE_QUESTION = '¿Cuál de estos jugadores buscabas?';
-
 export default function SuggestionChips({ wizard, onPick }: Props) {
+  const t = useT();
   const isStep1 = wizard.playerA == null;
-  const question = isStep1 ? COMPARE_STEP1_QUESTION : COMPARE_STEP2_QUESTION;
+  const question = isStep1 ? t('wizard.compareStep1') : t('wizard.compareStep2');
   // Step 2 hides the already-chosen player so it can't be compared with itself.
   const chips = isStep1
     ? wizard.options
@@ -68,7 +65,7 @@ export default function SuggestionChips({ wizard, onPick }: Props) {
       <p className="text-[13px] font-semibold text-bf-text/90">{question}</p>
       {!isStep1 && (
         <p className="mt-0.5 text-[11px] text-bf-gray">
-          Primer jugador: <span className="text-bf-turquoise font-medium">{wizard.playerA}</span>
+          {t('wizard.firstPlayer')} <span className="text-bf-turquoise font-medium">{wizard.playerA}</span>
         </p>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
@@ -84,7 +81,7 @@ export default function SuggestionChips({ wizard, onPick }: Props) {
         ))}
       </div>
       <p className="mt-2 text-[11px] text-bf-gray">
-        ¿No está tu jugador? Escribilo abajo.
+        {t('wizard.notFound')}
       </p>
     </div>
   );
@@ -97,9 +94,10 @@ interface PlayerPickProps {
 }
 
 export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
+  const t = useT();
   return (
     <div className="mt-3" data-testid="player-pick-wizard">
-      <p className="text-[13px] font-semibold text-bf-text/90">{PICK_ONE_QUESTION}</p>
+      <p className="text-[13px] font-semibold text-bf-text/90">{t('wizard.pickOne')}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {wizard.options.map((chip) => (
           <button

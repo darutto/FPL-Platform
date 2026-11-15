@@ -15,8 +15,9 @@
  * ready-made question to chat via `onAsk` (the /fixtures board wires it).
  */
 import type { TeamOutlook, FixtureOutlookGW } from '@/lib/types';
-import { bandColor, venueLabel, hexRgba, type Band } from '@/lib/fixture-outlook-format';
+import { bandColor, venueLabel, hexRgba, gwLabel, type Band } from '@/lib/fixture-outlook-format';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { TeamHeader } from './FixtureTickerRow';
 
 // Chart geometry (SVG user units == px; the chart scrolls, never stretches).
@@ -43,12 +44,16 @@ export function FixtureTendencyChart({
   team,
   onAsk,
   showHeader = true,
+  rank,
 }: {
   team: TeamOutlook;
   onAsk?: (question: string) => void;
   /** i110: false when the composer already rendered TeamHeader for this team. */
   showHeader?: boolean;
+  /** Place in the best-first order, passed by the /fixtures board only. */
+  rank?: number;
 }) {
+  const { locale } = useLocale();
   const series = team.series;
   const n = series.length;
   const chartW = X0 + Math.max(0, n - 1) * STEP + 40;
@@ -60,7 +65,7 @@ export function FixtureTendencyChart({
       band: s.band,
       blank,
       opp: blank ? '—' : s.fixtures.map((f) => f.opponent_short).join('/'),
-      venue: blank ? '' : s.fixtures.map((f) => venueLabel(f.is_home)).join('/'),
+      venue: blank ? '' : s.fixtures.map((f) => venueLabel(f.is_home, locale)).join('/'),
       cx: X0 + i * STEP,
       cy: blank ? null : Y_TOP + ((s.band as number) - 1) * Y_GAP,
     };
@@ -86,7 +91,8 @@ export function FixtureTendencyChart({
       {showHeader && (
         <TeamHeader
           team={team}
-          onAskTeam={onAsk ? () => onAsk(teamOutlookQuestion(team.team_name, team.axis)) : undefined}
+          rank={rank}
+          onAskTeam={onAsk ? () => onAsk(teamOutlookQuestion(team.team_name, team.axis, locale)) : undefined}
         />
       )}
 
@@ -148,6 +154,7 @@ export function FixtureTendencyChart({
                           fixtureCellQuestion(
                             team.team_name,
                             series.find((s) => s.gameweek === p.gw) as FixtureOutlookGW,
+                            locale,
                           ),
                         )
                     : undefined
@@ -162,6 +169,8 @@ export function FixtureTendencyChart({
 }
 
 function GwLabel({ point, onAsk }: { point: Pt; onAsk?: () => void }) {
+  const t = useT();
+  const { locale } = useLocale();
   const fg = point.blank ? '#ABA9AC' : bandColor(point.band as Band);
   const inner = (
     <>
@@ -169,7 +178,7 @@ function GwLabel({ point, onAsk }: { point: Pt; onAsk?: () => void }) {
         {point.opp}
       </span>
       <span className="text-[10.5px] font-bold text-bf-gray whitespace-nowrap">
-        J{point.gw}
+        {gwLabel(point.gw, locale)}
         {point.venue ? ` · ${point.venue}` : ''}
       </span>
     </>
@@ -180,7 +189,7 @@ function GwLabel({ point, onAsk }: { point: Pt; onAsk?: () => void }) {
       <button
         type="button"
         onClick={onAsk}
-        title={`${point.opp} · preguntar en el chat`}
+        title={t('fx.cell.askOpp', { opp: point.opp })}
         className={`${cls} transition-transform hover:-translate-y-0.5`}
         style={{ width: COL_W }}
       >

@@ -39,6 +39,7 @@ from typing import Any, Callable
 from fpl_tool_contract import tool_resolve_player
 
 from .injury_list import get_injury_list, _POSITION_LABEL, _STATUS_LABEL
+from .locale_types import bootstrap_locale
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +151,7 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
     from .renderer import _localized_status_label  # noqa: PLC0415
 
     teams_map = _teams_map(bootstrap)
+    _locale = bootstrap_locale(bootstrap)  # i18n S3
     raw_rows: list[dict[str, Any]] = []
     for idx, el in enumerate(bootstrap.get("elements", [])):
         status = el.get("status", "a")
@@ -161,14 +163,14 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
             "position":     _pos_label(el.get("element_type")),
             # i151b: Spanish badge text (catalogue); unmapped passes through.
             "status_label": _localized_status_label(
-                _STATUS_LABEL.get(status, status.upper()), "es"
+                _STATUS_LABEL.get(status, status.upper()), _locale
             ),
             "chance_of_playing": (
                 int(el["chance_of_playing_this_round"])
                 if el.get("chance_of_playing_this_round") is not None
                 else None
             ),
-            "news":         news_label(el.get("news") or ""),  # i151c
+            "news":         news_label(el.get("news") or "", _locale),  # i151c
             "news_added":   el.get("news_added") or "",
             "_idx":         idx,  # preserves bootstrap input order
         }

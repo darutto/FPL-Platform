@@ -7,14 +7,15 @@
  */
 import Link from 'next/link';
 import {
-  COMPETITION_LEGEND,
+  competitionLegend,
   competitionColor,
   gutterSentence,
   LOCKED_BADGE,
-  LOCKED_LINE,
-  LOCKED_LINK,
+  lockedLine,
+  lockedLink,
   type CompactGutter,
 } from '@/lib/fixture-competitions';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 const GOLD = 'text-bf-gold';
 
@@ -26,6 +27,7 @@ export function OtherCompetitionsToggle({
   checked: boolean;
   onChange: (next: boolean) => void;
 }) {
+  const t = useT();
   return (
     <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs font-normal text-bf-gray">
       <input
@@ -39,7 +41,7 @@ export function OtherCompetitionsToggle({
         aria-hidden="true"
         className="relative h-5 w-[34px] flex-none rounded-full bg-white/15 transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-bf-text after:transition-transform peer-checked:bg-bf-turquoise peer-checked:after:translate-x-[14px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-bf-turquoise motion-reduce:transition-none motion-reduce:after:transition-none"
       />
-      Otras competiciones
+      {t('fx.comp.toggle')}
     </label>
   );
 }
@@ -49,6 +51,7 @@ export function OtherCompetitionsToggle({
  * «Premium». It never turns on; tapping it opens the short line below (see LockedCompetitionsLine).
  */
 export function LockedCompetitionsToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -62,7 +65,7 @@ export function LockedCompetitionsToggle({ open, onToggle }: { open: boolean; on
     >
       <span aria-hidden="true" className="relative h-5 w-[34px] flex-none rounded-full bg-white/10 after:absolute after:left-[3px] after:top-[3px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-bf-gray/60" />
       <span aria-hidden="true">🔒</span>
-      Otras competiciones
+      {t('fx.comp.toggle')}
       <span className="rounded-full border border-white/15 px-2 py-px text-[10px] font-normal tracking-wide text-bf-gray">
         {LOCKED_BADGE}
       </span>
@@ -72,6 +75,7 @@ export function LockedCompetitionsToggle({ open, onToggle }: { open: boolean; on
 
 /** The line a tap on the locked switch opens: what Premium shows, and the way to get it. */
 export function LockedCompetitionsLine() {
+  const { locale } = useLocale();
   return (
     <p
       id="locked-competitions-line"
@@ -79,22 +83,24 @@ export function LockedCompetitionsLine() {
       data-testid="locked-competitions-line"
       className="text-[12.5px] font-normal text-bf-gray"
     >
-      {LOCKED_LINE}{' '}
+      {lockedLine(locale)}{' '}
       <Link href="/subscribe" className="text-bf-turquoise hover:underline">
-        {LOCKED_LINK}
+        {lockedLink(locale)}
       </Link>
     </p>
   );
 }
 
 /** One line: the colour of each competition, and what a gold number means. */
-export function TimelineLegend() {
+export function TimelineLegend({ note }: { note?: string | null }) {
+  const t = useT();
+  const { locale } = useLocale();
   return (
     <p
       data-testid="timeline-legend"
       className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-normal text-bf-gray"
     >
-      {COMPETITION_LEGEND.map((entry) => (
+      {competitionLegend(locale).map((entry) => (
         <span key={entry.label} className="inline-flex items-center gap-1.5">
           <i
             aria-hidden="true"
@@ -104,7 +110,8 @@ export function TimelineLegend() {
           {entry.label}
         </span>
       ))}
-      <span className={GOLD}>3d dorado = descanso corto tras Europa o copa</span>
+      <span className={GOLD}>{t('fx.comp.restLegend')}</span>
+      {note && <span data-testid="competitions-coverage">{note}</span>}
     </p>
   );
 }
@@ -127,6 +134,7 @@ export function GutterMarks({
   selected: boolean;
   onPick: () => void;
 }) {
+  const { locale } = useLocale();
   const strip = 'relative h-[24px] w-[12px] flex-none';
   if (gutter.matches.length === 0) return <span aria-hidden="true" className={strip} />;
   const barHeight = gutter.matches.length === 1 ? 16 : gutter.matches.length === 2 ? 10 : 6;
@@ -134,7 +142,7 @@ export function GutterMarks({
     <button
       type="button"
       data-testid="compact-gutter"
-      aria-label={gutterSentence(team, gutter)}
+      aria-label={gutterSentence(team, gutter, locale)}
       aria-pressed={selected}
       onClick={onPick}
       onFocus={onPick}
@@ -161,13 +169,15 @@ export function GutterMarks({
 }
 
 /** The compact grid's legend, in one line: each competition's colour, and what the gold dot means. */
-export function CompactLegend() {
+export function CompactLegend({ note }: { note?: string | null }) {
+  const t = useT();
+  const { locale } = useLocale();
   return (
     <p
       data-testid="compact-legend"
       className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-normal text-bf-gray"
     >
-      {COMPETITION_LEGEND.map((entry) => (
+      {competitionLegend(locale).map((entry) => (
         <span key={entry.label} className="inline-flex items-center gap-1.5">
           <i
             aria-hidden="true"
@@ -177,7 +187,8 @@ export function CompactLegend() {
           {entry.label}
         </span>
       ))}
-      <span className={GOLD}>● descanso corto tras Europa o copa</span>
+      <span className={GOLD}>{t('fx.comp.restLegendDot')}</span>
+      {note && <span data-testid="competitions-coverage">{note}</span>}
     </p>
   );
 }

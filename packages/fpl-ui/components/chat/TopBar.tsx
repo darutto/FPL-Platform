@@ -13,20 +13,32 @@
 import { useEffect, useState } from 'react';
 import { UserButton } from '@clerk/nextjs';
 import SectionSwitcher from './SectionSwitcher';
+import PillSwitcher, { type PillItem } from './PillSwitcher';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { Locale } from '@/lib/i18n/locale';
+import { SHOW_SECTION_SWITCHER } from '@/lib/features';
 
 const CONTRAST_LS_KEY = 'bf_contrast';
+
+// Language names are the same in both languages, on purpose: each reader finds their own.
+const LOCALE_ITEMS: readonly PillItem<Locale>[] = [
+  { key: 'es', label: 'ES' },
+  { key: 'en', label: 'EN' },
+];
 
 interface Props {
   teamName?: string | null;
   gw?: number | null;
-  /** Brand title shown next to the logo. Defaults to the FPL title. */
+  /** Brand title shown next to the logo. Defaults to the FPL title in the language showing. */
   title?: string;
   /** Brand subtitle shown beneath the title. Defaults to "Bendito Fantasy". */
   subtitle?: string;
 }
 
-export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle = 'Bendito Fantasy' }: Props) {
+export default function TopBar({ teamName, gw, title, subtitle }: Props) {
   const [highContrast, setHighContrast] = useState(false);
+  const { locale, canSwitch, setLocale } = useLocale();
+  const t = useT();
 
   // Restore persisted preference on mount.
   useEffect(() => {
@@ -55,19 +67,21 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo-icon.png" alt="Bendito Fantasy" className="h-7 w-7 rounded flex-shrink-0" />
       <div className="flex-col leading-none hidden md:flex">
-        <span className="text-[13px] font-extrabold text-white">{title}</span>
-        <span className="text-[10px] text-bf-gray mt-0.5">{subtitle}</span>
+        <span className="text-[13px] font-extrabold text-white">{title ?? t('topbar.title')}</span>
+        <span className="text-[10px] text-bf-gray mt-0.5">{subtitle ?? t('topbar.subtitle')}</span>
       </div>
 
-      {/* Spotify-style FPL ↔ Mundial section switcher (shared by both shells). */}
-      <div className="mx-auto">
-        <SectionSwitcher />
-      </div>
+      {/* FPL ↔ Mundial switch: off while the World Cup is over (lib/features.ts). */}
+      {SHOW_SECTION_SWITCHER && (
+        <div className="mx-auto">
+          <SectionSwitcher />
+        </div>
+      )}
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 ml-auto">
         {teamName && (
           <div className="text-right leading-none hidden sm:block">
-            <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">Team</span>
+            <span className="block text-[9px] font-bold text-bf-text/40 uppercase tracking-widest">{t('topbar.team')}</span>
             <span className="block text-[11px] font-bold text-bf-turquoise mt-0.5 max-w-[160px] truncate">
               {teamName}
             </span>
@@ -78,10 +92,13 @@ export default function TopBar({ teamName, gw, title = 'FPL Asistente', subtitle
             GW{gw}
           </span>
         )}
+        {canSwitch && (
+          <PillSwitcher items={LOCALE_ITEMS} value={locale} onChange={setLocale} label={t('locale.switcherLabel')} />
+        )}
         <button
           onClick={toggleContrast}
           aria-pressed={highContrast}
-          title="Contraste alto (accesibilidad)"
+          title={t('topbar.contrast')}
           className={`px-2 py-1 rounded-md border text-[11px] font-extrabold transition-colors ${
             highContrast
               ? 'border-bf-turquoise/60 text-bf-turquoise bg-bf-turquoise/10'

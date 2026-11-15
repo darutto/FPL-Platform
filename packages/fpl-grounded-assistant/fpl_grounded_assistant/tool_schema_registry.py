@@ -318,7 +318,7 @@ COMPARE_PLAYERS_SCHEMA = ToolSchema(
     name="compare_players",
     description=(
         "Compare two players by position-aware captain score; returns grounded recommendation. "
-        "Use for 'X vs Y' or 'captain X or Y' queries."
+        "Use for 'X vs Y' or 'captain X or Y' queries (position-aware captain score only; not touches or passes)."
     ),
     parameters={
         "type": "object",
@@ -680,7 +680,7 @@ GET_FIXTURE_OUTLOOK_SCHEMA = ToolSchema(
         "Returns per-GW difficulty bands (1=easiest…5=hardest), detected good/bad "
         "RUNS (≥3 consecutive GWs), and a Spanish schedule-only verdict. "
         "Omit team_query for ALL teams ranked easiest-first (the grid). For a "
-        "player, resolve their club first, then pass that club as team_query. "
+        "player, resolve his club first, then pass that club as team_query. "
         "ONE MATCH of ONE team is ALSO this tool: 'Newcastle vs LIV (en casa), J1: "
         "¿qué tal pinta ofensivamente y defensivamente para el Newcastle?', with or "
         "without 'doble jornada' -- team_query=that team, target_gw=1 (the gameweek "
@@ -798,7 +798,10 @@ GET_PLAYER_SNAPSHOT_SCHEMA = ToolSchema(
     description=(
         "Single player full grounding payload by name or numeric FPL element id. Returns status=ok+player "
         "(1 match), ambiguous+candidates (multi-match), or not_found. Use for "
-        "every general named-player lookup, profile, or current-stat question."
+        "every general named-player lookup, profile, or current-stat question. It has no touches, passes, pass "
+        "accuracy, key passes or backward passes. Its position is only FPL's label (GKP/DEF/MID/FWD): when a "
+        "lineup-based position tool is offered, use that one, not this, for where a player actually plays "
+        "('juega de defensa', 'en que posicion juega X', 'what position does X play')."
     ),
     parameters={
         "type": "object",
@@ -996,6 +999,41 @@ GET_MY_SQUAD_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# R1 atomic tool — get_gw_report (retrospective report of a closed gameweek)
+# ---------------------------------------------------------------------------
+
+GET_GW_REPORT_SCHEMA = ToolSchema(
+    name="get_gw_report",
+    description=(
+        "Retrospective, factual report of one CLOSED gameweek for the connected user's OWN "
+        "FPL team: the picks of that gameweek, effective XI after automatic substitutions, "
+        "captain/vice, bench, chip played, points reconciled with the official numbers and "
+        "two to five stories backed by evidence. "
+        "CALL IT for 'cómo me fue en la jornada 8', 'resumen de mi última jornada', "
+        "'my gameweek review', 'por qué saqué pocos puntos'. "
+        "DO NOT CALL IT for the current squad (get_my_squad), for forecasts, for another "
+        "manager's team, or for a gameweek that is still open. It uses only the connected "
+        "team; there is no team argument. "
+        "status='no_team_connected' when no team is linked; status='missing_context' for a "
+        "gameweek that is not closed yet."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "gameweek": {
+                "type":        "integer",
+                "description": "Closed gameweek (1-38). Defaults to the last finished gameweek.",
+                "minimum":     1,
+                "maximum":     38,
+            },
+        },
+        "required":             [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # P2.7 atomic tool — web_fetch (allowlisted football/FPL URL fetch)
 # ---------------------------------------------------------------------------
 
@@ -1052,7 +1090,8 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                 "type":        "string",
                 "description": (
                     "Metric to rank by. Common aliases: xgi, xg, xa, ict, ppg, xgi/90, "
-                    "price/precio, transfers_in/out, penalties/penales, corners, free kicks, "
+                    "defensive_contribution (total: contribuciones defensivas, defcon, dc) "
+                    "vs dc/90 (per 90), price/precio, transfers_in/out, penalties/penales, corners, free kicks, "
                     "yellow/red cards, xgc, influence, creativity, threat, saves/paradas. "
                     "Pass unknown values through so the tool returns unknown_metric."
                 ),
@@ -1087,7 +1126,11 @@ RANK_PLAYERS_BY_METRIC_SCHEMA = ToolSchema(
                     "question is asking for. If you "
                     "omit it under order='asc' the tool applies a 60-minute floor "
                     "itself and reports it in min_minutes_filter; pass your own value "
-                    "when you want a different one."
+                    "when you want a different one. Per-90 and rate metrics "
+                    "(*_per_90, points_per_game) also get a floor under the default "
+                    "order='desc' -- 270 minutes, rising to 30% of the season's minutes "
+                    "-- because a rate over a few minutes is noise; it is reported in "
+                    "min_minutes_filter and never lowers a larger value you pass."
                 ),
                 "minimum":     0,
             },
@@ -1450,7 +1493,7 @@ GET_PLAYER_ZONAL_OUTLOOK_SCHEMA = ToolSchema(
     name="get_player_zonal_outlook",
     description=(
         "Use when the SUBJECT is a specific NAMED PLAYER and the question is "
-        "whether their upcoming fixtures suit them zonally — do the next "
+        "whether his upcoming fixtures suit him zonally — do the next "
         "opponents' weak zones match where the player generates xG (¿le "
         "vienen bien los próximos rivales a X?, ¿contra quién juega X y le "
         "favorece el cruce?). Per-GW favorable/neutral matchup read over the "
@@ -1544,11 +1587,108 @@ GET_PLAYER_INTELLIGENCE_SCHEMA = ToolSchema(
     },
 )
 
+# B4 -- starting-slot changes and who was missing, from the licensed matchday store (licensed_starter).
+GET_POSITION_CHANGES_SCHEMA = ToolSchema(
+    name="get_position_changes",
+    description=(
+        "Where a player was listed to START in his club's recent matches (the announced starting XI: position, "
+        "side, formation), whether that differed from his own earlier starts, and which regular teammates were "
+        "NOT in the starting XI in those matches. Use for 'cambio de posicion de X', 'quien lo sustituye', "
+        "'where does X play when Y is out', and for where a player actually plays versus his FPL position: 'juega de "
+        "defensa / medio / delantero', 'de que juega X', 'en que posicion juega X', 'es X realmente defensa', "
+        "'does X actually play as a defender', 'what position does X really play', optionally with absent_player (a TEAMMATE) for 'cuando no jugo Y'. "
+        "Each statement carries claim_status: observed (a fact of the lineup), associated (it coincided with a "
+        "teammate's absence), hypothesis (unproven). The slot is the ANNOUNCED lineup, never movement during the "
+        "match. Words allowed: 'empezo en otra casilla' / 'started in a different slot', 'coincidio con la "
+        "ausencia de Y' / 'coincided with Y's absence'. NEVER say the player 'moved during the match', never give a cause "
+        "('por la lesion', 'because of'), never predict ('rendira mas'); not being in the XI is not an injury "
+        "(listed_sidelined is reported separately); a provisional lineup is not confirmed; a small sample must be "
+        "said. The answer carries fpl_position (the player's FPL position: GKP/DEF/MID/FWD) and, when the lineups put the player in "
+        "another line in most of his starts, fpl_position_gap (observed): you MAY say 'en FPL es defensa; ha "
+        "empezado 6 de 6 como medio por la izquierda' / 'listed as a defender in FPL; started 6 of 6 as a "
+        "midfielder', for either direction, with no judgement and no cause; do not claim the player 'is not' a defender "
+        "in FPL. role_switch (observed) is the latest sustained change of starting role: you MAY say 'desde la J7 "
+        "empieza de delantero (4 de 4); antes, banda derecha' / 'since GW7 he has started as a forward (4 of 4); "
+        "before, right midfield'. per90_change (observed, licensed match statistics, matches with 30+ minutes) gives "
+        "the per-90 figures in the old role and in the new one (before/after), or in the played role when there is "
+        "only an FPL-position gap (all): you MAY say 'desde el cambio: 41.0 toques/90 (antes 47.5)' / 'since the "
+        "change: 41.0 touches per 90 (47.5 before)'; never say the change caused them ('por el cambio', 'because of "
+        "the move'), never predict, and say the match counts when they are small. When a match carries fpl_out, the ONLY allowed words are 'consta como baja en FPL desde el 17/10' / "
+        "'listed as out in FPL since 17 Oct' (observed from FPL, dated before that match); never 'no jugo porque' / "
+        "'did not play because'. For 'who replaces X if he does not play' use slot_cover / slot_occupants: say who "
+        "held the player's usual slot in the announced XI of the matches without him ('la casilla de delantero centro quedo "
+        "ocupada por Delap' / 'the centre forward slot was held by Delap'), say it is 'the closest slot' when marked "
+        "closest and name the sample ('1 partido'); never 'replaced him' / 'lo sustituyo' and never a reason or a "
+        "manager decision. Frame it as the opportunity, never as weakness. The history starts when the licensed ingestion "
+        "started, so few matches may be available."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": _PLAYER_QUERY_PROP,
+            "absent_player": {
+                "type": "string",
+                "description": "Optional TEAMMATE who did not play ('cuando no jugo Joao Pedro'). Resolved within the player's club.",
+            },
+            "matches": {
+                "type": "integer", "minimum": 1, "maximum": 10,
+                "description": "How many of the latest matches with a stored lineup to list (default 6).",
+            },
+        },
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
+# R6 -- touches, passes and backward passes per match, with or without a teammate, from the licensed store.
+GET_PLAYER_INVOLVEMENT_SCHEMA = ToolSchema(
+    name="get_player_involvement",
+    description=(
+        "How involved a player was in the club's recent matches: touches, passes, pass accuracy, key passes and "
+        "BACKWARD passes (and the share of the player's passes that went backward), as MATCH TOTALS from the provider, "
+        "plus per-90 averages. Use for 'cuantos toques tiene X', 'cuanto participa X en el juego', 'pases hacia atras', "
+        "'is X involved in build-up'. To COMPARE TWO PLAYERS ('compara los toques de X y Y', 'X vs Y key passes'), make "
+        "ONE call with player=X and compare_player=Y (any club): never two calls. Optionally, instead, absent_player (a "
+        "TEAMMATE) for 'cuando no juega Y' compares the player's per-90 involvement in matches where Y did not play "
+        "with matches where Y started; compare_player and absent_player are never combined. Each statement carries "
+        "claim_status: observed (a match total) or associated (it coincided with a teammate's absence). Words "
+        "allowed: 'tuvo mas/menos toques', 'had more/fewer touches', 'coincidio con la ausencia de Y'. NEVER give a "
+        "cause ('por la lesion', 'porque falto Y', 'because of'), never predict, never describe WHERE on the pitch "
+        "(no zones, no heat maps: the data are totals, with no location and no minute of the action); there are no "
+        "progressive or forward-pass counts. Per-90 uses only matches with 30+ minutes; a small sample must be said; "
+        "matches whose stored lineup is incomplete are left out of the comparison. Frame it as the opportunity, never "
+        "as weakness. The history starts when the licensed ingestion started, so few matches may be available."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player": _PLAYER_QUERY_PROP,
+            "compare_player": {
+                "type": "string",
+                "description": "Optional SECOND player to put side by side ('compara Palmer y Saka' -> player=Palmer, "
+                               "compare_player=Saka). Any club. Not with absent_player.",
+            },
+            "absent_player": {
+                "type": "string",
+                "description": "Optional TEAMMATE who did not play ('cuando no juega Joao Pedro'). Resolved within the player's club.",
+            },
+            "matches": {
+                "type": "integer", "minimum": 1, "maximum": 10,
+                "description": "How many of the latest matches with stored statistics to list (default 6).",
+            },
+        },
+        "required": ["player"],
+        "additionalProperties": False,
+    },
+)
+
 FI7B_TOOL_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_EXPECTED_MINUTES_SCHEMA,
     GET_TACTICAL_ROLE_SCHEMA,
     GET_FIXTURE_CONTEXT_SCHEMA,
     GET_PLAYER_INTELLIGENCE_SCHEMA,
+    GET_POSITION_CHANGES_SCHEMA,
+    GET_PLAYER_INVOLVEMENT_SCHEMA,
 )
 
 
@@ -1722,6 +1862,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     GET_TEAM_SNAPSHOT_SCHEMA,
     # i39 atomic tool — connected user's own squad
     GET_MY_SQUAD_SCHEMA,
+    # R1 atomic tool — retrospective gameweek report
+    GET_GW_REPORT_SCHEMA,
     # P2.7 atomic tool
     WEB_FETCH_SCHEMA,
     # P2.8 atomic tool

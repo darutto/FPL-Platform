@@ -12,12 +12,26 @@
  */
 import type { AskRequest, AskResponse } from './types';
 import type { SessionSeed } from './session-seed';
+import { translate } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 /** Returned by POST /session (create session). */
 export interface CreateSessionResult {
   session_id: string;
   created_at: number;
   expires_after_seconds: number;
+}
+
+/**
+ * The text to show for an API failure, in the language showing. The two errors the client words
+ * itself (session cap, expired session) come from the dictionary; anything else keeps the
+ * message the failure carried.
+ */
+export function apiErrorText(err: FplApiError, locale: Locale): string {
+  // Only the messages this file words itself are swapped; a generic "Request failed (429)" is left alone.
+  if (err.message === translate(DEFAULT_LOCALE, 'error.sessionLimit')) return translate(locale, 'error.sessionLimit');
+  if (err.message === translate(DEFAULT_LOCALE, 'error.sessionExpired')) return translate(locale, 'error.sessionExpired');
+  return err.message;
 }
 
 export class FplApiError extends Error {
@@ -81,7 +95,8 @@ export async function createSession(seed?: SessionSeed): Promise<CreateSessionRe
   });
 
   if (res.status === 429) {
-    throw new FplApiError(429, 'Límite de sesiones alcanzado — inténtalo de nuevo en unos minutos');
+    // Default (Spanish) wording; the chat shows the language it is in (see apiErrorText).
+    throw new FplApiError(429, translate(DEFAULT_LOCALE, 'error.sessionLimit'));
   }
   if (res.status === 503) {
     throw new FplApiError(503, 'Backend not ready — try again shortly');
@@ -112,7 +127,7 @@ export async function sessionAsk(
   });
 
   if (res.status === 404) {
-    throw new FplApiError(404, 'Sesión expirada. Inicia una nueva conversación.');
+    throw new FplApiError(404, translate(DEFAULT_LOCALE, 'error.sessionExpired'));
   }
   if (res.status === 422) {
     throw new FplApiError(422, 'Question is required');

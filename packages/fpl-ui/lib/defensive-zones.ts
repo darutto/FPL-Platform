@@ -7,24 +7,37 @@
  * Color semantics (design handoff, authoritative — do not invert):
  * zone/bar color encodes the USER's attacking opportunity — turquoise
  * ('opp') = best zone, gold/amber ('warm') = slight advantage, grey
- * ('cool') = none. Coral is reserved for the opponent-weakness label pill;
- * never red/coral for a strong zone (red reads as "avoid").
+ * ('cool') = none. The card's header pill uses the same coding; no coral/red
+ * anywhere on the card — the card is the user's opportunity, never a warning.
  */
 import type {
   DefensiveZoneCell,
   OpportunityLevel,
   ZoneLateral,
 } from './types';
+import { translate, type DictKey } from './i18n/dictionary';
+import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
 
 // ---------------------------------------------------------------------------
 // Opportunity level → labels and token classes
 // ---------------------------------------------------------------------------
 
-/** Rank-pill copy per level (handoff §Per-zone readings). */
+const LEVEL_PILL_KEYS: Record<OpportunityLevel, DictKey> = {
+  opp: 'z.level.opp',
+  warm: 'z.level.warm',
+  cool: 'z.level.cool',
+};
+
+/** Rank-pill copy for a level (handoff §Per-zone readings), in the language showing. */
+export function levelPillLabel(level: OpportunityLevel, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(locale, LEVEL_PILL_KEYS[level]);
+}
+
+/** The same in Spanish, the default language. */
 export const LEVEL_PILL_LABEL: Record<OpportunityLevel, string> = {
-  opp: 'tu mejor zona',
-  warm: 'ventaja leve',
-  cool: 'sin ventaja',
+  opp: levelPillLabel('opp'),
+  warm: levelPillLabel('warm'),
+  cool: levelPillLabel('cool'),
 };
 
 /** Text color token per level — big % value, zone label, table numbers. */
@@ -109,15 +122,6 @@ export function isAverageZone(pctOverAvg: number): boolean {
   return pctOverAvg < 0.5;
 }
 
-/**
- * Small precise delta under the big in-box reading: one decimal, always
- * signed, typographic minus (e.g. '+69.8%', '−31.7%').
- */
-export function formatDeltaFine(pctOverAvg: number): string {
-  const sign = pctOverAvg >= 0 ? '+' : '−';
-  return `${sign}${Math.abs(pctOverAvg).toFixed(1)}%`;
-}
-
 /** Ajuste column: one decimal, e.g. '8.7'. */
 export function formatFit(fit: number): string {
   return fit.toFixed(1);
@@ -142,47 +146,63 @@ export function rankOpacity(rank: number): number {
 // Zone naming (attacker frame → display Spanish)
 // ---------------------------------------------------------------------------
 
-/** Column headings under the pitch — the flank you attack down, as drawn
+const LATERAL_KEYS: Record<ZoneLateral, DictKey> = {
+  left: 'z.lat.left',
+  central: 'z.lat.central',
+  right: 'z.lat.right',
+};
+
+const LATERAL_SHORT_KEYS: Record<ZoneLateral, DictKey> = {
+  left: 'z.latShort.left',
+  central: 'z.latShort.central',
+  right: 'z.latShort.right',
+};
+
+/** Column heading under the pitch — the flank you attack down, as drawn
  *  (attacker faces the goal at the top; attacker's left = viewer's left). */
+export function lateralLabel(lateral: ZoneLateral, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(locale, LATERAL_KEYS[lateral]);
+}
+
+/** The same in Spanish, the default language. */
 export const LATERAL_LABEL: Record<ZoneLateral, string> = {
-  left: 'Izquierda',
-  central: 'Centro',
-  right: 'Derecha',
+  left: lateralLabel('left'),
+  central: lateralLabel('central'),
+  right: lateralLabel('right'),
 };
 
-const LATERAL_SHORT: Record<ZoneLateral, string> = {
-  left: 'Izq',
-  central: 'Centro',
-  right: 'Der',
-};
-
-/**
- * Table zone-pill label from an engine zone key ('in-box / left' → 'Izq').
- * Edge-of-box zones (possible in weakest_zones but not on the pitch view)
- * are prefixed: 'edge-of-box / left' → 'Frontal izq'.
- */
-export function zonePillLabel(zone: string): string {
-  const [depth, lateral] = zone.split(' / ');
-  const short = LATERAL_SHORT[lateral as ZoneLateral];
-  if (short == null) return zone;
-  return depth === 'edge-of-box' ? `Frontal ${short.toLowerCase()}` : short;
+/** Short flank name ('Izq' / 'Left'), or null for a key that is not a flank. */
+function lateralShort(lateral: string | undefined, locale: Locale): string | null {
+  const key = LATERAL_SHORT_KEYS[lateral as ZoneLateral];
+  return key ? translate(locale, key) : null;
 }
 
 /**
- * Opportunity level for an exploiter's zone, looked up from the in-box
- * cells so the table reinforces the pitch coding. Edge-of-box zones have
- * no cell — they were still a weak zone, so they read 'warm'.
+ * Table zone-pill label from an engine zone key ('in-box / left' → 'Izq' / 'Left').
+ * Edge-of-box zones are prefixed: 'edge-of-box / left' → 'Frontal izq' / 'Edge left'.
+ */
+export function zonePillLabel(zone: string, locale: Locale = DEFAULT_LOCALE): string {
+  const [depth, lateral] = zone.split(' / ');
+  const short = lateralShort(lateral, locale);
+  if (short == null) return zone;
+  return depth === 'edge-of-box' ? `${translate(locale, 'z.depth.edge')} ${short.toLowerCase()}` : short;
+}
+
+/**
+ * Opportunity level for an exploiter's zone, looked up from the pitch cells
+ * so the table reinforces the pitch coding. Edge-of-box zones read their
+ * `frontal` cell; payloads predating `frontal_zones` have none, so they read
+ * 'warm' (the zone was still a weak one).
  */
 export function levelForZone(
   zone: string,
   zones: DefensiveZoneCell[],
+  frontal: DefensiveZoneCell[] = [],
 ): OpportunityLevel {
   const [depth, lateral] = zone.split(' / ');
-  if (depth === 'in-box') {
-    const cell = zones.find((z) => z.lateral === lateral);
-    if (cell != null) return cell.opportunity_level;
-  }
-  return 'warm';
+  const cells = depth === 'in-box' ? zones : depth === 'edge-of-box' ? frontal : [];
+  const cell = cells.find((z) => z.lateral === lateral);
+  return cell != null ? cell.opportunity_level : 'warm';
 }
 
 // ---------------------------------------------------------------------------
@@ -198,23 +218,28 @@ export function sharePercent(share: number): number {
   return Math.round(share * 100);
 }
 
-const DEPTH_LABEL: Record<string, string> = {
-  'in-box': 'Área',
-  'edge-of-box': 'Frontal',
+const DEPTH_KEYS: Record<string, DictKey> = {
+  'in-box': 'z.depth.box',
+  'edge-of-box': 'z.depth.edge',
 };
 
 /**
  * Chip label for ANY of the six engine zone keys ('in-box / central' →
- * 'Área centro', 'edge-of-box / left' → 'Frontal izq'). Unlike
+ * 'Área centro', 'edge-of-box / left' → 'Frontal izq'; English 'Box centre', 'Edge left'). Unlike
  * zonePillLabel, central keeps its depth so 'Área centro' and
  * 'Frontal centro' never read the same. Unknown keys pass through.
  */
-export function zoneChipLabel(zone: string): string {
+export function zoneChipLabelFor(zone: string, locale: Locale): string {
   const [depth, lateral] = zone.split(' / ');
-  const short = LATERAL_SHORT[lateral as ZoneLateral];
-  const depthLabel = DEPTH_LABEL[depth];
-  if (short == null || depthLabel == null) return zone;
-  return `${depthLabel} ${short.toLowerCase()}`;
+  const short = lateralShort(lateral, locale);
+  const depthKey = DEPTH_KEYS[depth];
+  if (short == null || depthKey == null) return zone;
+  return `${translate(locale, depthKey)} ${short.toLowerCase()}`;
+}
+
+/** The Spanish chip label. One argument on purpose: it is passed straight to `.map(...)`. */
+export function zoneChipLabel(zone: string): string {
+  return zoneChipLabelFor(zone, DEFAULT_LOCALE);
 }
 
 /**
@@ -234,16 +259,17 @@ export function pitchCell(zone: string): { row: 0 | 1; col: 0 | 1 | 2 } | null {
 // Player sub-line
 // ---------------------------------------------------------------------------
 
-const POSITION_ES: Record<string, string> = {
-  GKP: 'POR',
-  DEF: 'DEF',
-  MID: 'MED',
-  FWD: 'DEL',
+const POSITION_KEYS: Record<string, DictKey> = {
+  GKP: 'z.pos.GKP',
+  DEF: 'z.pos.DEF',
+  MID: 'z.pos.MID',
+  FWD: 'z.pos.FWD',
 };
 
-/** FPL position code → Spanish display code ('MID' → 'MED'). '' stays ''. */
-export function positionEs(position: string): string {
-  return POSITION_ES[position] ?? position;
+/** FPL position code → display code in the language showing (Spanish 'MID' → 'MED'; English unchanged). '' stays ''. */
+export function positionEs(position: string, locale: Locale = DEFAULT_LOCALE): string {
+  const key = POSITION_KEYS[position];
+  return key ? translate(locale, key) : position;
 }
 
 /**
@@ -260,9 +286,10 @@ export function exploiterSub(
   teamShort: string,
   position: string,
   clubNote?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
   const club = teamShort && clubNote ? `${teamShort} (${clubNote})` : teamShort;
-  return [club, positionEs(position)].filter(Boolean).join(' · ');
+  return [club, positionEs(position, locale)].filter(Boolean).join(' · ');
 }
 
 // ---------------------------------------------------------------------------

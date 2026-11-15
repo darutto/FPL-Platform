@@ -61,7 +61,7 @@ def _resolve_locked(
                 "code": "bad_locked_players",
                 "message": "Each locked player must be a name string or an element id.",
             }
-        snapshot = get_player_snapshot(entry, bootstrap)
+        snapshot = get_player_snapshot(entry, bootstrap, signals=False)
         status = snapshot.get("status")
         if status == "ok":
             ids.append(int(snapshot["player"]["id"]))

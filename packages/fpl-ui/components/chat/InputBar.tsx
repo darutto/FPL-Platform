@@ -15,7 +15,8 @@
  * Plain text submission is unchanged — no slash prefix = no menu, no hint.
  */
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
-import { SLASH_COMMANDS, matchCommands, type SlashCommandLike } from '@/lib/slash-commands';
+import { matchCommands, matchSlashCommands, type SlashCommandLike } from '@/lib/slash-commands';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import SlashMenu, { optionId } from './SlashMenu';
 
 const SLASH_MENU_ID = 'slash-command-listbox';
@@ -50,7 +51,7 @@ interface Props {
   disabled?: boolean;
   /** When set/changed, replaces the input value and focuses the textarea. */
   insert?: InsertRequest | null;
-  /** Slash-command registry for the menu. Defaults to the FPL registry. */
+  /** Slash-command registry for the menu. Defaults to the FPL registry in the language showing. */
   commands?: SlashCommandLike[];
   /** Placeholder shown when no slash command is active. */
   defaultPlaceholder?: string;
@@ -58,18 +59,16 @@ interface Props {
   webSearch?: WebSearchToggle;
 }
 
-const DEFAULT_PLACEHOLDER = 'Escribe tu pregunta o usa /capitan, /comparar…';
-const WEB_SEARCH_PLACEHOLDER =
-  'Pregunta lo que sea — buscaré en noticias y fuentes en vivo…';
-
 export default function InputBar({
   onSubmit,
   disabled = false,
   insert = null,
-  commands = SLASH_COMMANDS,
-  defaultPlaceholder = DEFAULT_PLACEHOLDER,
+  commands,
+  defaultPlaceholder,
   webSearch,
 }: Props) {
+  const { locale } = useLocale();
+  const t = useT();
   const [value, setValue] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [cmdPlaceholder, setCmdPlaceholder] = useState<string | null>(null);
@@ -89,7 +88,7 @@ export default function InputBar({
     textareaRef.current?.focus({ preventScroll: true });
   }, [insert]);
 
-  const menuCommands: SlashCommandLike[] = matchCommands(value, commands);
+  const menuCommands: SlashCommandLike[] = commands ? matchCommands(value, commands) : matchSlashCommands(value, locale);
   const menuOpen = menuCommands.length > 0;
   const activeOptionId = menuOpen ? optionId(menuCommands[activeIndex].command) : undefined;
 
@@ -155,7 +154,7 @@ export default function InputBar({
   const webOn = webSearch?.enabled ?? false;
   const webAvailable = webSearch?.available ?? true;
   const placeholder =
-    cmdPlaceholder ?? (webOn ? WEB_SEARCH_PLACEHOLDER : defaultPlaceholder);
+    cmdPlaceholder ?? (webOn ? t('input.placeholderWeb') : defaultPlaceholder ?? t('input.placeholder'));
 
   const handleGlobe = () => {
     if (!webSearch || disabled) return;
@@ -183,7 +182,7 @@ export default function InputBar({
       {webOn && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-medium text-bf-cyan">
           <GlobeIcon className="opacity-90" />
-          Búsqueda web activa · esta consulta usará tu cuota premium
+          {t('input.webActive')}
         </div>
       )}
 
@@ -203,14 +202,14 @@ export default function InputBar({
             aria-label={
               webAvailable
                 ? webOn
-                  ? 'Desactivar búsqueda web'
-                  : 'Activar búsqueda web'
-                : 'Búsqueda web (función premium)'
+                  ? t('input.webOff')
+                  : t('input.webOn')
+                : t('input.webLocked')
             }
             title={
               webAvailable
-                ? 'Buscar en la web (premium)'
-                : 'Función premium — hazte mecenas para activarla'
+                ? t('input.webTitle')
+                : t('input.webTitleLocked')
             }
             className={`relative flex-shrink-0 self-center rounded-[10px] p-1.5 border transition-colors disabled:opacity-40 ${
               webOn
@@ -239,7 +238,7 @@ export default function InputBar({
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          aria-label="Pregunta al asistente FPL"
+          aria-label={t('input.ariaLabel')}
           aria-haspopup="listbox"
           aria-expanded={menuOpen}
           aria-controls={menuOpen ? SLASH_MENU_ID : undefined}
@@ -249,9 +248,9 @@ export default function InputBar({
           onClick={submit}
           disabled={disabled || !value.trim()}
           className="flex-shrink-0 bg-bf-coral hover:bg-bf-coral/90 disabled:bg-white/10 disabled:text-bf-gray text-white hc:text-bf-ink text-sm font-bold rounded-[10px] px-3.5 py-1.5 transition-colors"
-          aria-label="Enviar"
+          aria-label={t('input.send')}
         >
-          Enviar
+          {t('input.send')}
         </button>
       </div>
     </div>

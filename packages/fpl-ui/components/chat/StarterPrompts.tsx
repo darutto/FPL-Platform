@@ -15,15 +15,21 @@
  * so parseSlashCommand picks up the intent_hint automatically.
  */
 import { useEffect, useState } from 'react';
+import { translate } from '@/lib/i18n/dictionary';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Locale } from '@/lib/i18n/locale';
 
-const STATIC_PROMPTS = [
-  '¿A quién debería dar el brazalete?',
-  '/comparar Haaland vs Bruno Fernandes',
-  '¿Debería usar el triple capitán?',
-  '/diferenciales menos del 10%',
-  '/transferencia Cole Palmer por Saka',
-  '/calendarios Haaland',
-] as const;
+/** The curated starters in a language. Spanish is exactly what the app always showed. */
+export function staticPrompts(locale: Locale): string[] {
+  return [
+    translate(locale, 'starter.captain'),
+    translate(locale, 'starter.static.compare'),
+    translate(locale, 'starter.tripleCaptain'),
+    translate(locale, 'starter.differentials'),
+    translate(locale, 'starter.static.transfer'),
+    translate(locale, 'starter.static.fixtures'),
+  ];
+}
 
 interface TrendingResponse {
   active: boolean;
@@ -37,17 +43,17 @@ interface TrendingResponse {
  * calendar chips; `topOut[0]` (hottest sell, distinct from the buy) is the
  * sell side of the transfer suggestion.
  */
-export function buildDynamicPrompts(topIn: string[], topOut: string[]): string[] {
+export function buildDynamicPrompts(topIn: string[], topOut: string[], locale: Locale = 'es'): string[] {
   const buyA = topIn[0];
   const buyB = topIn[1];
   const sell = topOut.find((o) => o !== buyA) ?? topOut[0];
   return [
-    '¿A quién debería dar el brazalete?',
-    `/comparar ${buyA} vs ${buyB}`,
-    '¿Debería usar el triple capitán?',
-    '/diferenciales menos del 10%',
-    `/transferencia ${sell} por ${buyA}`,
-    `/calendarios ${buyA}`,
+    translate(locale, 'starter.captain'),
+    translate(locale, 'starter.dynamic.compare', { a: buyA, b: buyB }),
+    translate(locale, 'starter.tripleCaptain'),
+    translate(locale, 'starter.differentials'),
+    translate(locale, 'starter.dynamic.transfer', { out: sell, a: buyA }),
+    translate(locale, 'starter.dynamic.fixtures', { a: buyA }),
   ];
 }
 
@@ -56,7 +62,10 @@ interface Props {
 }
 
 export default function StarterPrompts({ onSelect }: Props) {
-  const [prompts, setPrompts] = useState<readonly string[]>(STATIC_PROMPTS);
+  const { locale } = useLocale();
+  // The live names, once fetched, are language-neutral; the sentence around them follows the locale.
+  const [trending, setTrending] = useState<{ in: string[]; out: string[] } | null>(null);
+  const prompts = trending ? buildDynamicPrompts(trending.in, trending.out, locale) : staticPrompts(locale);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +77,7 @@ export default function StarterPrompts({ onSelect }: Props) {
         // Guard here too (not just server-side): only swap when we truly have
         // enough distinct names, otherwise keep the curated static prompts.
         if (!cancelled && data.active && data.in.length >= 2 && data.out.length >= 1) {
-          setPrompts(buildDynamicPrompts(data.in, data.out));
+          setTrending({ in: data.in, out: data.out });
         }
       } catch {
         /* keep static prompts */

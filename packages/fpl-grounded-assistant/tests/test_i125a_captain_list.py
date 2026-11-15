@@ -64,7 +64,7 @@ def _names(text: str) -> list[str]:
 def test_team_list_is_owned_top_with_the_defender_second():
     text = captain_list(TEAM, QUESTION)
     assert _names(text) == ["Groß", "Tarkowski", "Haaland"]
-    assert "2. **Tarkowski** (EVE, DEF) — 67,6" in text
+    assert "2. **Tarkowski** (EVE, DEF) — 67.6" in text
     assert "de tu plantilla" in text and "GW6" in text
 
 

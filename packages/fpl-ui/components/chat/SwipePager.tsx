@@ -11,7 +11,10 @@
  * Ported from the design prototype; drag state lives in a ref so pointer
  * moves don't re-render until the offset actually changes.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Children, useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
+import { useWideWorkspace } from './useWideWorkspace';
+import PillSwitcher from './PillSwitcher';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 const SWIPE_THRESHOLD = 60; // px past which we commit to next/prev screen
 const LOCK_THRESHOLD = 8; // px before we decide horizontal vs vertical
@@ -42,6 +45,8 @@ interface Props {
   /** One label per screen; length drives the screen count. */
   labels: readonly string[];
   children: ReactNode; // one PagerScreen child per label
+  /** FPL only: same four mounted screens become a desktop workspace. */
+  workspace?: boolean;
 }
 
 export function PagerScreen({
@@ -53,15 +58,48 @@ export function PagerScreen({
   maxWidth?: number;
 }) {
   return (
-    <div className="h-full w-full flex-shrink-0 basis-full min-w-0 p-2 box-border flex justify-center">
-      <div className="w-full h-full min-w-0" style={maxWidth ? { maxWidth } : undefined}>
+    <div className="pager-screen h-full w-full flex-shrink-0 basis-full min-w-0 p-2 box-border flex justify-center">
+      <div className="pager-content w-full h-full min-w-0" style={maxWidth ? { maxWidth } : undefined}>
         {children}
       </div>
     </div>
   );
 }
 
-export default function SwipePager({ screen, onScreenChange, labels, children }: Props) {
+/** Column sizes shared by the toolbar and the grid so both line up. */
+function workspaceColumns(panels: { squad: boolean; commands: boolean }): CSSProperties {
+  return {
+    '--squad-column': panels.squad ? 'var(--squad-width)' : '0px',
+    '--commands-column': panels.commands ? 'var(--commands-width)' : '0px',
+  } as CSSProperties;
+}
+
+/** panel-left / panel-right sidebar icon: outline plus a filled rail while the panel is open. */
+function PanelToggle({ side, open, name, onClick }: { side: 'left' | 'right'; open: boolean; name: string; onClick: () => void }) {
+  const t = useT();
+  const label = t(open ? 'workspace.hidePanel' : 'workspace.showPanel', { name });
+  const dividerX = side === 'left' ? 8 : 12;
+  return (
+    <button type="button" className={`panel-toggle panel-toggle-${side}`} aria-label={label} title={label} aria-expanded={open} onClick={onClick}>
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+        {open && <rect x={side === 'left' ? 3.3 : 12.7} y="4.3" width="4" height="11.4" rx="1" fill="currentColor" opacity=".55" />}
+        <path d={`M${dividerX} 3.8v12.4`} stroke="currentColor" strokeWidth="1.6" />
+      </svg>
+    </button>
+  );
+}
+
+export default function SwipePager({ screen, onScreenChange, labels, children, workspace = false }: Props) {
+  const t = useT();
+  const centerItems = [
+    { key: 'chat', label: t('workspace.chat') },
+    { key: 'calendar', label: t('workspace.calendar') },
+  ] as const;
+  const panels = useWideWorkspace(workspace);
+  const lastCenter = useRef(2);
+  if (screen === 0 || screen === 2) lastCenter.current = screen;
+  const center = lastCenter.current;
   const dragRef = useRef<DragState>({ active: false, pointerId: -1, startX: 0, startY: 0, dx: 0, locked: null });
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pointersRef = useRef(new Set<number>());
@@ -131,10 +169,12 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
   }, [cancelDrag]);
 
   useEffect(() => { cancelDrag(); }, [screen, cancelDrag]);
+  useEffect(() => { cancelDrag(); }, [panels.wide, cancelDrag]);
 
   // Keyboard nav — ←/→ between screens, unless typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (panels.wide) return;
       const target = e.target as HTMLElement;
       if (e.defaultPrevented || target.isContentEditable || document.fullscreenElement) return;
       if (target instanceof Element && !target.closest('[data-pager-navigation]') && surfaceRef.current && ownsGesture(target, surfaceRef.current)) return;
@@ -143,9 +183,10 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [screen, goTo]);
+  }, [screen, goTo, panels.wide]);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (panels.wide) return;
     if (pointersRef.current.size > 1 || e.isPrimary === false || e.button !== 0) return;
     if ((window.visualViewport?.scale ?? 1) > 1 || document.fullscreenElement) return;
     if (ownsGesture(e.target as Element, e.currentTarget)) return;
@@ -183,9 +224,22 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
   const isDragging = dragRef.current.active && dragRef.current.locked === 'h';
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+    <div className={`flex-1 flex flex-col min-h-0 overflow-hidden relative ${panels.wide ? 'wide-workspace' : ''}`} data-workspace={panels.wide ? 'wide' : 'pager'}>
+      {panels.wide && (
+        <div className="workspace-toolbar" aria-label={t('workspace.navigation')} style={workspaceColumns(panels)}>
+          <PanelToggle side="left" open={panels.squad} name={t('workspace.panel.squad')} onClick={() => panels.toggle('squad')} />
+          <PillSwitcher
+            label={t('workspace.centreView')}
+            className="workspace-switch"
+            items={centerItems}
+            value={center === 0 ? 'calendar' : 'chat'}
+            onChange={(key) => goTo(key === 'calendar' ? 0 : 2)}
+          />
+          <PanelToggle side="right" open={panels.commands} name={t('workspace.panel.commands')} onClick={() => panels.toggle('commands')} />
+        </div>
+      )}
       {/* Dot pager */}
-      <div className="flex items-center justify-center gap-2 py-1.5 flex-shrink-0">
+      <div className={`${panels.wide ? 'hidden' : 'flex'} items-center justify-center gap-2 py-1.5 flex-shrink-0`}>
         {labels.map((lbl, i) => (
           <button
             key={lbl}
@@ -211,7 +265,7 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
       <div
         ref={surfaceRef}
         className={`flex-1 min-h-0 overflow-hidden relative touch-auto ${
-          isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'
+          panels.wide ? '' : isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'
         }`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -223,17 +277,23 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
       >
         {/* Sliding track */}
         <div
-          className="flex w-full h-full will-change-transform"
-          style={{
+          className={panels.wide ? 'workspace-grid' : 'flex w-full h-full will-change-transform'}
+          style={panels.wide ? workspaceColumns(panels) : {
             transform: `translateX(calc(${-screen * 100}% + ${dragDx}px))`,
             transition: isDragging ? 'none' : 'transform .35s cubic-bezier(.32,.72,.36,1)',
           }}
         >
-          {children}
+          {workspace ? Children.map(children, (child, index) => {
+            const side = index === 1 ? 'squad' : index === 3 ? 'commands' : null;
+            const hidden = panels.wide && (side ? !panels[side] : center !== index);
+            return <div className={`workspace-slot ${side ? 'workspace-side' : 'workspace-center'}`} data-panel={['calendar', 'squad', 'chat', 'commands'][index]} data-collapsed={side && hidden ? 'true' : undefined} aria-hidden={hidden || undefined} inert={hidden || undefined} style={hidden && !side ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}>
+              {child}
+            </div>;
+          }) : children}
         </div>
 
         {/* Desktop-only hints: on mobile these overlap content; tabs and swipe remain available. */}
-        {screen > 0 && (
+        {!panels.wide && screen > 0 && (
           <EdgeHint
             side="left"
             label={labels[screen - 1]}
@@ -241,7 +301,7 @@ export default function SwipePager({ screen, onScreenChange, labels, children }:
             accentClass="text-bf-turquoise"
           />
         )}
-        {screen < lastScreen && (
+        {!panels.wide && screen < lastScreen && (
           <EdgeHint
             side="right"
             label={labels[screen + 1]}
@@ -265,12 +325,13 @@ function EdgeHint({
   onClick: () => void;
   accentClass: string;
 }) {
+  const t = useT();
   return (
     <button
       onClick={onClick}
       data-no-swipe
       data-pager-navigation
-      title={`Ir a ${label}`}
+      title={t('workspace.goTo', { name: label })}
       className={`absolute top-1/2 -translate-y-1/2 z-10 px-1 py-3.5 rounded-lg border border-white/10 bg-bf-surface/85 backdrop-blur hidden md:flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity ${accentClass} ${
         side === 'left' ? 'left-2' : 'right-2'
       }`}

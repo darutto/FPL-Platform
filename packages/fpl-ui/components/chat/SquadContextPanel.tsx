@@ -18,6 +18,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { SquadContext } from '@/lib/types';
+import { useT } from '@/lib/i18n/LocaleProvider';
 import {
   validateTeamId,
   normalizeSquadContext,
@@ -42,13 +43,14 @@ type PanelState =
   | { status: 'error'; message: string };
 
 export default function SquadContextPanel({ onContextChange, onTeamIdChange }: Props) {
+  const t = useT();
   const [teamIdInput, setTeamIdInput] = useState('');
   const [panel, setPanel] = useState<PanelState>({ status: 'idle' });
 
   const connect = useCallback(async (rawId: string) => {
     const teamId = validateTeamId(rawId);
     if (teamId === null) {
-      setPanel({ status: 'error', message: 'ID de equipo no válido — debe ser un número positivo.' });
+      setPanel({ status: 'error', message: t('squad.invalidId') });
       return;
     }
 
@@ -58,16 +60,16 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
     try {
       const res = await fetch(`/api/fpl-entry/${teamId}`);
       if (res.status === 404) {
-        setPanel({ status: 'error', message: 'No se encontró el equipo. Comprueba el ID.' });
+        setPanel({ status: 'error', message: t('squad.notFound') });
         return;
       }
       if (!res.ok) {
-        setPanel({ status: 'error', message: `Error al obtener datos (${res.status}). Inténtalo de nuevo.` });
+        setPanel({ status: 'error', message: t('squad.fetchError', { status: res.status }) });
         return;
       }
       data = await res.json() as FplEntryResponse;
     } catch {
-      setPanel({ status: 'error', message: 'No se pudo conectar con la API de FPL. Inténtalo de nuevo.' });
+      setPanel({ status: 'error', message: t('squad.unreachable') });
       return;
     }
 
@@ -78,7 +80,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
 
     // Persist team ID (not context — context is re-fetched each time)
     try { localStorage.setItem(LS_KEY, String(teamId)); } catch { /* ignore */ }
-  }, [onContextChange, onTeamIdChange]);
+  }, [onContextChange, onTeamIdChange, t]);
 
   const handleConnect = useCallback(() => connect(teamIdInput), [connect, teamIdInput]);
 
@@ -122,7 +124,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
             onClick={handleDisconnect}
             className="text-bf-gray/60 hover:text-bf-gray transition-colors flex-shrink-0"
           >
-            Desconectar
+            {t('squad.disconnect')}
           </button>
         </>
       ) : (
@@ -136,7 +138,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
               if (panel.status === 'error') setPanel({ status: 'idle' });
             }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleConnect(); }}
-            placeholder="ID de equipo FPL"
+            placeholder={t('squad.placeholder')}
             disabled={panel.status === 'loading'}
             className={`w-36 bg-bf-bg border rounded px-2 py-1 text-bf-text placeholder-bf-gray/50
               focus:outline-none focus:border-bf-turquoise/60 transition-colors disabled:opacity-50
@@ -147,7 +149,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
             disabled={panel.status === 'loading' || teamIdInput.trim() === ''}
             className="text-bf-turquoise font-bold hover:text-bf-turquoise/80 transition-colors disabled:opacity-40 flex-shrink-0"
           >
-            {panel.status === 'loading' ? 'Conectando…' : 'Conectar'}
+            {panel.status === 'loading' ? t('squad.connecting') : t('squad.connect')}
           </button>
           {panel.status === 'error' && (
             <span className="text-bf-coral truncate max-w-[160px]">{panel.message}</span>

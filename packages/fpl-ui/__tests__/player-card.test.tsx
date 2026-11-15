@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import PlayerCard from '../components/intents/PlayerCard';
@@ -11,37 +11,47 @@ import {
   playerSnapshotNoFixturesResponse,
 } from './fixtures/sample-responses';
 
+// The fixture strip loads the outlook bundle after the first render (every plan sees the band).
+// Each render waits for that inside act(), so no state update lands outside a test.
+async function renderCard(ui: React.ReactElement) {
+  const result = render(ui);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  return result;
+}
+
 describe('PlayerCard — available player', () => {
   const data = playerSnapshotOkResponse.player_snapshot!;
 
-  test('renders name, price, ownership, and total points', () => {
-    render(<PlayerCard data={data} />);
+  test('renders name, price, ownership, and total points', async () => {
+    await renderCard(<PlayerCard data={data} />);
     expect(screen.getByText('Haaland')).toBeInTheDocument();
     expect(screen.getByText('£15.5m')).toBeInTheDocument();
     expect(screen.getByText('74.2%')).toBeInTheDocument();
     expect(screen.getByText('239')).toBeInTheDocument();
   });
 
-  test('renders the available-status badge with the good tone class', () => {
-    render(<PlayerCard data={data} />);
+  test('renders the available-status badge with the good tone class', async () => {
+    await renderCard(<PlayerCard data={data} />);
     const badge = screen.getByText('Available');
     expect(badge.className).toEqual(expect.stringContaining('turquoise'));
   });
 
-  test('does not render a news line when available', () => {
-    render(<PlayerCard data={data} />);
+  test('does not render a news line when available', async () => {
+    await renderCard(<PlayerCard data={data} />);
     expect(screen.queryByText(/tobillo/)).not.toBeInTheDocument();
   });
 
-  test('renders the next-fixture strip', () => {
-    render(<PlayerCard data={data} />);
-    expect(screen.getByText('GW29')).toBeInTheDocument();
+  test('renders the next-fixture strip', async () => {
+    await renderCard(<PlayerCard data={data} />);
+    expect(screen.getByText('J29')).toBeInTheDocument();
     expect(screen.getByText(/LIV/)).toBeInTheDocument();
-    expect(screen.getByText('GW30')).toBeInTheDocument();
+    expect(screen.getByText('J30')).toBeInTheDocument();
   });
 
-  test('renders season totals and aligned per-90 metrics including DC', () => {
-    render(<PlayerCard data={data} />);
+  test('renders season totals and aligned per-90 metrics including DC', async () => {
+    await renderCard(<PlayerCard data={data} />);
     for (const label of ['xG', 'xA', 'xGI', 'ICT', 'DC']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -54,7 +64,7 @@ describe('PlayerCard — available player', () => {
     expect(screen.getByText('3.54')).toBeInTheDocument();
   });
 
-  test('derives rates without crashing against an older API response', () => {
+  test('derives rates without crashing against an older API response', async () => {
     const legacyData = {
       ...data,
       expected_goals_per_90: undefined,
@@ -64,7 +74,7 @@ describe('PlayerCard — available player', () => {
       defensive_contribution: undefined,
       defensive_contribution_per_90: undefined,
     };
-    render(<PlayerCard data={legacyData} />);
+    await renderCard(<PlayerCard data={legacyData} />);
     expect(screen.getByText('0.78')).toBeInTheDocument();
     expect(screen.getByText('9.21')).toBeInTheDocument();
     expect(screen.getByText('0')).toBeInTheDocument();
@@ -73,17 +83,17 @@ describe('PlayerCard — available player', () => {
 });
 
 describe('PlayerCard — no fixture coverage', () => {
-  test('omits the fixture strip when fixtures is empty', () => {
-    render(<PlayerCard data={playerSnapshotNoFixturesResponse.player_snapshot!} />);
-    expect(screen.queryByText(/^GW/)).not.toBeInTheDocument();
+  test('omits the fixture strip when fixtures is empty', async () => {
+    await renderCard(<PlayerCard data={playerSnapshotNoFixturesResponse.player_snapshot!} />);
+    expect(screen.queryByText(/^(GW|J)\d/)).not.toBeInTheDocument();
   });
 });
 
 describe('PlayerCard — doubtful player', () => {
   const data = playerSnapshotDoubtfulResponse.player_snapshot!;
 
-  test('renders the doubtful-status badge with the warn tone class', () => {
-    render(<PlayerCard data={data} />);
+  test('renders the doubtful-status badge with the warn tone class', async () => {
+    await renderCard(<PlayerCard data={data} />);
     // i151: the badge text is the Spanish status_label; tone still keys off
     // the English status, so the warn (gold) class survives the translation.
     const badge = screen.getByText('Dudoso');
@@ -91,27 +101,27 @@ describe('PlayerCard — doubtful player', () => {
     expect(screen.queryByText('Doubtful')).not.toBeInTheDocument();
   });
 
-  test('falls back to the raw status when status_label is absent (older payload)', () => {
+  test('falls back to the raw status when status_label is absent (older payload)', async () => {
     const { status_label: _omit, ...legacy } = data;
-    render(<PlayerCard data={legacy} />);
+    await renderCard(<PlayerCard data={legacy} />);
     const badge = screen.getByText('Doubtful');
     expect(badge.className).toEqual(expect.stringContaining('gold'));
   });
 
-  test('renders the news line', () => {
-    render(<PlayerCard data={data} />);
+  test('renders the news line', async () => {
+    await renderCard(<PlayerCard data={data} />);
     expect(screen.getByText(/tobillo/)).toBeInTheDocument();
   });
 });
 
 describe('PlayerCard — injured player (i151)', () => {
-  test('Spanish badge text keeps the bad (coral) tone from the English status', () => {
+  test('Spanish badge text keeps the bad (coral) tone from the English status', async () => {
     const data = {
       ...playerSnapshotDoubtfulResponse.player_snapshot!,
       status: 'Injured',
       status_label: 'Lesionado',
     };
-    render(<PlayerCard data={data} />);
+    await renderCard(<PlayerCard data={data} />);
     const badge = screen.getByText('Lesionado');
     expect(badge.className).toEqual(expect.stringContaining('coral'));
   });
@@ -120,28 +130,28 @@ describe('PlayerCard — injured player (i151)', () => {
 describe('PlayerCard — news in Spanish (i151c)', () => {
   const base = playerSnapshotDoubtfulResponse.player_snapshot!;
 
-  test('shows news_label, not the English news', () => {
+  test('shows news_label, not the English news', async () => {
     const data = {
       ...base,
       news: 'Knee injury - 75% chance of playing',
       news_label: 'Lesión de rodilla - 75% de probabilidad de jugar',
     };
-    render(<PlayerCard data={data} />);
+    await renderCard(<PlayerCard data={data} />);
     expect(screen.getByText('Lesión de rodilla - 75% de probabilidad de jugar')).toBeInTheDocument();
     expect(screen.queryByText(/chance of playing/)).not.toBeInTheDocument();
   });
 
-  test('falls back to the raw news when news_label is absent (older payload)', () => {
+  test('falls back to the raw news when news_label is absent (older payload)', async () => {
     const { news_label: _omit, ...legacy } = {
       ...base,
       news: 'has returned to Getafe CF',
       news_label: undefined,
     };
-    render(<PlayerCard data={legacy} />);
+    await renderCard(<PlayerCard data={legacy} />);
     expect(screen.getByText('has returned to Getafe CF')).toBeInTheDocument();
   });
 
-  test('visibility still keys off status and the original news', () => {
+  test('visibility still keys off status and the original news', async () => {
     const data = {
       ...base,
       status: 'Available',
@@ -149,7 +159,7 @@ describe('PlayerCard — news in Spanish (i151c)', () => {
       news: 'Knee injury - 75% chance of playing',
       news_label: 'Lesión de rodilla - 75% de probabilidad de jugar',
     };
-    render(<PlayerCard data={data} />);
+    await renderCard(<PlayerCard data={data} />);
     expect(screen.queryByText(/rodilla/)).not.toBeInTheDocument();
   });
 });

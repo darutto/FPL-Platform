@@ -714,6 +714,10 @@ class DefensiveZonesMeta:
     #: get_zonal_opportunity-sourced turn, where an empty `exploiters` is a
     #: real, meaningful "zero players fit" result worth showing.
     has_exploiters:        bool = True
+    #: The 3 edge-of-box cells (left / central / right, same shape as
+    #: ``zones``) so the pitch draws every zone the headline can name.
+    #: Empty on payloads predating it -- the card then draws the box only.
+    frontal_zones:         tuple[ZoneCell, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -807,6 +811,34 @@ class PlayerZonalOutlookMeta:
     data_provenance: "DataProvenance | None" = None
 
 
+#: Conclusion keys the UI words (see player_conclusions); anything else is dropped at extraction.
+PLAYER_CONCLUSION_KEYS: frozenset[str] = frozenset({
+    "points_attack", "points_defence", "points_clean_sheets", "position", "set_pieces", "starts", "zonal",
+})
+
+
+@dataclass(frozen=True)
+class PlayerConclusion:
+    """One line of the verdict above the player card: a key the UI words, its
+    label params, and optional "top N %" evidence. Never a rendered string."""
+    key:      str
+    params:   "dict[str, Any]"
+    evidence: "dict[str, Any] | None" = None
+
+
+@dataclass(frozen=True)
+class PlayerSignal:
+    """One pill at the foot of the player card (player_signals.py).
+
+    One per emitted verdict line with a deeper card. ``kind`` picks the icon
+    (``position`` | ``zone``); ``label`` names the destination («Posición»);
+    ``send_text`` is the question the UI sends, verbatim, on tap.
+    """
+    kind:      str
+    label:     str
+    send_text: str
+
+
 @dataclass(frozen=True)
 class PlayerSnapshotMeta:
     """Structured single-player snapshot output for the player detail card.
@@ -868,6 +900,14 @@ class PlayerSnapshotMeta:
     #: i151c: ``news`` in Spanish when it matches a known FPL template (see
     #: news_es); otherwise the original English ``news``, untouched.
     news_label:                      str = ""
+    #: The fixture strip's outlook axis from the role he was listed to start in
+    #: ("attack" / "defence"); None = the UI's FPL fallback (DEF/GKP defence).
+    strip_axis:                      str | None = None
+    #: The verdict: 0-3 conclusions the card doesn't show, priority order; () = no block.
+    conclusions:                     "tuple[PlayerConclusion, ...]" = ()
+    #: Player-card signals (player_signals.py), display order, max 3. Empty
+    #: tuple = no pill row; the card is unchanged.
+    signals:                         "tuple[PlayerSignal, ...]" = ()
 
 
 # ---------------------------------------------------------------------------
@@ -1441,6 +1481,9 @@ class FinalResponse:
     # outcome==needs_clarification AND intent==compare_players (deterministic,
     # never LLM).  None on OK outcomes and all other intents.
     suggestions:            "tuple[Suggestion, ...] | None"  = field(default=None)
+    # A metric ranking's verdict (table_conclusions): 0-3 {key, params,
+    # evidence} dicts about the table, deterministic; None when none fires.
+    table_conclusions:      "list[dict[str, Any]] | None"    = field(default=None)
     # i80/i36: what ask_v2() produced on a session turn, kept as-is so the
     # HTTP layer audits from it instead of from constants:
     #   {"routing_trace": dict, "tokens": dict, "selected_tool": str | None,
@@ -1471,69 +1514,31 @@ class FinalResponse:
 #   Only deterministic grounded execution can answer.
 # ---------------------------------------------------------------------------
 
-_CLARIFICATION_PROMPTS: dict[str, str] = {
+#: intent -> catalogue key (``clarify.*``). The prompts themselves live in the
+#: catalogue (es + en); the same intent always yields the same prompt per locale.
+_CLARIFICATION_KEYS: dict[str, str] = {
     # captain-family intents share the same clarification
-    INTENT_CAPTAIN_SCORE:    (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    INTENT_RANK_CANDIDATES:  (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    "captain_advice":        (
-        "Are you looking for captaincy advice or player rankings for this gameweek? "
-        "Try asking 'who should I captain?' or 'best captain options'."
-    ),
-    INTENT_COMPARE_PLAYERS:  (
-        "Are you comparing two players? "
-        "Try asking 'compare [Player A] vs [Player B]'."
-    ),
-    INTENT_TRANSFER_ADVICE:  (
-        "Are you looking for transfer suggestions? "
-        "Try asking 'who should I transfer in?' or 'best players to buy under £8m'."
-    ),
-    INTENT_PLAYER_FORM:      (
-        "Are you asking about a player's recent form? "
-        "Try asking 'how has [player] been playing?' or 'stats for [player] last 5 games'."
-    ),
-    INTENT_PLAYER_FIXTURE_RUN: (
-        "Are you asking about a player's upcoming fixtures? "
-        "Try 'upcoming fixtures for [player]'."
-    ),
-    INTENT_INJURY_LIST:      (
-        "Are you asking about injuries or availability? "
-        "Try 'who is injured this gameweek?'."
-    ),
-    INTENT_PRICE_CHANGES:    (
-        "Are you asking about price changes? "
-        "Try 'who has gone up in price?' or 'recent price risers'."
-    ),
-    INTENT_CHIP_ADVICE:      (
-        "Are you asking about when to use a chip? "
-        "Try 'should I use my wildcard?' or 'when should I use my bench boost?'."
-    ),
-    INTENT_DIFFERENTIAL_PICKS: (
-        "Are you looking for differential picks? "
-        "Try 'low-ownership players worth picking'."
-    ),
-    INTENT_TEAM_FIXTURE_CALENDAR: (
-        "Are you looking at fixture difficulty? "
-        "Try 'which teams have the best fixtures coming up?'."
-    ),
-    INTENT_TRANSFER_SUGGESTION: (
-        "Are you looking for specific player recommendations? "
-        "Try 'best midfielders under £7m' or 'top Arsenal players to buy'."
-    ),
+    INTENT_CAPTAIN_SCORE:         "clarify.captain",
+    INTENT_RANK_CANDIDATES:       "clarify.captain",
+    "captain_advice":             "clarify.captain",
+    INTENT_COMPARE_PLAYERS:       "clarify.compare",
+    INTENT_TRANSFER_ADVICE:       "clarify.transfer",
+    INTENT_PLAYER_FORM:           "clarify.form",
+    INTENT_PLAYER_FIXTURE_RUN:    "clarify.player_fixture_run",
+    INTENT_INJURY_LIST:           "clarify.injury",
+    INTENT_PRICE_CHANGES:         "clarify.price",
+    INTENT_CHIP_ADVICE:           "clarify.chip",
+    INTENT_DIFFERENTIAL_PICKS:    "clarify.differential",
+    INTENT_TEAM_FIXTURE_CALENDAR: "clarify.calendar",
+    INTENT_TRANSFER_SUGGESTION:   "clarify.suggestion",
 }
 
-_CLARIFICATION_FALLBACK: str = (
-    "I'm not sure what you're looking for. "
-    "Try rephrasing — for example, 'who should I captain?' or 'compare Salah vs Haaland'."
-)
+_CLARIFICATION_FALLBACK_KEY: str = "clarify.fallback"
 
 
-def _clarification_text_for_intent(intent: "str | None") -> str:
+def _clarification_text_for_intent(
+    intent: "str | None", locale: Locale = DEFAULT_LOCALE,
+) -> str:
     """Return a deterministic clarification prompt shaped by the classified intent.
 
     Parameters
@@ -1548,9 +1553,9 @@ def _clarification_text_for_intent(intent: "str | None") -> str:
         A short (1-2 sentence) clarification question.  Same intent always
         produces the same prompt.  No LLM calls, no external dependencies.
     """
-    if intent is None:
-        return _CLARIFICATION_FALLBACK
-    return _CLARIFICATION_PROMPTS.get(intent, _CLARIFICATION_FALLBACK)
+    from .catalogue import t  # noqa: PLC0415
+    key = _CLARIFICATION_KEYS.get(intent, _CLARIFICATION_FALLBACK_KEY) if intent else _CLARIFICATION_FALLBACK_KEY
+    return t(key, locale)
 
 
 # ---------------------------------------------------------------------------
@@ -1997,6 +2002,14 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
             team_filter    = _extract_team_filter(ro.get("team_filter")),
             weakness_strength = ro.get("weakness_strength"),
             has_exploiters = has_exploiters,
+            frontal_zones  = tuple(
+                ZoneCell(
+                    lateral           = z["lateral"],
+                    pct_over_avg      = float(z["pct_over_avg"]),
+                    opportunity_level = z["opportunity_level"],
+                )
+                for z in (ro.get("card_frontal_zones") or ro.get("frontal_zones") or [])
+            ),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -2115,7 +2128,42 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
-def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta | None":
+def _extract_player_signals(raw: Any) -> "tuple[PlayerSignal, ...]":
+    """``signals`` from the snapshot output; anything malformed is dropped."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerSignal] = []
+    for item in raw[:3]:
+        if not isinstance(item, dict):
+            continue
+        kind, label, send = item.get("kind"), item.get("label"), item.get("send_text")
+        if kind in ("position", "zone") and isinstance(label, str) and label and isinstance(send, str) and send:
+            out.append(PlayerSignal(kind=kind, label=label, send_text=send))
+    return tuple(out)
+
+
+def _extract_player_conclusions(raw: "Any") -> "tuple[PlayerConclusion, ...]":
+    """``player.conclusions``; malformed entries are dropped one by one, never the card."""
+    if not isinstance(raw, list):
+        return ()
+    out: list[PlayerConclusion] = []
+    for item in raw[:3]:
+        if (
+            isinstance(item, dict)
+            and item.get("key") in PLAYER_CONCLUSION_KEYS
+            and isinstance(item.get("params"), dict)
+            and (item.get("evidence") is None or isinstance(item.get("evidence"), dict))
+        ):
+            out.append(PlayerConclusion(
+                key=item["key"], params=dict(item["params"]),
+                evidence=dict(item["evidence"]) if item.get("evidence") is not None else None,
+            ))
+    return tuple(out)
+
+
+def _extract_player_snapshot_meta(
+    ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
+) -> "PlayerSnapshotMeta | None":
     """Extract PlayerSnapshotMeta from a get_player_snapshot tool_output dict.
 
     Requires ``status == "ok"`` with a ``player`` payload — ``ambiguous`` /
@@ -2142,9 +2190,9 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             position                     = p.get("position", ""),
             minutes_played_season        = int(p.get("minutes_played_season", 0)),
             status                       = p.get("status", ""),
-            status_label                 = _status_label_es(p.get("status", "")),
+            status_label                 = _status_label_es(p.get("status", ""), locale),
             news                         = p.get("news", "") or "",
-            news_label                   = news_label(p.get("news", "") or ""),
+            news_label                   = news_label(p.get("news", "") or "", locale),
             news_added                   = p.get("news_added"),
             chance_of_playing_this_round = p.get("chance_of_playing_this_round"),
             form                         = float(p.get("form", 0.0)),
@@ -2197,6 +2245,11 @@ def _extract_player_snapshot_meta(ro: "dict[str, Any]") -> "PlayerSnapshotMeta |
             ),
             team_fdr_context             = team_fdr_context,
             zonal                        = _extract_player_zonal_meta(p.get("zonal")),
+            strip_axis                   = (
+                p["strip_axis"] if p.get("strip_axis") in ("attack", "defence") else None
+            ),
+            conclusions                  = _extract_player_conclusions(p.get("conclusions")),
+            signals                      = _extract_player_signals(ro.get("signals")),
         )
     except Exception:  # noqa: BLE001
         return None
@@ -2469,17 +2522,17 @@ def _extract_fixture_outlook_meta(ro: "dict[str, Any]") -> "FixtureOutlookMeta |
         return None
 
 
-def _status_label_es(status: Any) -> str:
-    """i151: the FPL availability word in the catalogue's Spanish.
+def _status_label_es(status: Any, locale: Locale = DEFAULT_LOCALE) -> str:
+    """i151: the FPL availability word in the catalogue's language (es by default).
 
     Same unmapped-fallback as the text renderer: an unknown value is shown as
     it comes rather than guessed or blanked.
     """
     from .renderer import _localized_status_label  # noqa: PLC0415
-    return _localized_status_label(str(status or ""), "es")
+    return _localized_status_label(str(status or ""), locale)
 
 
-def _difficulty_label_es(label: Any) -> str:
+def _difficulty_label_es(label: Any, locale: Locale = DEFAULT_LOCALE) -> str:
     """i141: easy/moderate/hard in the catalogue's Spanish (fácil/moderado/difícil).
 
     Anything outside the enum passes through unchanged rather than being
@@ -2487,22 +2540,24 @@ def _difficulty_label_es(label: Any) -> str:
     """
     from .catalogue import t  # noqa: PLC0415
     if label in ("easy", "moderate", "hard"):
-        return t(f"difficulty_label.{label}", "es")
+        return t(f"difficulty_label.{label}", locale)
     return str(label or "")
 
 
-def _position_noun_es(code: Any, fallback: Any) -> str:
+def _position_noun_es(code: Any, fallback: Any, locale: Locale = DEFAULT_LOCALE) -> str:
     """i141: GKP/DEF/MID/FWD/ALL as the catalogue's Spanish plural noun.
 
     An unknown code keeps the tool's own label rather than a guess.
     """
     from .catalogue import t  # noqa: PLC0415
     if code in ("GKP", "DEF", "MID", "FWD", "ALL"):
-        return t(f"position_noun.{code}", "es")
+        return t(f"position_noun.{code}", locale)
     return str(fallback or "")
 
 
-def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggestionMeta | None":
+def _extract_transfer_suggestion_meta(
+    ro: "dict[str, Any]", locale: Locale = DEFAULT_LOCALE,
+) -> "TransferSuggestionMeta | None":
     """Extract TransferSuggestionMeta from get_transfer_suggestion output.  Phase 2.6h."""
     try:
         picks = tuple(
@@ -2517,7 +2572,7 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
                 avg_fdr          = float(p.get("avg_fdr", 0.0)),
                 # i141: the card shows it as it comes; the tool keeps the
                 # easy/moderate/hard enum (renderer + model read it).
-                difficulty_label = _difficulty_label_es(p.get("difficulty_label", "")),
+                difficulty_label = _difficulty_label_es(p.get("difficulty_label", ""), locale),
                 composite_score  = float(p.get("composite_score", 0.0)),
                 ownership        = float(p.get("ownership", 0.0)),
             )
@@ -2527,7 +2582,7 @@ def _extract_transfer_suggestion_meta(ro: "dict[str, Any]") -> "TransferSuggesti
             position         = ro.get("position", "ALL"),
             # i141: shown as it comes on the card's scope line; the catalogue's
             # Spanish noun for the position code (the tool keeps its own label).
-            position_label   = _position_noun_es(ro.get("position", "ALL"), ro.get("position_label", "")),
+            position_label   = _position_noun_es(ro.get("position", "ALL"), ro.get("position_label", ""), locale),
             team_short       = ro.get("team_short"),       # Phase 2.6i
             team_name        = ro.get("team_name"),        # Phase 2.6i
             max_price        = ro.get("max_price"),
@@ -2586,6 +2641,7 @@ def _extract_structured_meta(
     intent: str,
     raw_output: "dict[str, Any]",
     outcome: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "dict[str, Any]":
     """Extract intent-specific structured metadata from a raw dispatcher output.
 
@@ -2678,13 +2734,13 @@ def _extract_structured_meta(
         elif intent == INTENT_POSITION_FIXTURE_RUN:
             position_fixture_run_meta = _extract_position_fixture_run_meta(raw_output)
         elif intent == INTENT_TRANSFER_SUGGESTION:
-            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output)
+            transfer_suggestion_meta = _extract_transfer_suggestion_meta(raw_output, locale)
         elif intent == INTENT_FIXTURE_OUTLOOK:
             fixture_outlook_meta = _extract_fixture_outlook_meta(raw_output)
         elif intent == INTENT_ZONAL_OPPORTUNITY:
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
         elif intent == INTENT_PLAYER_SNAPSHOT:
-            player_snapshot_meta = _extract_player_snapshot_meta(raw_output)
+            player_snapshot_meta = _extract_player_snapshot_meta(raw_output, locale)
 
     result: "dict[str, Any]" = {
         "comparison":           comparison,
@@ -2713,7 +2769,7 @@ def _extract_structured_meta(
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
     # non-ok outcomes, excluded intents, or missing metadata.
-    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome)
+    result["generic_card"] = build_generic_card(intent, result, raw_output, outcome, locale)
     return result
 
 
@@ -3149,7 +3205,7 @@ def _player_snapshot_response_from_raw(
 
     outcome = str(raw_output.get("status") or "error")
     final_text = render("get_player_snapshot", raw_output, locale=locale)
-    meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome)
+    meta = _extract_structured_meta(INTENT_PLAYER_SNAPSHOT, raw_output, outcome, locale)
     suggestions = (
         player_disambiguation_suggestions(raw_output.get("candidates", []))
         if outcome == "ambiguous"
@@ -3382,7 +3438,7 @@ def _try_session_orchestration_response(
     supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
 
     if outcome == "needs_clarification":
-        answer_text = _clarification_text_for_intent(intent)
+        answer_text = _clarification_text_for_intent(intent, locale)
 
     # ---- semantic-shift fields (mirrors harness_adapter.to_ask_response step 4) ----
     # i127: same projection as harness_adapter (orchestrator branches carry it).
@@ -3484,6 +3540,7 @@ def _try_session_orchestration_response(
         zonal_opportunity=result.get("zonal_opportunity"),
         player_snapshot=result.get("player_snapshot"),
         generic_card=result.get("generic_card"),
+        table_conclusions=result.get("table_conclusions"),
         suggestions=suggestion_items,
         evidence=_evidence_from_wire(result.get("evidence")),
         orch_outcome=orch_outcome,
@@ -3698,7 +3755,7 @@ def respond(
     clarification_asked: bool = False
     if dr.outcome == OUTCOME_NEEDS_CLARIFICATION:
         clarification_asked = True
-        final_text = _clarification_text_for_intent(dr.intent)
+        final_text = _clarification_text_for_intent(dr.intent, locale)
 
     # Guided Comparison flow: attach deterministic tappable suggestions when the
     # clarification is a compare turn (intent==compare_players).  None otherwise.
@@ -3721,7 +3778,7 @@ def respond(
 
     # Populate structured metadata via shared helper (G1: extracted from inline
     # ladder).  Pure function — degrades safely to None on any failure.
-    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome)
+    _meta = _extract_structured_meta(dr.intent, dr.raw_output, dr.outcome, locale)
 
     # Orch-4d: squad_context overrides via shared helper (Phase 8e1/8e2 semantics).
     # budget_constraint / chip_unavailable replace final_text (hard blocks).

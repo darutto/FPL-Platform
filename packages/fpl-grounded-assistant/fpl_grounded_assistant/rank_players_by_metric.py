@@ -49,8 +49,12 @@ ten keepers tied at 0.0, none of whom had played. Exempt: ``now_cost`` (a 4.0m
 player with no minutes is legitimate bench fodder), ``minutes`` itself (when the
 metric IS participation, the zeros are the answer), and the set-piece orders
 (they already drop non-takers). The floor never overrides a larger caller
-value, never applies under ``desc``, and is reported in ``min_minutes_filter``
-rather than applied silently.
+value, and is reported in ``min_minutes_filter`` rather than applied silently.
+
+A separate floor protects the DESCENDING per-90 and rate rankings (see
+``per_90_minutes_floor``): a player with 1 minute and 2 defensive contributions
+has 180 DC/90, so without it the top of "contribuciones defensivas por 90" was
+filled with players who had barely played. ``asc`` keeps its own 60-minute floor.
 
 Registration
 ------------
@@ -60,6 +64,7 @@ of import.  ``__init__.py`` must import this module so
 """
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Any
 
@@ -83,7 +88,14 @@ from fpl_grounded_assistant.ranking_provenance import get_ranking_basis
 _METRIC_ALIASES: dict[str, str] = {
     # Form & points
     "form":                           "form",
-    "total_points":                   "total_points",
+    # Spanish (golden tn-04): the model sends "forma" verbatim for "top 5 por
+    # forma", and it was refused 6/6. One-token key on purpose so token
+    # containment also covers "forma reciente" / "mejor forma" / "en forma";
+    # "forma" shares no token with any other alias ("formacion" is a different
+    # token), so the only new outcome next to another metric word is a tie,
+    # which refuses rather than guesses.
+    "forma":                          "form",
+    "total_points":                  "total_points",
     "points":                         "total_points",
     "points_per_game":                "points_per_game",
     "ppg":                            "points_per_game",
@@ -138,6 +150,23 @@ _METRIC_ALIASES: dict[str, str] = {
     "dc/90":                              "defensive_contribution_per_90",
     "dc_per_90":                          "defensive_contribution_per_90",
     "defensive contribution per 90":      "defensive_contribution_per_90",
+    "defensive contributions per 90":     "defensive_contribution_per_90",
+    "dc per 90":                          "defensive_contribution_per_90",
+    "dc90":                               "defensive_contribution_per_90",
+    "defcon/90":                          "defensive_contribution_per_90",
+    "defcon per 90":                      "defensive_contribution_per_90",
+    "defcon90":                           "defensive_contribution_per_90",
+    # TOTAL defensive contribution (the season sum FPL scores DEFCON points
+    # from). It had no alias of its own, so the bare phrase -- the one users
+    # actually type -- could only reach the per-90 rate. Per-90 is reached only
+    # when the phrase says so ("por 90" / "per 90" / "dc/90").
+    "defensive_contribution":             "defensive_contribution",
+    "defensive contribution":             "defensive_contribution",
+    "defensive contributions":            "defensive_contribution",
+    "defcon":                             "defensive_contribution",
+    "dc":                                 "defensive_contribution",
+    "contribucion defensiva":             "defensive_contribution",
+    "contribuciones defensivas":          "defensive_contribution",
     # Price and current-GW transfer momentum (already in the grounding payload).
     "now_cost":                           "now_cost",
     "price":                              "now_cost",
@@ -224,6 +253,33 @@ _METRIC_ALIASES: dict[str, str] = {
     # changing modifier (see _MEANING_CHANGING_MODIFIERS), so without these
     # keys every Spanish per-90 phrase is refused. With them each resolves to
     # the rate field rather than silently to the season total.
+    # English multi-word phrasings (S2a). Spaces, not underscores: the input
+    # keeps its spaces, so these are the keys a user's words actually produce.
+    # Without them "expected goals" resolved to goals_scored (token "goals"
+    # alone matched) and "clean sheets" to the per-90 rate by prefix.
+    "expected goals":                     "expected_goals",
+    "expected assists":                   "expected_assists",
+    "expected goal involvements":         "expected_goal_involvements",
+    "expected goals per 90":              "expected_goals_per_90",
+    "expected assists per 90":            "expected_assists_per_90",
+    "expected goal involvements per 90":  "expected_goal_involvements_per_90",
+    "expected goals conceded":            "expected_goals_conceded",
+    "expected goals against":             "expected_goals_conceded",
+    "expected goals allowed":             "expected_goals_conceded",
+    "xg against":                         "expected_goals_conceded",
+    "goals scored":                       "goals_scored",
+    "goals conceded":                     "goals_conceded",
+    "goals against":                      "goals_conceded",
+    "goals allowed":                      "goals_conceded",
+    "points per game":                    "points_per_game",
+    "points per match":                   "points_per_game",
+    "total points":                       "total_points",
+    "clean sheets":                       "clean_sheets",
+    "clean sheet":                        "clean_sheets",
+    "bonus points":                       "bonus",
+    "transfers in":                       "transfers_in_event",
+    "transfers out":                      "transfers_out_event",
+    "selected by percent":                "selected_by_percent",
     "goles esperados por 90":             "expected_goals_per_90",
     "xg por 90":                          "expected_goals_per_90",
     "asistencias esperadas por 90":       "expected_assists_per_90",
@@ -233,6 +289,9 @@ _METRIC_ALIASES: dict[str, str] = {
     "porteria a cero por 90":             "clean_sheets_per_90",
     "paradas por 90":                     "saves_per_90",
     "contribucion defensiva por 90":      "defensive_contribution_per_90",
+    "contribuciones defensivas por 90":   "defensive_contribution_per_90",
+    "dc por 90":                          "defensive_contribution_per_90",
+    "defcon por 90":                      "defensive_contribution_per_90",
 }
 
 #: Sorted list of canonical metric names exposed to users.
@@ -300,6 +359,61 @@ _ASC_MIN_MINUTES_FLOOR: int = 60
 #     questions, and the tool would make both inexpressible.
 #   set-piece orders -- already exclude non-takers by dropping values <= 0.
 _NO_ASC_FLOOR: frozenset[str] = frozenset({"now_cost", "minutes"}) | _LOWER_IS_BETTER
+
+
+# Per-90 / rate metrics get a minutes floor under DESC as well (the asc floor
+# above never covered them). A rate over a handful of minutes is arithmetic, not
+# signal: Latibeaudiere, 1 minute, 2 defensive contributions -> 180 DC/90.
+#
+# The floor scales with the season so it means the same thing in GW8 and GW36:
+#   * base          270 minutes = three full matches;
+#   * full-season   30% of the minutes available so far (finished GWs x 90),
+#                   i.e. a player has to have been on the pitch for roughly a
+#                   third of the season's minutes to be ranked;
+#   * early season  a floor of 270 is unreachable in GW1-GW3 (at most 90-270
+#                   minutes exist), so the base is capped at half of the minutes
+#                   available. GW1 -> 45, GW3 -> 135, GW6+ -> 270.
+# The larger of the two applies; the 30% term only takes over once 30% of the
+# available minutes exceeds 270 (GW10 onwards: GW20 -> 540, GW38 -> 1026).
+# With no finished gameweek on record (pre-season, or a bootstrap with no
+# events) progress is unknown and the plain 270 applies.
+_PER_90_MIN_MINUTES_FLOOR: int = 270
+_PER_90_FLOOR_SHARE_OF_AVAILABLE: float = 0.30
+_PER_90_EARLY_SEASON_CAP_SHARE: float = 0.50
+
+#: Rate metrics that are not named ``*_per_90``. ``points_per_game`` is points
+#: per APPEARANCE, so one 12-point cameo reads as 12.0 ppg -- the same artefact.
+#: ``form`` is deliberately NOT here: it is a trailing 30-day average, a
+#: different instrument, and flooring it is a separate decision.
+_RATE_METRICS_NOT_PER_90: frozenset[str] = frozenset({"points_per_game"})
+
+
+def is_rate_metric(field_name: str) -> bool:
+    """True for per-90 fields and the other rate metrics that need a minutes floor."""
+    return field_name.endswith("_per_90") or field_name in _RATE_METRICS_NOT_PER_90
+
+
+def finished_gameweeks(bootstrap: "dict[str, Any] | None") -> int:
+    """Number of gameweeks the bootstrap marks as finished (0 if unknown)."""
+    if not isinstance(bootstrap, dict):
+        return 0
+    return sum(
+        1 for event in (bootstrap.get("events") or [])
+        if isinstance(event, dict) and event.get("finished")
+    )
+
+
+def per_90_minutes_floor(bootstrap: "dict[str, Any] | None") -> int:
+    """Minutes a player needs to be ranked on a per-90 / rate metric (desc)."""
+    finished = finished_gameweeks(bootstrap)
+    if finished <= 0:
+        return _PER_90_MIN_MINUTES_FLOOR
+    available = finished * 90
+    base = min(
+        _PER_90_MIN_MINUTES_FLOOR,
+        int(available * _PER_90_EARLY_SEASON_CAP_SHARE),
+    )
+    return max(base, int(available * _PER_90_FLOOR_SHARE_OF_AVAILABLE))
 
 
 def natural_order(field_name: str) -> str:
@@ -380,8 +494,50 @@ _MEANING_CHANGING_MODIFIERS: frozenset[str] = frozenset({
     # than return the season total. "minutos esperados" matters most: it was
     # ranking raw minutes when get_expected_minutes is the tool that answers it.
     "esperado", "esperados", "esperada", "esperadas",
+    "expected",
+    # English counterparts of "concedido": "expected goals conceded per 90"
+    # resolved to expected_goals_per_90 (the containment took "expected goals
+    # per 90" and dropped "conceded"). Aliases that mean conceded carry the word.
+    "conceded", "against", "allowed",
     "90",
 })
+
+#: Rate / per-appearance wording that must NOT be discarded when the winning
+#: field is the defensive-contribution TOTAL. Without it "contribuciones
+#: defensivas por noventa" / "... por partido" / "defensive contributions per
+#: game" -- all asking for a rate -- resolved to the season total, status ok:
+#: the same fluent-wrong-answer shape as "goles en contra" -> goals_scored. The
+#: per-90 phrasings that ARE supported carry "90" and win their own alias, so
+#: they never reach this veto.
+_RATE_WORDING: frozenset[str] = frozenset({
+    "noventa", "partido", "partidos", "minuto", "minutos", "promedio", "media",
+    "tasa", "game", "games", "match", "matches", "minute", "minutes", "per",
+    "average", "avg", "rate",
+})
+#: A per-game / per-minute RATE. Only ``points_per_game`` exists in the bootstrap
+#: as a per-appearance rate; "goals per game", "xg per match", "goles por
+#: partido" have no field, and resolving them to the season total was a fluent
+#: wrong answer (status ok, real numbers, wrong quantity). Closed unit list on
+#: purpose: an open "por X" / "per X" would swallow "top 10 por xg".
+_RATE_UNIT = (
+    r"(?:game|games|match|matches|partido|partidos|jornada|jornadas|"
+    r"gameweek|gameweeks|minute|minutes|minuto|minutos)"
+)
+_PER_UNIT_RATE_RE = re.compile(rf"\b(?:per|por|a|cada|each|every)\s+{_RATE_UNIT}\b")
+
+
+def asks_per_unit_rate(normalized_metric: str) -> bool:
+    """True when the phrase asks for a rate per game/match/minute.
+
+    ``per 90`` is deliberately not in the unit list: it is the supported per-90
+    rate, handled by its own aliases.
+    """
+    return bool(_PER_UNIT_RATE_RE.search(normalized_metric))
+
+
+_FIELD_VETO_TOKENS: dict[str, frozenset[str]] = {
+    "defensive_contribution": _RATE_WORDING,
+}
 
 #: (alias tokens, canonical field) for every alias with at least one content
 #: token. Built once at import; the map is static.
@@ -431,7 +587,11 @@ def _resolve_by_token_containment(normalized_metric: str) -> "str | None":
     if unaccounted:
         return None
 
-    return next(iter(winning_fields))
+    field = next(iter(winning_fields))
+    if input_tokens & _FIELD_VETO_TOKENS.get(field, frozenset()):
+        return None
+
+    return field
 
 
 # ---------------------------------------------------------------------------
@@ -458,8 +618,10 @@ def rank_players_by_metric(
         position: optional position filter (GKP/DEF/MID/FWD, case-insensitive).
             Also accepts Spanish names (portero/defensa/centrocampista/delantero).
         min_minutes: exclude players with fewer minutes (default 0). Raised to
-            60 when ``order="asc"`` is explicit and the metric is not exempt;
-            the value actually applied is returned in ``min_minutes_filter``.
+            60 when ``order="asc"`` is explicit and the metric is not exempt,
+            and to ``per_90_minutes_floor`` for per-90 / rate metrics under
+            ``desc``; the value actually applied is returned in
+            ``min_minutes_filter``.
         min_price: optional inclusive minimum price in GBP millions.
         max_price: optional inclusive maximum price in GBP millions.
         order: "desc" (default, highest first) or "asc" (lowest first, for
@@ -557,6 +719,19 @@ def rank_players_by_metric(
                 "valid_metrics": _VALID_METRICS,
             }
 
+    # A per-game / per-minute rate has no field here, except points_per_game
+    # which IS the per-appearance rate. Refuse everything else visibly.
+    if field_name != "points_per_game" and asks_per_unit_rate(normalized_metric):
+        return {
+            "status":        "invalid_argument",
+            "code":          "unknown_metric",
+            "message":       (
+                f"Metric '{metric}' not recognized. "
+                f"Try: {', '.join(_VALID_METRICS[:15])} ..."
+            ),
+            "valid_metrics": _VALID_METRICS,
+        }
+
     # Silent cap on top_n
     try:
         top_n = max(1, min(int(top_n), _TOP_N_CAP))
@@ -585,6 +760,11 @@ def rank_players_by_metric(
     # never for the two exempt families. `desc` is untouched.
     if requested_order == _ORDER_ASC and field_name not in _NO_ASC_FLOOR:
         min_minutes = max(min_minutes, _ASC_MIN_MINUTES_FLOOR)
+    # Descending rate rankings get the season-scaled floor instead (asc keeps
+    # the 60-minute one above). Never lowers a larger caller value; reported in
+    # min_minutes_filter like the asc floor.
+    elif effective_order == _ORDER_DESC and is_rate_metric(field_name):
+        min_minutes = max(min_minutes, per_90_minutes_floor(bootstrap))
 
     def _price_tenths(value: Any) -> int | None:
         if value is None:
@@ -722,7 +902,9 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                 "type":        "string",
                 "description": (
                     "Metric to rank by. Common aliases include xgi, xg, xa, ict, ppg, "
-                    "xgi/90, price/precio, transfers_in/out, penalties/penales, corners, "
+                    "xgi/90, defensive_contribution (total; contribuciones defensivas, "
+                    "defcon, dc) vs dc/90 (per 90), price/precio, transfers_in/out, "
+                    "penalties/penales, corners, "
                     "free kicks/tiros libres, yellow/red cards, xgc, influence, creativity, "
                     "threat, and saves/paradas. Unknown values must still be passed through "
                     "so the tool can return unknown_metric with valid_metrics."
@@ -758,7 +940,11 @@ RANK_PLAYERS_BY_METRIC_SPEC = ToolSpec(
                     "question is asking for. If you "
                     "omit it under order='asc' the tool applies a 60-minute floor "
                     "itself and reports it in min_minutes_filter; pass your own value "
-                    "when you want a different one."
+                    "when you want a different one. Per-90 and rate metrics "
+                    "(*_per_90, points_per_game) also get a floor under the default "
+                    "order='desc' -- 270 minutes, rising to 30% of the season's minutes "
+                    "-- because a rate over a few minutes is noise; it is reported in "
+                    "min_minutes_filter and never lowers a larger value you pass."
                 ),
                 "minimum":     0,
             },

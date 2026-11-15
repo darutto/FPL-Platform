@@ -61,7 +61,9 @@ from typing import Any
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+from .catalogue import t
 from .get_player_season_points import _resolve_season_arg
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 from .team_fixture_calendar import _resolve_team_result
 from .zonal_weakness import build_data_provenance
 from .zonal_weakness_tool import _live_season
@@ -183,7 +185,7 @@ def _owned_season(season: str) -> tuple[list[dict[str, Any]], list[dict[str, Any
     return fixtures, teams, pointer
 
 
-def _live_provenance(live_season: str | None) -> dict[str, Any]:
+def _live_provenance(live_season: str | None, locale: Locale = DEFAULT_LOCALE) -> dict[str, Any]:
     """The season stamp for the live FPL feed.
 
     Same shape as the owned-store stamp. The season is whatever
@@ -197,10 +199,10 @@ def _live_provenance(live_season: str | None) -> dict[str, Any]:
             "live_season": None, "live_season_label": None,
             "ingested_at": None, "n_matches": None, "n_shots": None,
             "status": "unverified", "is_current": False,
-            "label": "Datos: temporada en curso (FPL en vivo; temporada no verificable)",
+            "label": t("tool_err.live_prov_unverified", locale),
         }
-    prov = build_data_provenance({"season": live_season}, live_season)
-    prov["label"] = f"{prov['label']} (FPL en vivo)"
+    prov = build_data_provenance({"season": live_season}, live_season, locale)
+    prov["label"] = t("tool_err.live_prov_suffix", locale, label=prov["label"])
     return prov
 
 
@@ -297,18 +299,19 @@ def get_team_results(
     season: str | None = None,
 ) -> dict[str, Any]:
     """Recent results of one team, with the home/away split. Never raises."""
+    locale = bootstrap_locale(bootstrap)
     if not isinstance(team, str) or not team.strip():
         return {"status": "error", "code": "missing_team_name",
-                "message": "Falta el nombre del equipo."}
+                "message": t("tool_err.results_missing_team", locale)}
     venue = (venue or "all").strip().lower()
     if venue not in VENUES:
         return {"status": "error", "code": "invalid_argument",
-                "message": f"venue debe ser uno de {list(VENUES)}, no {venue!r}."}
+                "message": t("tool_err.results_venue", locale, venues=list(VENUES), venue=venue)}
     try:
         last_n = int(last_n)
     except (TypeError, ValueError):
         return {"status": "error", "code": "invalid_argument",
-                "message": f"last_n debe ser un entero, no {last_n!r}."}
+                "message": t("tool_err.results_last_n", locale, last_n=last_n)}
     last_n = max(1, min(MAX_LAST_N, last_n))
     live_season = _live_season(bootstrap)
 
@@ -336,6 +339,7 @@ def get_team_results(
         provenance = build_data_provenance(
             {"season": pointer.get("season"), "ingested_at": pointer.get("merged_at")},
             live_season,
+            locale,
         )
     else:
         fixtures = _live_fixtures(bootstrap)
@@ -344,7 +348,7 @@ def get_team_results(
                     "message": "Could not fetch the season's fixtures from the FPL API."}
         teams = list(bootstrap.get("teams") or [])
         source = "live"
-        provenance = _live_provenance(live_season)
+        provenance = _live_provenance(live_season, locale)
 
     # --- team (resolved against THIS source's teams) --------------------
     res = _resolve_team_result(team, {"teams": teams})
@@ -355,7 +359,7 @@ def get_team_results(
                            + ", ".join(c["name"] for c in res["candidates"]) + "."}
     if res["status"] != "ok":
         return {"status": "not_found", "code": "team_not_found", "query": team,
-                "message": f"No encontré ningún equipo que coincida con '{team}'."}
+                "message": t("tool_err.results_team_not_found", locale, team=team)}
     team_data = res["team_data"]
     team_id = int(team_data["id"])
 

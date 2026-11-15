@@ -326,9 +326,6 @@ def test_all_rivals_without_store_data_is_availability_not_neutral():
     assert {f["status"] for f in z["fixtures"]} == {"no_data"}
     assert z["verdict_kind"] == "no_data"
     assert "destacado" not in z["verdict"]
-    text = render("get_player_snapshot", {"status": "ok", "player": {"web_name": "P", "zonal": z}})
-    assert text.count("sin datos zonales del rival") == 3
-    assert "sin cruce destacado" not in text
 
 
 def test_a_single_no_data_row_is_not_rendered_as_neutral():
@@ -337,8 +334,6 @@ def test_a_single_no_data_row_is_not_rendered_as_neutral():
     row = next(f for f in z["fixtures"] if f["opponent_short"] == "IPS")
     assert row["status"] == "no_data"
     assert z["verdict_kind"] == "neutral"
-    text = render("get_player_snapshot", {"status": "ok", "player": {"web_name": "P", "zonal": z}})
-    assert "J6 vs Ipswich (casa): sin datos zonales del rival" in text
 
 
 # ---------------------------------------------------------------------------
@@ -464,8 +459,12 @@ def test_resolver_method_with_two_store_candidates_omits(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def _base(res):
-    return {"status": res["status"],
-            "player": {k: v for k, v in res["player"].items() if k != "zonal"}}
+    """The payload minus everything the zonal block feeds: the block itself and its verdict line."""
+    player = {k: v for k, v in res["player"].items() if k not in ("zonal", "conclusions")}
+    rest = [c for c in res["player"].get("conclusions", []) if c["key"] != "zonal"]
+    if rest:
+        player["conclusions"] = rest
+    return {"status": res["status"], "player": player}
 
 
 def test_every_omission_leaves_the_base_payload_identical(monkeypatch):
@@ -675,8 +674,8 @@ def test_old_season_store_is_shown_with_a_visible_warning(tmp_path, monkeypatch)
     z = zonal_of(10)
     assert z is not None
     assert z["data_provenance"]["status"] == "stale_season"
-    text = render("get_player_snapshot", {"status": "ok", "player": {"web_name": "Palmer", "zonal": z}})
-    assert z["data_provenance"]["label"] in text
+    # Shown by the card's Zonas section (ProvenanceStamp); the text path renders nothing since the verdict redesign.
+    assert z["data_provenance"]["label"]
 
 
 def test_thin_current_season_label_is_carried(tmp_path, monkeypatch):
@@ -737,23 +736,17 @@ def test_typescript_mirror_declares_every_serialised_field():
     assert "zonal?: PlayerZonalOutlookMeta | null" in ts
 
 
-def test_renderer_text_path_shows_zonal_with_percent_and_provenance(tmp_path, monkeypatch):
+def test_renderer_text_path_is_empty_and_zonal_feeds_the_verdict(tmp_path, monkeypatch):
+    # Verdict redesign (2026-11-11), deliberate: the deterministic text no longer
+    # dumps the zonal block (the card's Zonas section shows it). A favourable
+    # matchup now reaches the verdict as a structured "zonal" conclusion.
     monkeypatch.setattr(pz, "_STORE_OVERRIDE", _write_store(tmp_path, "2026-2027"))
-    text = render("get_player_snapshot", snap(10))
-    assert "Zonas" in text and "próximas 3 jornadas" in text
-    assert "100% de su xG sin penalti" in text
-    assert "J8 vs Spurs (casa): favorable" in text
-    assert "muestra corta" in text
-
-
-def test_renderer_without_zonal_is_the_old_card_text():
-    with_z = render("get_player_snapshot", snap(10))
     res = snap(10)
-    res["player"].pop("zonal")
-    without = render("get_player_snapshot", res)
-    assert without in with_z and "Zonas" not in without
-    res["player"]["zonal"] = {"fixtures": [{}], "zones": [{}], "window": {}}
-    assert render("get_player_snapshot", res) == without     # malformed -> silent
+    assert render("get_player_snapshot", res) == ""
+    favourable = [f["opponent_short"] for f in res["player"]["zonal"]["fixtures"] if f["status"] == "favorable"]
+    assert favourable
+    zonal_lines = [c for c in res["player"].get("conclusions", []) if c["key"] == "zonal"]
+    assert zonal_lines == [{"key": "zonal", "params": {"opponents": favourable}, "evidence": None}]
 
 
 def test_prompt_rule_exists_for_the_llm_path():

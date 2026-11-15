@@ -228,11 +228,28 @@ def test_tier_is_read_through_the_single_helper(capture, monkeypatch):
     assert _get("patreon_premium").json()["tier"] == "free"
 
 
-@pytest.mark.xfail(strict=True, reason="i153: the backend trusts X-User-Tier from any caller; the tier must only be "
-                                       "accepted with a valid X-Internal-Token. Today a forged header is premium.")
 def test_forged_premium_header_without_internal_token_is_free(capture, monkeypatch):
+    """i153: the backend is public; a tier header is believed only with the internal token."""
     monkeypatch.setenv("FPL_INTERNAL_TOKEN", "s3cret")
     assert _get("patreon_premium").json()["tier"] == "free"
+
+
+@pytest.mark.parametrize("token,shown", [("s3cret", "premium"), ("wrong", "free"), ("", "free")])
+def test_tier_header_is_believed_only_with_the_internal_token(capture, monkeypatch, token, shown):
+    monkeypatch.setenv("FPL_INTERNAL_TOKEN", "s3cret")
+    r = TestClient(fpl_server.app).get("/fixtures/competitions",
+                                       headers={"X-User-Tier": "patreon_premium", "X-Internal-Token": token})
+    assert r.json()["tier"] == shown
+
+
+def test_forged_tier_on_ask_is_free(monkeypatch):
+    """/ask reads the same context: the quota bucket of a forged premium header is free."""
+    monkeypatch.setenv("FPL_INTERNAL_TOKEN", "s3cret")
+    monkeypatch.delenv("FPL_DEV_TIER", raising=False)
+    req = type("R", (), {"headers": {"X-User-Id": "u", "X-User-Tier": "patreon_premium"}})()
+    assert fpl_server._extract_user_context(req)[1] == "free"
+    req.headers["X-Internal-Token"] = "s3cret"
+    assert fpl_server._extract_user_context(req)[1] == "patreon_premium"
 
 
 @pytest.mark.parametrize("provider_code,shown", [("LOSC", "LIL"), ("LILL", "LSK"), ("SLA", "SLA"), ("AZ", "AZ"), ("ABCD", "ABC"), ("CVC", "COV")])

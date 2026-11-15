@@ -14,11 +14,12 @@ changing what `render()` returns.
 Test suites
 -----------
 A.  Locale type + default
-B.  fpl_server.resolve_locale() — boundary, ignores inputs
+B.  fpl_server.resolve_locale() — boundary; default when the body names no locale
 C.  renderer.render() — accepts locale, output is unaffected by its value
 D.  harness.ask() / ask_v2() — locale threads down to render()
-E.  AskRequest — no `locale` field (F0 decision: don't accept what we
-    don't act on yet)
+E.  AskRequest — accepts an optional `locale` field (i18n S0 DELIBERATELY
+    reverses the F0 decision "don't accept what we don't act on yet":
+    resolve_locale() now acts on it; see tests/test_locale_s0_plumbing.py)
 """
 from __future__ import annotations
 
@@ -43,7 +44,7 @@ class TestLocaleDefault:
 
 
 # ===========================================================================
-# B. fpl_server.resolve_locale() — boundary, ignores inputs
+# B. fpl_server.resolve_locale() — boundary; default without a body locale
 # ===========================================================================
 
 class TestResolveLocaleBoundary:
@@ -186,13 +187,14 @@ class TestHarnessThreadsLocaleToRenderer:
 
 
 # ===========================================================================
-# E. AskRequest — no `locale` field yet (F0 decision)
+# E. AskRequest — optional `locale` field (i18n S0 reverses the F0 decision)
 # ===========================================================================
 
-class TestAskRequestHasNoLocaleField:
-    def test_ask_request_does_not_accept_locale(self):
-        # F0 decision: don't add AskRequest.locale until resolve_locale()
-        # actually reads it (F2) — accepting a field we don't act on yet
-        # would be a lie about the wire contract.
+class TestAskRequestLocaleField:
+    def test_ask_request_accepts_optional_locale(self):
+        # i18n S0 reverses the F0 decision on purpose: resolve_locale() now
+        # reads AskRequest.locale (F2), so the field is part of the wire
+        # contract and is optional (absent == default locale).
         from fpl_server import AskRequest
-        assert "locale" not in AskRequest.model_fields
+        assert "locale" in AskRequest.model_fields
+        assert AskRequest(question="x").locale is None

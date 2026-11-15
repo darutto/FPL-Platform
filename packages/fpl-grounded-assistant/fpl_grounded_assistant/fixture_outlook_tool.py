@@ -51,6 +51,8 @@ from .fixture_outlook import (
     get_team_outlook,
 )
 # Reuse the proven team-name resolver (name / short_name / alias).
+from .catalogue import t
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 from .team_fixture_calendar import _resolve_team
 
 
@@ -59,8 +61,8 @@ from .team_fixture_calendar import _resolve_team
 #: question, not a forecast; a gameweek beyond the loaded window is just not
 #: there yet. Neither is "no fixtures".
 _TARGET_GW_NOT_FOUND: dict[str, str] = {
-    TARGET_GW_PAST:        "La jornada {gw} ya se jugó — pregunta por el resultado, no por el pronóstico.",
-    TARGET_GW_BEYOND_DATA: "No hay datos de fixtures hasta la jornada {gw} todavía.",
+    TARGET_GW_PAST:        "fxo.target_past",
+    TARGET_GW_BEYOND_DATA: "fxo.target_beyond",
 }
 
 
@@ -89,6 +91,7 @@ def _get_fixture_outlook_handler(
     axis = str(args.get("axis", "attack")).lower()
     if axis not in AXES:
         axis = "attack"
+    locale = bootstrap_locale(bootstrap)
     horizon = int(args.get("horizon", DEFAULT_HORIZON))
     team_query = str(args.get("team_query", "") or "").strip()
     try:
@@ -118,7 +121,7 @@ def _get_fixture_outlook_handler(
                 "message":   "target_gw requires team_query (one team, one gameweek).",
             }
         # All teams — the grid data (status set by the engine).
-        return get_all_team_outlooks(bootstrap, axis, horizon)
+        return get_all_team_outlooks(bootstrap, axis, horizon, locale=locale)
 
     team = _resolve_team(team_query, bootstrap)
     if team is None:
@@ -129,14 +132,16 @@ def _get_fixture_outlook_handler(
         }
 
     if target_gw is not None:
-        outlook = get_team_outlook(bootstrap, int(team["id"]), axis, target_gw=target_gw)
+        outlook = get_team_outlook(
+            bootstrap, int(team["id"]), axis, target_gw=target_gw, locale=locale
+        )
         miss = _TARGET_GW_NOT_FOUND.get(str(outlook.get("target_gw_status")))
         if miss is not None:
             outlook["status"] = "not_found"
-            outlook["message"] = miss.format(gw=target_gw)
+            outlook["message"] = t(miss, locale, gw=target_gw)
             return outlook
     else:
-        outlook = get_team_outlook(bootstrap, int(team["id"]), axis, horizon)
+        outlook = get_team_outlook(bootstrap, int(team["id"]), axis, horizon, locale=locale)
     if outlook.get("series"):
         outlook["status"] = "ok"
         # i78-A: fewer GWs than a run needs -> the run verdict is vacuous by
@@ -144,7 +149,7 @@ def _get_fixture_outlook_handler(
         # the produced series, not off the requested horizon (a short season
         # tail or blank GWs can make them differ).
         if len(outlook["series"]) < _MIN_RUN_LEN:
-            outlook["verdict"] = describe_short_horizon(outlook, team, bootstrap)
+            outlook["verdict"] = describe_short_horizon(outlook, team, bootstrap, locale)
             outlook["verdict_scope"] = "match"
         else:
             outlook["verdict_scope"] = "run"
@@ -160,17 +165,6 @@ def _get_fixture_outlook_handler(
 # ---------------------------------------------------------------------------
 # i78-A -- short-horizon verdict (one or two GWs: describe the match, no runs)
 # ---------------------------------------------------------------------------
-
-#: Band -> Spanish qualifier, per axis. Mirrors build_verdict's vocabulary
-#: (asequible/exigente for attack, favorable/complicado for defence) so a
-#: one-match read and a run read describe the same band with the same word.
-_BAND_WORDS: dict[str, dict[int, str]] = {
-    "attack":  {1: "muy asequible", 2: "asequible", 3: "media", 4: "exigente", 5: "muy exigente"},
-    "defence": {1: "muy favorable", 2: "favorable", 3: "media", 4: "complicada", 5: "muy complicada"},
-}
-
-_AXIS_LABEL: dict[str, str] = {"attack": "ofensiva", "defence": "para portería a cero"}
-
 
 def _overall_strength(team: dict[str, Any] | None, is_home: bool) -> int | None:
     """FPL's 1-5 overall strength at the venue the team plays, or None.
@@ -202,8 +196,9 @@ def describe_short_horizon(
     outlook: dict[str, Any],
     team: dict[str, Any],
     bootstrap: dict[str, Any],
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str:
-    """Schedule-only Spanish description of every match in a short series.
+    """Schedule-only description (es by default) of every match in a short series.
 
     One sentence per fixture: venue, opponent, difficulty band with its
     qualifier, and -- when both sides carry a usable overall strength -- the
@@ -211,51 +206,53 @@ def describe_short_horizon(
     so. Never mentions runs ("racha"/"tramo") and never buy/sell.
     """
     axis = str(outlook.get("axis", "attack"))
-    words = _BAND_WORDS.get(axis, _BAND_WORDS["attack"])
-    axis_label = _AXIS_LABEL.get(axis, _AXIS_LABEL["attack"])
+    axis = axis if axis in ("attack", "defence") else "attack"
+    axis_label = t(f"fxo.axis.{axis}", locale)
     team_name = str(outlook.get("team_name") or team.get("name") or "?")
     by_short = _teams_by_short(bootstrap)
 
     sentences: list[str] = []
     for gw in outlook.get("series") or []:
-        gw_tag = f"J{gw.get('gameweek', '?')}"
+        gw_tag = t("fxo.gw", locale, n=gw.get("gameweek", "?"))
         fixtures = gw.get("fixtures") or []
         if not fixtures:
-            sentences.append(f"{gw_tag}: {team_name} descansa (sin partido).")
+            sentences.append(t("fxo.rest", locale, gw_tag=gw_tag, team=team_name))
             continue
         if gw.get("is_dgw"):
-            gw_tag += " (doble jornada)"
+            gw_tag += t("fxo.dgw", locale)
         for f in fixtures:
             opp_short = str(f.get("opponent_short", "?"))
             opp = by_short.get(opp_short)
             opp_name = str((opp or {}).get("name") or opp_short)
             is_home = bool(f.get("is_home"))
-            venue = "en casa ante" if is_home else "a domicilio ante"
+            venue = t("fxo.venue_home" if is_home else "fxo.venue_away", locale)
             band = f.get("band")
             try:
                 band_int = int(band)
             except (TypeError, ValueError):
                 band_int = 3
-            qualifier = words.get(band_int, "media")
-            text = (
-                f"{gw_tag}: {team_name} {venue} {opp_name} — "
-                f"dificultad {axis_label} {band_int}/5 ({qualifier})"
+            qualifier = t(f"fxo.band.{axis}.{band_int}" if 1 <= band_int <= 5 else "fxo.band.attack.3", locale)
+            text = t(
+                "fxo.match", locale, gw_tag=gw_tag, team=team_name, venue=venue,
+                opp=opp_name, axis_label=axis_label, band=band_int, qualifier=qualifier,
             )
             ours = _overall_strength(team, is_home)
             theirs = _overall_strength(opp, not is_home)
             if ours is not None and theirs is not None:
                 if ours > theirs:
-                    edge = f"ventaja {team_name}"
+                    edge = t("fxo.edge_team", locale, name=team_name)
                 elif theirs > ours:
-                    edge = f"ventaja {opp_name}"
+                    edge = t("fxo.edge_team", locale, name=opp_name)
                 else:
-                    edge = "fuerzas parejas"
-                text += (
-                    f"; fuerza global {team_name} {ours}/5 {'en casa' if is_home else 'fuera'} "
-                    f"vs {opp_name} {theirs}/5 {'fuera' if is_home else 'en casa'} ({edge})"
+                    edge = t("fxo.edge_even", locale)
+                at_home, away = t("fxo.at_home", locale), t("fxo.away", locale)
+                text += t(
+                    "fxo.strength", locale, team=team_name, ours=ours,
+                    ours_venue=at_home if is_home else away, opp=opp_name, theirs=theirs,
+                    theirs_venue=away if is_home else at_home, edge=edge,
                 )
             sentences.append(text + ".")
-    return " ".join(sentences) if sentences else "Sin fixtures en el horizonte."
+    return " ".join(sentences) if sentences else t("fxo.no_series", locale)
 
 
 FIXTURE_OUTLOOK_SPEC = ToolSpec(

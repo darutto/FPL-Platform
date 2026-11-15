@@ -12,9 +12,11 @@
  */
 import { useRouter } from 'next/navigation';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 export default function FixturesPage() {
   const router = useRouter();
+  const t = useT();
   // Deep-link into chat: /chat reads ?q= on mount and prefills the composer.
   const onAsk = (question: string) =>
     router.push(`/chat?q=${encodeURIComponent(question)}`);
@@ -24,11 +26,10 @@ export default function FixturesPage() {
       <div className="max-w-[960px] mx-auto space-y-5">
         <header className="space-y-1">
           <h1 className="text-2xl font-extrabold">
-            Calendario<span className="text-bf-turquoise">.</span>
+            {t('fx.card.title')}<span className="text-bf-turquoise">.</span>
           </h1>
           <p className="text-sm text-bf-gray">
-            Dificultad de dos ejes con detección de rachas. Toca un equipo o una
-            jornada para profundizar en el chat.
+            {t('fx.page.intro')}
           </p>
         </header>
 

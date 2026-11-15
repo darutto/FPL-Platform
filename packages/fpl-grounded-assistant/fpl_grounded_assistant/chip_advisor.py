@@ -98,6 +98,7 @@ from fpl_tool_contract.scoring_core import (
 from fpl_tool_contract import tool_get_captain_score
 
 from .captain_factors import TRIPLE_CAPTAIN_RISK_NOTE, factor_phrases
+from .locale_types import bootstrap_locale
 from .scoring_shared import _derive_scoring_inputs
 from .fixture_context import build_fixture_context  # FI3a: additive fixture context
 # i132: same bootstrap mapping find_players / get_my_squad use for availability.
@@ -780,6 +781,7 @@ def _advise_triple_captain(
     horizon: int | None = None,
 ) -> dict[str, Any]:
     """Compute TC conditions for *player*, or the global top option by default."""
+    locale = bootstrap_locale(bootstrap)  # i18n S3: fills the *_es fields in the request's language
     ranked = _score_outfield_players(bootstrap)
     if not ranked:
         return {
@@ -939,8 +941,8 @@ def _advise_triple_captain(
             "triple_captain_risk_note": TRIPLE_CAPTAIN_RISK_NOTE["en"],
             # The card and the Spanish prose read these; advice_text above
             # stays English like the rest of the signals text.
-            "top_factors_es":    factor_phrases(top, locale="es"),
-            "triple_captain_risk_note_es": TRIPLE_CAPTAIN_RISK_NOTE["es"],
+            "top_factors_es":    factor_phrases(top, locale=locale),
+            "triple_captain_risk_note_es": TRIPLE_CAPTAIN_RISK_NOTE[locale],
             **({
                 "evaluated_player": evaluated_name,
                 "evaluated_captain_score": evaluated_score,
@@ -948,7 +950,7 @@ def _advise_triple_captain(
                 "evaluated_minutes_played_season": evaluated.get("minutes_played_season"),
                 "evaluated_status": evaluated.get("status"),
                 "evaluated_factors": evaluated_factors,
-                "evaluated_factors_es": factor_phrases(evaluated, locale="es"),
+                "evaluated_factors_es": factor_phrases(evaluated, locale=locale),
             } if evaluated_player is not None else {}),
         },
         "advice_text": (

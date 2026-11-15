@@ -133,7 +133,7 @@ import os
 from typing import Any
 
 from fpl_grounded_assistant.catalogue import t
-from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
+from fpl_grounded_assistant.locale_types import BOOTSTRAP_LOCALE_KEY, Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.renderer import render
 from fpl_grounded_assistant.router import route
 from .tool_dispatch import run_tool
@@ -153,6 +153,22 @@ from .tool_dispatch import run_tool
 #   Their presence is branch-conditional; absence on unrelated branches is
 #   correct and expected.
 # ---------------------------------------------------------------------------
+
+def _tool_table_conclusions(tool: Any, raw_output: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
+    """``table_conclusions`` for a ``rank_players_by_metric`` turn; None for any other tool or when none fires."""
+    if tool != "rank_players_by_metric":
+        return None
+    from .table_conclusions import tool_ranking_conclusions  # noqa: PLC0415
+    return tool_ranking_conclusions(raw_output, bootstrap) or None
+
+
+def _resource_table_conclusions(decision: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
+    """``table_conclusions`` for an ``@resource`` ranking; None for ``injuries`` etc. or when none fires."""
+    from .table_conclusions import resource_ranking_conclusions  # noqa: PLC0415
+    return resource_ranking_conclusions(
+        decision.get("resource"), decision.get("resource_rows"), bootstrap,
+    ) or None
+
 
 ROUTING_TRACE_REQUIRED_KEYS: frozenset[str] = frozenset({
     "branch",
@@ -226,11 +242,16 @@ _UNRECOGNISED = {
 #: mirror set of the matching intents (ChatShell.tsx WIZARD_ARMING_INTENTS).
 WIZARD_ARMING_TOOLS: frozenset[str] = frozenset({"get_player_snapshot", "get_player_form"})
 
+#: Tools whose answer is NOT the player card: an ambiguous player arms rewrite chips that
+#: re-ask the user's own question with the player named in full, never the stable-id
+#: handoff (which answers with the generic snapshot and drops the question).
+RESUME_QUESTION_TOOLS: frozenset[str] = frozenset({"get_position_changes", "get_player_involvement"})
+
 #: Tools whose own status (ok/ambiguous/not_found) must not be flattened to
 #: "ok" just because the orchestrator call succeeded -- otherwise the frontend
 #: has no signal to arm a wizard. Scoped deliberately; every other orch-only
 #: tool keeps the historical "ok" hardcode (unaudited whether they rely on it).
-STATUS_BEARING_TOOLS: frozenset[str] = WIZARD_ARMING_TOOLS | {"get_player_season_points"}
+STATUS_BEARING_TOOLS: frozenset[str] = WIZARD_ARMING_TOOLS | {"get_player_season_points"} | RESUME_QUESTION_TOOLS
 
 
 def _unrecognised_message(locale: Locale = DEFAULT_LOCALE) -> str:
@@ -345,6 +366,22 @@ def _resolve_bootstrap_and_meta(
     return data, None
 
 
+def _carry_locale(actual_bootstrap: dict[str, Any], locale: Locale) -> dict[str, Any]:
+    """i18n S3: put a non-default *locale* on a shallow copy of the bootstrap.
+
+    Tool handlers write user-visible text and take no locale argument, so the
+    locale rides on the per-request bootstrap under ``BOOTSTRAP_LOCALE_KEY`` --
+    the same reasoning as ``_my_team_id`` (i39): a copy, never the shared
+    server-level dict, and nothing at all for the default locale (an es turn
+    sees exactly the object it always did).
+    """
+    if locale == DEFAULT_LOCALE:
+        return actual_bootstrap
+    carried = dict(actual_bootstrap)
+    carried[BOOTSTRAP_LOCALE_KEY] = locale
+    return carried
+
+
 # ---------------------------------------------------------------------------
 # Public harness entry point
 # ---------------------------------------------------------------------------
@@ -423,6 +460,7 @@ def ask(
     # 1. Resolve bootstrap + optional meta
     # ------------------------------------------------------------------
     actual_bootstrap, context_meta = _resolve_bootstrap_and_meta(bootstrap)
+    actual_bootstrap = _carry_locale(actual_bootstrap, locale)  # i18n S3
 
     # ------------------------------------------------------------------
     # 2. Route question
@@ -680,12 +718,12 @@ def ask_v2(
         (``fpl_server.py``) must resolve tier eligibility + explicit opt-in
         BEFORE setting this to ``True`` — ``ask_v2()`` performs no gating.
     locale:
-        Language-track F0 carrier param. Forwarded to the deterministic
-        text producers on the ``route`` / ``prompt`` branches (``ask()``,
-        ``render()``, the unrecognised-query fallback). Currently ignored by
-        all of them — no string changes with *locale*'s value yet (see F1).
-        The orchestrator branch (``ask_orchestrated()``) is untouched by this
-        param; its own text production is out of scope for F0.
+        Language-track carrier param. Forwarded to the deterministic text
+        producers on the ``route`` / ``prompt`` branches (``ask()``,
+        ``render()``, the unrecognised-query fallback) and, since i18n S0, to
+        ``ask_orchestrated(locale=)``: the system-prompt line (en only), the
+        evaluator, retries, the synthesis rounds and the deterministic
+        composers/fallbacks inside the orchestrator all follow it.
     team_id:
         i39 carrier param — the connected user's FPL entry (team) id, when the
         request has one. ``None`` for every anonymous turn (the overwhelming
@@ -732,7 +770,7 @@ def ask_v2(
         intent = _TOOL_TO_INTENT.get(tool_name, "")
         status = raw_output.get("status", "")
         outcome = _DISP_OUTCOME_OK if status == "ok" else "unsupported"
-        return _extract_structured_meta(intent, raw_output, outcome)
+        return _extract_structured_meta(intent, raw_output, outcome, locale)  # i18n S3b
 
     _none_meta: "dict[str, Any]" = _extract_structured_meta("", {}, "unsupported")
 
@@ -775,6 +813,9 @@ def ask_v2(
     if team_id is not None:
         actual_bootstrap = dict(actual_bootstrap)
         actual_bootstrap["_my_team_id"] = team_id
+
+    # i18n S3: see _carry_locale (the sub-branches that call ask() do the same).
+    actual_bootstrap = _carry_locale(actual_bootstrap, locale)
 
     # Stable-id wizard handoff: the structured id is authoritative. The
     # display question is deliberately ignored so a stale id can never fall
@@ -819,7 +860,7 @@ def ask_v2(
         _telemetry.record(routing_trace)
         return result
 
-    decision = decide(question, actual_bootstrap)
+    decision = decide(question, actual_bootstrap, locale=locale)
     kind = decision["kind"]
     outcome = decision["outcome"]
 
@@ -876,6 +917,8 @@ def ask_v2(
             "kind":          "resource",
             "resource":      decision.get("resource"),
             "resource_rows": decision.get("resource_rows"),
+            # The table's verdict (table_conclusions): None unless a rule fires.
+            "table_conclusions": _resource_table_conclusions(decision, actual_bootstrap),
             "routing_trace": routing_trace,
             **_none_meta,  # resource branch: no deterministic tool ran → all 14 keys are None
         }
@@ -1125,6 +1168,7 @@ def ask_v2(
                 model=_model,
                 web_search_enabled=web_search_enabled,
                 _eval_client=_eval_client,
+                locale=locale,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"
@@ -1252,7 +1296,7 @@ def ask_v2(
                 _orch_tool_names,
             )
             if _single_tool_turn and _orch_meta.get("generic_card") is None:
-                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None)
+                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None, locale)
                 if _overlay is not None:
                     _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
             result = {
@@ -1262,6 +1306,12 @@ def ask_v2(
                 "answer_text":   orch_result.answer_text,
                 "outcome":       _orch_outcome,
                 "kind":          "text",
+                # The table's verdict: only alongside the ranking card it talks
+                # about (same single-tool gate), None unless a rule fires.
+                "table_conclusions": (
+                    _tool_table_conclusions(_orch_tool, _orch_raw, actual_bootstrap)
+                    if _orch_meta.get("generic_card") is not None else None
+                ),
                 # i105: orchestrator_provider / orchestrator_model, what the
                 # orchestrator ran with, for the audit line and debug bundle.
                 **_project_orchestrator_identity(orch_result),
@@ -1285,7 +1335,7 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw)
+            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1358,10 +1408,10 @@ def ask_v2(
         # report the intent the UI arms on (ChatShell WIZARD_ARMING_INTENTS).
         _amb_call = _last_ambiguous_chip_call(orch_result.tool_calls_trace)
         if _amb_call is not None:
-            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {})
+            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text, actual_bootstrap)
             if _amb_chips is not None:
                 result["outcome"] = "ambiguous"
-                result["intent"] = _TOOL_TO_INTENT[_amb_call["name"]]
+                result["intent"] = _TOOL_TO_INTENT.get(_amb_call["name"], result.get("intent"))
                 result["player_suggestions"] = _amb_chips
         if context_meta is not None:
             result["context_meta"] = context_meta
@@ -1395,7 +1445,12 @@ def _suggestions_for_text() -> list[str]:
     return list(list_resources())
 
 
-def _ambiguity_suggestions(tool_name: str | None, raw_output: dict[str, Any]) -> list[dict[str, Any]] | None:
+def _ambiguity_suggestions(
+    tool_name: str | None,
+    raw_output: dict[str, Any],
+    question: str | None = None,
+    bootstrap: dict[str, Any] | None = None,
+) -> list[dict[str, Any]] | None:
     """i60: the pick-one chips for an ambiguous player tool, or ``None``.
 
     One builder for both orchestrator branches. Current-season tools
@@ -1410,7 +1465,32 @@ def _ambiguity_suggestions(tool_name: str | None, raw_output: dict[str, Any]) ->
         player_disambiguation_suggestions,
         suggestions_to_list,
     )
+    if tool_name in RESUME_QUESTION_TOOLS:
+        from .suggestions import question_resume_suggestions  # noqa: PLC0415
+
+        if not question:
+            return None
+        return suggestions_to_list(
+            question_resume_suggestions(
+                raw_output.get("candidates", []), str(raw_output.get("query") or ""), question, bootstrap,
+            )
+        )
     if tool_name in WIZARD_ARMING_TOOLS:
+        # A question that says more than the name ("compara a Palmer y Saka") must not be
+        # answered with the generic card: re-ask it per candidate. A bare name keeps the
+        # deterministic, cheaper stable-id handoff; a failed rewrite falls back to it too.
+        from .suggestions import (  # noqa: PLC0415
+            question_is_only_the_name,
+            question_resume_suggestions,
+        )
+
+        mention = str(raw_output.get("query") or "")
+        if question and mention and not question_is_only_the_name(question, mention):
+            rewrites = suggestions_to_list(
+                question_resume_suggestions(raw_output.get("candidates", []), mention, question, bootstrap)
+            )
+            if rewrites is not None:
+                return rewrites
         return suggestions_to_list(
             player_disambiguation_suggestions(raw_output.get("candidates", []))
         )

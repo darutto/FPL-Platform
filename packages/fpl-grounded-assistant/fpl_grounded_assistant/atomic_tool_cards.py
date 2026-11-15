@@ -34,8 +34,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterable
 
+from .catalogue import t
 from .formatting import format_metric_value
-from .generic_card import Column, GenericCardMeta, HeroStat
+from .generic_card import Column, GenericCardMeta, HeroStat, Pill
+from .gw_report_text import compose_gw_report_card
+from .locale_types import DEFAULT_LOCALE, Locale
+from .position_changes_text import out_text, role_text, slot_row_text
 from .rank_players_by_metric import natural_order
 
 _LOG = logging.getLogger(__name__)
@@ -70,6 +74,7 @@ _METRIC_HEADER_ES: dict[str, str] = {
     "saves_per_90":                       "Paradas/90",
     "clean_sheets_per_90":                "Porterías 0/90",
     "defensive_contribution_per_90":      "DC/90",
+    "defensive_contribution":             "DC",
     # Price, momentum, set pieces, discipline, and detailed performance
     "now_cost":                           "Precio (£m)",
     "transfers_in_event":                 "Fichajes GW",
@@ -88,12 +93,54 @@ _METRIC_HEADER_ES: dict[str, str] = {
 }
 
 
-def _metric_header(metric: str) -> str:
-    """Spanish header for a canonical metric name, with a safe fallback."""
-    return _METRIC_HEADER_ES.get(metric, metric.replace("_", " ").title())
+_METRIC_HEADER_EN: dict[str, str] = {
+    "form":                        "Form",
+    "total_points":                "Points",
+    "points_per_game":             "Pts/Game",
+    "expected_goals":              "xG",
+    "expected_assists":            "xA",
+    "expected_goal_involvements":  "xGI",
+    "ict_index":                   "ICT",
+    "selected_by_percent":         "Selected by %",
+    "minutes":                     "Minutes",
+    "goals_scored":                "Goals",
+    "assists":                     "Assists",
+    "clean_sheets":                "Clean sheets",
+    "bonus":                       "Bonus",
+    "bps":                         "BPS",
+    "expected_goals_per_90":              "xG/90",
+    "expected_assists_per_90":            "xA/90",
+    "expected_goal_involvements_per_90":  "xGI/90",
+    "saves_per_90":                       "Saves/90",
+    "clean_sheets_per_90":                "Clean sheets/90",
+    "defensive_contribution_per_90":      "DC/90",
+    "defensive_contribution":             "DC",
+    "now_cost":                           "Price (£m)",
+    "transfers_in_event":                 "Transfers in GW",
+    "transfers_out_event":                "Transfers out GW",
+    "penalties_order":                    "Penalty order",
+    "direct_freekicks_order":             "Direct FK order",
+    "corners_and_indirect_freekicks_order": "Corners/indirect FK order",
+    "yellow_cards":                       "Yellow cards",
+    "red_cards":                          "Red cards",
+    "expected_goals_conceded":            "xGC",
+    "goals_conceded":                     "Goals conceded",
+    "influence":                          "Influence",
+    "creativity":                         "Creativity",
+    "threat":                             "Threat",
+    "saves":                              "Saves",
+}
 
 
-def _card_title(metric: str, order: "str | None", count: int, header_es: str) -> str:
+def _metric_header(metric: str, locale: Locale = DEFAULT_LOCALE) -> str:
+    """Header for a canonical metric name in *locale*, with a safe fallback."""
+    table = _METRIC_HEADER_EN if locale == "en" else _METRIC_HEADER_ES
+    return table.get(metric, metric.replace("_", " ").title())
+
+
+def _card_title(
+    metric: str, order: "str | None", count: int, header_es: str, locale: Locale = DEFAULT_LOCALE,
+) -> str:
     """Title matching the ranking's real direction.
 
     A caller-inverted ranking (``order="asc"`` on price, say) is the cheapest
@@ -102,24 +149,26 @@ def _card_title(metric: str, order: "str | None", count: int, header_es: str) ->
     equals the natural direction for an ordinary ranking; both stay "TOP".
     """
     if order is not None and order != natural_order(metric):
-        extreme = "MENOR" if order == "asc" else "MAYOR"
-        return f"{count} CON {extreme} · {header_es}"
-    return f"TOP {count} · {header_es}"
+        key = "atomic.title_lowest" if order == "asc" else "atomic.title_highest"
+        return t(key, locale, n=count, header=header_es)
+    return t("atomic.title_top", locale, n=count, header=header_es)
 
 
-def _rank_subtitle(raw_output: dict[str, Any]) -> "str | None":
+def _rank_subtitle(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "str | None":
     """Build the filter subtitle, mirroring renderer._render_rank_players_by_metric."""
     parts: list[str] = []
     pos_flt = raw_output.get("position_filter")
     if pos_flt:
-        parts.append(f"posición: {pos_flt}")
+        parts.append(t("atomic.sub_position", locale, pos=pos_flt))
     min_mins = raw_output.get("min_minutes_filter", 0) or 0
     if min_mins > 0:
-        parts.append(f"min. minutos: {min_mins}")
+        parts.append(t("atomic.sub_min_minutes", locale, n=min_mins))
     return ", ".join(parts) if parts else None
 
 
-def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | None":
+def compose_rank_players_card(
+    raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE,
+) -> "GenericCardMeta | None":
     """Compose a ranked-players card from ``rank_players_by_metric`` output.
 
     Columns mirror the text renderer exactly (``# | Jugador | Equipo | Pos |
@@ -135,12 +184,12 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
 
     try:
         metric = str(raw_output.get("metric", ""))
-        header_es = _metric_header(metric)
+        header_es = _metric_header(metric, locale)
 
         columns = (
             Column(header="#", align="right", kind="mono"),
-            Column(header="Jugador", align="left", kind="text"),
-            Column(header="Equipo", align="left", kind="text"),
+            Column(header=t("atomic.col_player", locale), align="left", kind="text"),
+            Column(header=t("atomic.col_team", locale), align="left", kind="text"),
             Column(header="Pos", align="left", kind="text"),
             Column(header=header_es, align="right", kind="mono"),
         )
@@ -163,9 +212,9 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
         return GenericCardMeta(
             accent="turquoise",
             title=_card_title(
-                metric, raw_output.get("order"), len(ranked), header_es,
+                metric, raw_output.get("order"), len(ranked), header_es, locale,
             ),
-            subtitle=_rank_subtitle(raw_output),
+            subtitle=_rank_subtitle(raw_output, locale),
             hero=hero,
             pills=(),
             columns=columns,
@@ -183,11 +232,382 @@ def compose_rank_players_card(raw_output: dict[str, Any]) -> "GenericCardMeta | 
         return None
 
 
+def _same_slot(matches: list[dict[str, Any]], gap: dict[str, Any]) -> tuple[int, int]:
+    """Listed starts in the role the gap names, and all listed starts (the "Misma casilla 6/6" pill)."""
+    def side(slot: dict[str, Any]) -> Any:
+        return slot.get("side") if slot.get("side") in ("left", "right") else None
+    starts = [m["slot"] for m in matches if m.get("player_status") == "started" and m.get("slot")]
+    same = sum(1 for s in starts if (s.get("detailed_position"), side(s)) == (gap.get("detailed_position"), gap.get("side")))
+    return same, len(starts)
+
+
+def _gw_span(gameweeks: list[Any], locale: Locale) -> str:
+    known = [g for g in gameweeks if g is not None]
+    if not known:
+        return "?"
+    a, b = min(known), max(known)
+    return t("gcard.position_changes.gw_one" if a == b else "gcard.position_changes.gw_span", locale, a=a, b=b)
+
+
+def _assoc_line(matches: list[dict[str, Any]], locale: Locale, cap: int = 3) -> "str | None":
+    """One observed line for the teammates whose absence from the XI coincided with his starts, or ``None``.
+
+    Names are deduped across matches in order of first appearance and capped (the first ``cap``, then "and N more");
+    the gameweeks named are exactly the matches that carry an association (a span only when no match in between lacks
+    one), so the line never says "since GWx" about a match that does not have it. Association, never a cause.
+    """
+    names: list[str] = []
+    gws: list[int] = []
+    hidden = False
+    for m in matches:
+        assoc = m.get("associations") or []
+        if not assoc:
+            continue
+        if m.get("gameweek") is not None:
+            gws.append(m["gameweek"])
+        hidden = hidden or bool(m.get("associations_more"))
+        for a in assoc:
+            name = (a.get("teammate") or {}).get("web_name")
+            if name and name not in names:
+                names.append(name)
+    if not names:
+        return None
+    all_gws = [m.get("gameweek") for m in matches if m.get("gameweek") is not None]
+    contiguous = bool(gws) and all(g in gws for g in all_gws if min(gws) <= g <= max(gws))
+    when = _gw_span(gws, locale) if contiguous else ", ".join(t("gcard.position_changes.gw_one", locale, a=g) for g in gws)
+    shown, extra = names[:cap], len(names) - cap
+    if extra > 0:
+        tail = t("gcard.position_changes.assoc_tail_atleast" if hidden else "gcard.position_changes.note_assoc_more", locale, n=extra)
+        who = ", ".join(shown) + " " + tail
+    elif hidden:
+        who = ", ".join(shown) + " " + t("gcard.position_changes.assoc_tail_others", locale)
+    else:
+        who = (", ".join(shown[:-1]) + " " + t("gcard.position_changes.assoc_and", locale) + " " + shown[-1]) if len(shown) > 1 else shown[0]
+    one = len(names) == 1 and not hidden
+    return t("gcard.position_changes.assoc_line_one" if one else "gcard.position_changes.assoc_line_many", locale, gws=when, names=who)
+
+
+def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, Any] | None":
+    """The mini-pitch payload (old -> new starting role, or FPL listing -> played role) plus its per-90 table.
+
+    Roles travel as provider role + side (never the provider grid cell, whose columns flip between matches); the UI
+    places them. Every string is already localized; numbers stay numbers (the UI formats them, one decimal, dot).
+    ``None`` unless the tool found a role switch or an FPL-position gap.
+    """
+    switch, gap, block = raw_output.get("role_switch"), raw_output.get("fpl_position_gap"), raw_output.get("per90_change")
+    if switch:
+        frm = {k: switch["from"].get(k) for k in ("detailed_position", "side", "line")}
+        to = {k: switch["to"].get(k) for k in ("detailed_position", "side", "line")}
+        labels = {"from": t("gcard.position_changes.pitch_role", locale,
+                            gws=_gw_span(switch.get("gameweeks_old_role") or [], locale), role=role_text(switch["from"], locale)),
+                  "to": t("gcard.position_changes.pitch_role", locale,
+                          gws=_gw_span(switch.get("gameweeks_new_role") or [], locale), role=role_text(switch["to"], locale)),
+                  "table": t("gcard.position_changes.table_since", locale)}
+        kind = "switch"
+    elif gap:
+        role = {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}
+        frm = {"fpl_position": gap.get("fpl_position"), "line": gap.get("fpl_position")}
+        to = {**role, "line": gap.get("played_line")}
+        gws = [m.get("gameweek") for m in raw_output.get("matches") or [] if m.get("player_status") == "started"]
+        labels = {"from": t("gcard.position_changes.pill_fpl", locale,
+                            fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)),
+                  "to": t("gcard.position_changes.pitch_role", locale, gws=_gw_span(gws, locale), role=role_text(role, locale)),
+                  "table": t("gcard.position_changes.table_as", locale, role=role_text(role, locale).lower())}
+        kind = "fpl_listing"
+    else:
+        return None
+    rows: list[dict[str, Any]] = []
+    note = None
+    if block:
+        for metric in block.get("metrics") or []:
+            label = t(f"gcard.position_changes.m_{metric}", locale)
+            if kind == "switch":
+                rows.append({"metric": metric, "label": label, "before": (block.get("before") or {}).get(metric),
+                             "after": (block.get("after") or {}).get(metric)})
+            else:
+                rows.append({"metric": metric, "label": label, "value": (block.get("all") or {}).get(metric)})
+        if kind == "switch":
+            nb, na = (block.get("before") or {}).get("matches", 0), (block.get("after") or {}).get("matches", 0)
+            note = t("gcard.position_changes.table_note_split", locale, a=nb, b=na)
+        else:
+            n = (block.get("all") or {}).get("matches", 0)
+            note = t("gcard.position_changes.table_note_all" if n != 1 else "gcard.position_changes.table_note_all_one",
+                     locale, n=n)
+    labels["before"] = t("gcard.position_changes.col_before", locale)
+    labels["after"] = t("gcard.position_changes.col_after", locale)
+    return {"kind": kind, "from": frm, "to": to, "labels": labels, "rows": rows, "note": note,
+            "associations": _assoc_line(raw_output.get("matches") or [], locale), "claim_status": "observed"}
+
+
+def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the B4 card from ``get_position_changes`` output (B4, PR 3).
+
+    One row per match with a stored lineup: gameweek, opponent, the slot he was listed to start in, and a note that is
+    either the observed change of slot, the teammate whose absence from the XI coincided with it, or nothing. Every cell
+    comes from the deterministic tool output; the wording is the same catalogue the text renderer uses, so card and prose
+    cannot diverge. Returns ``None`` unless the tool answered ``ok`` with matches (never raises), and for an ambiguous or
+    missing answer the plain text stays.
+    """
+    if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
+        return None
+    if raw_output.get("comparison"):
+        return compose_involvement_compare_card(raw_output, locale)
+    try:
+        matches = raw_output["matches"]
+        player = raw_output.get("player") or {}
+        changes = sum(1 for m in matches if m.get("change"))
+        columns = (
+            Column(header=t("gcard.position_changes.col_gw", locale), align="left", kind="mono"),
+            Column(header=t("gcard.position_changes.col_opponent", locale), align="left", kind="text"),
+            Column(header=t("gcard.position_changes.col_slot", locale), align="left", kind="text"),
+            Column(header=t("gcard.position_changes.col_note", locale), align="left", kind="text"),
+        )
+        pitch = _position_pitch(raw_output, locale)
+        rows: list[tuple[str, ...]] = []
+        adds = False  # with the pitch on, the per-match table shows only when a row says what the pitch cannot
+        for m in matches:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            pstatus = m.get("player_status")
+            if pstatus == "started":
+                slot = role_text(m.get("slot"), locale)
+            elif pstatus == "bench":
+                slot = t("renderer.position_changes.bench", locale)
+            else:
+                slot = t("renderer.position_changes.not_listed", locale)
+            notes: list[str] = []
+            if pitch:
+                pass  # the pitch already says the starting role and how it changed
+            elif m.get("change") and m["change"].get("kind") == "line":
+                notes.append(t("gcard.position_changes.note_line_forward" if m["change"].get("direction") == "further_forward"
+                               else "gcard.position_changes.note_line_deeper", locale))
+            elif m.get("change"):
+                notes.append(t("gcard.position_changes.note_changed", locale, before=role_text(m["change"].get("from"), locale)))
+            elif m.get("line_comparable") is False:
+                notes.append(t("gcard.position_changes.note_line_unknown", locale))
+            if m.get("fpl_out") or slot_row_text(m.get("slot_occupants"), locale):
+                adds = True  # associations do not: with a pitch they are one line under its table
+            if m.get("fpl_out"):
+                notes.append(out_text(m["fpl_out"], locale))
+            if slot_row_text(m.get("slot_occupants"), locale):
+                notes.append(slot_row_text(m.get("slot_occupants"), locale))
+            for a in ([] if pitch else m.get("associations") or []):
+                notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
+            if m.get("associations_more") and not pitch:
+                notes.append(t("gcard.position_changes.note_assoc_more", locale, n=m["associations_more"]))
+            gw = m.get("gameweek")
+            rows.append((
+                (t("renderer.position_changes.gw", locale, gw=gw) if gw is not None else "-"),
+                where, slot, "; ".join(notes) if notes else t("gcard.position_changes.note_none", locale),
+            ))
+        sample = raw_output.get("sample") or {}
+        focus = raw_output.get("absence_focus") or {}
+        if player.get("player_id") is not None and (focus.get("teammate") or {}).get("player_id") == player.get("player_id"):
+            focus = {}  # his own absence is slot_cover's question, not a teammate focus
+        gap = raw_output.get("fpl_position_gap")
+        switch = raw_output.get("role_switch")
+        pills: list[Pill] = []
+        # With a pitch: the "Before" / "Same slot" pills repeat it, and "FPL: X" repeats the tag the pitch draws itself
+        # (the listing kind); in the switch kind the pitch does not show the FPL position, so the pill stays.
+        if gap and not (pitch and pitch["kind"] == "fpl_listing"):
+            pills.append(Pill(label=t("gcard.position_changes.pill_fpl", locale,
+                                      fpl=t(f"gcard.position_changes.code_{gap.get('fpl_position')}", locale)), tone="neutral"))
+        if switch and not pitch:
+            pills.append(Pill(label=t("gcard.position_changes.pill_before", locale, role=role_text(switch["from"], locale),
+                                      n=switch.get("held_before"), m=switch.get("starts_before")), tone="neutral"))
+        elif gap and not pitch:
+            same, listed = _same_slot(matches, gap)
+            pills.append(Pill(label=t("gcard.position_changes.pill_same_slot", locale, n=same, m=listed), tone="neutral"))
+        if sample.get("small_sample"):
+            n = sample.get("matches_with_stored_lineup", len(matches))
+            pills.append(Pill(label=t("gcard.position_changes.pill_small" if n != 1 else "gcard.position_changes.pill_small_one", locale, n=n),
+                              tone="neutral"))
+        if focus:
+            mate = (focus.get("teammate") or {}).get("web_name", "?")
+            floor = focus.get("min_each_side", 3)
+            k, w = len(focus.get("matches_without_him_in_xi") or []), len(focus.get("matches_with_him_in_xi") or [])
+            if k < floor:
+                pills.append(Pill(label=t("gcard.position_changes.pill_without" if k != 1 else "gcard.position_changes.pill_without_one", locale, k=k, name=mate), tone="neutral"))
+            if w < floor:
+                pills.append(Pill(label=t("gcard.position_changes.pill_with" if w != 1 else "gcard.position_changes.pill_with_one", locale, m=w, name=mate), tone="neutral"))
+        if any(m.get("lineup_status") == "provisional" for m in matches):
+            pills.append(Pill(label=t("gcard.position_changes.pill_provisional", locale), tone="warn"))
+        if focus.get("usual_role_without_him"):
+            pills.append(Pill(label=t("gcard.position_changes.pill_focus", locale,
+                                      name=(focus.get("teammate") or {}).get("web_name", "?"),
+                                      role=role_text(focus["usual_role_without_him"], locale)), tone="neutral"))
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        return GenericCardMeta(
+            accent="turquoise",
+            title=t("gcard.position_changes.title", locale, name=player.get("web_name", "?")),
+            subtitle=t("gcard.position_changes.subtitle", locale),
+            hero=(HeroStat(value=f"{switch.get('starts_after')}/{switch.get('starts_after')}", tone=None,
+                           label=t("gcard.position_changes.hero_switch", locale,
+                                   role=role_text(switch["to"], locale).lower(), gw=switch.get("since_gameweek")))
+                  if switch else
+                  HeroStat(value="{}/{}".format(*_same_slot(matches, gap)), tone=None,
+                           label=t("gcard.position_changes.hero_gap", locale, line=role_text(
+                               {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}, locale).lower()))
+                  if gap else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
+            pills=tuple(pills), columns=columns if (adds or not pitch) else (), rows=tuple(rows) if (adds or not pitch) else (),
+            footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
+            position_pitch=pitch,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose get_position_changes card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Dispatch — tool name -> composer. Phase 2 tools are one-line additions.
 # ---------------------------------------------------------------------------
-_ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {
+_ATOMIC_TOOL_COMPOSERS: dict[str, Any] = {}
+
+def compose_player_involvement_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the R6 card from ``get_player_involvement`` output.
+
+    One row per match with stored statistics: gameweek, opponent, touches, passes with accuracy, key passes, backward
+    passes with their share of his passes. The hero is his touches per 90 over the matches with 30+ minutes. With
+    ``absent_player`` a pill states the observed coincidence ("more touches without X") and nothing about why. Every cell
+    is deterministic tool output. Returns ``None`` unless the tool answered ``ok`` with matches (never raises).
+    """
+    if raw_output.get("status") != "ok" or not (raw_output.get("matches") or []):
+        return None
+    if raw_output.get("comparison"):
+        return compose_involvement_compare_card(raw_output, locale)
+    try:
+        matches = raw_output["matches"]
+        player = raw_output.get("player") or {}
+
+        def num(value: Any) -> str:
+            return "-" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+        columns = (
+            Column(header=t("gcard.player_involvement.col_gw", locale), align="left", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_opponent", locale), align="left", kind="text"),
+            Column(header=t("gcard.player_involvement.col_touches", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_passes", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_key", locale), align="right", kind="mono"),
+            Column(header=t("gcard.player_involvement.col_back", locale), align="right", kind="mono"),
+        )
+        rows: list[tuple[str, ...]] = []
+        for m in matches:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            gw = m.get("gameweek")
+            acc = m.get("pass_accuracy_pct")
+            share = m.get("backward_share_pct")
+            rows.append((
+                (t("renderer.position_changes.gw", locale, gw=gw) if gw is not None else "-"), where,
+                num(m.get("touches")),
+                f"{num(m.get('passes'))} ({num(acc)}%)" if acc is not None else num(m.get("passes")),
+                num(m.get("key_passes")),
+                f"{num(m.get('backward_passes'))} ({num(share)}%)" if share is not None else num(m.get("backward_passes")),
+            ))
+        sample = raw_output.get("sample") or {}
+        focus = raw_output.get("absence_focus") or {}
+        pills: list[Pill] = []
+        if sample.get("small_sample") or focus.get("small_sample"):
+            pills.append(Pill(label=t("gcard.player_involvement.pill_small", locale,
+                                      n=sample.get("matches_with_stats", len(matches))), tone="neutral"))
+        direction = focus.get("touches_without_vs_with")
+        if direction in ("more", "fewer", "similar"):
+            pills.append(Pill(label=t(f"gcard.player_involvement.pill_{direction}", locale,
+                                      name=(focus.get("teammate") or {}).get("web_name", "?")), tone="neutral"))
+        avg = raw_output.get("averages") or {}
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        return GenericCardMeta(
+            accent="turquoise",
+            title=t("gcard.player_involvement.title", locale, name=player.get("web_name", "?")),
+            subtitle=t("gcard.player_involvement.subtitle", locale),
+            hero=HeroStat(value=num(avg.get("touches_per90")), label=t("gcard.player_involvement.hero", locale), tone=None),
+            pills=tuple(pills), columns=columns, rows=tuple(rows),
+            footer=t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]) if built else None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose get_player_involvement card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
+def compose_involvement_compare_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """Compose the two-player R6 card from ``get_player_involvement`` output that carries ``comparison``.
+
+    The payload (``involvement_compare``) is the comparison block as the tool computed it -- per-90 rows with their
+    winner, the per-match series on one gameweek axis with gaps as ``None``, and each player's trend -- plus the labels
+    in the request language. Nothing is recomputed or invented here. ``columns``/``rows`` repeat the per-90 table for a
+    client that draws only the table. Returns ``None`` on any malformed input (never raises).
+    """
+    try:
+        cmp = raw_output["comparison"]
+        players = cmp.get("players") or {}
+        a, b = players.get("a") or {}, players.get("b") or {}
+        a_name, b_name = a.get("web_name") or "?", b.get("web_name") or "?"
+
+        def num(value: Any) -> str:
+            return "-" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+        per90 = []
+        for row in cmp.get("per90") or []:
+            metric = row["metric"]
+            per90.append({"metric": metric, "label": t(f"gcard.involvement_compare.m_{metric}", locale),
+                          "a": row.get("a"), "b": row.get("b"), "winner": row.get("winner"),
+                          "unit": "%" if metric in ("pass_accuracy", "backward_share") else ""})
+        by_metric = {r["metric"]: r for r in per90}
+        series = cmp.get("series") or {}
+        trends = cmp.get("trends") or {}
+        gws = series.get("gameweeks") or []
+        metrics = []
+        for metric in ("touches", "key_passes", "passes"):
+            row = by_metric.get(metric) or {}
+            metrics.append({
+                "metric": metric, "label": t(f"gcard.involvement_compare.s_{metric}", locale),
+                "a": list((series.get("a") or {}).get(metric) or []), "b": list((series.get("b") or {}).get(metric) or []),
+                "trend_a": (trends.get("a") or {}).get(metric), "trend_b": (trends.get("b") or {}).get(metric),
+                "avg_a": row.get("a"), "avg_b": row.get("b"), "avg_winner": row.get("winner"),
+            })
+        sample = cmp.get("sample") or {}
+        na, nb = (sample.get("a") or {}).get("listed"), (sample.get("b") or {}).get("listed")
+        footer = (t("gcard.involvement_compare.footer_same", locale, n=na) if na == nb else
+                  t("gcard.involvement_compare.footer_diff", locale, a=a_name, na=na, b=b_name, nb=nb))
+        small = any((sample.get(s) or {}).get("small_sample") for s in ("a", "b"))
+        built = (raw_output.get("data_provenance") or {}).get("built_at")
+        payload = {
+            "a": {"name": a_name, "team": a.get("team_short")}, "b": {"name": b_name, "team": b.get("team_short")},
+            "per90": per90,
+            "series": {"gameweeks": gws,
+                       "gw_labels": [t("fxo.gw", locale, n=g) if g is not None else "-" for g in gws],
+                       "metrics": metrics},
+            "labels": {k: t(f"gcard.involvement_compare.{k}", locale)
+                       for k in ("title", "view_per90", "view_series", "avg", "trend_up", "trend_down", "trend_flat")},
+            "footer": footer,
+            "note": t("gcard.involvement_compare.small_sample", locale) if small else None,
+            "provenance": t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]) if built else None,
+        }
+        return GenericCardMeta(
+            accent="cyan",
+            title=t("gcard.involvement_compare.title", locale),
+            subtitle=None, hero=None, pills=(),
+            columns=(Column(header=t("gcard.involvement_compare.col_metric", locale), align="left", kind="text"),
+                     Column(header=a_name, align="right", kind="mono"), Column(header=b_name, align="right", kind="mono")),
+            rows=tuple((r["label"], num(r["a"]) + (r["unit"] if r["a"] is not None else ""),
+                        num(r["b"]) + (r["unit"] if r["b"] is not None else "")) for r in per90),
+            footer=footer,
+            involvement_compare=payload,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose the involvement comparison card (%s); falling back to prose",
+                     type(exc).__name__)
+        return None
+
+
+#: Composers whose wording follows the request language (they take ``locale``).
+_LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
     "rank_players_by_metric": compose_rank_players_card,
+    "get_gw_report": compose_gw_report_card,
+    "get_position_changes": compose_position_changes_card,
+    "get_player_involvement": compose_player_involvement_card,
 }
 
 
@@ -240,6 +660,7 @@ def maybe_atomic_tool_card(
     tool_name: "str | None",
     raw_output: dict[str, Any],
     existing_generic_card: "GenericCardMeta | None",
+    locale: Locale = DEFAULT_LOCALE,
 ) -> "GenericCardMeta | None":
     """Return a card to overlay for an atomic tool, or ``None``.
 
@@ -250,6 +671,9 @@ def maybe_atomic_tool_card(
     """
     if existing_generic_card is not None:
         return None
+    localized = _LOCALIZED_TOOL_COMPOSERS.get(tool_name or "")
+    if localized is not None:
+        return localized(raw_output, locale)
     composer = _ATOMIC_TOOL_COMPOSERS.get(tool_name or "")
     if composer is None:
         return None

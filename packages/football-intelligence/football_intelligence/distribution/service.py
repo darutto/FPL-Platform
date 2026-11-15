@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Any
 
 from football_intelligence.provenance import refuse_live_trial
-from football_intelligence.ingestion.builder import (MANIFEST_SCHEMA_VERSION,
-    resolve_contained_build_directory, validate_build, validate_build_id)
+from football_intelligence.ingestion.builder import resolve_contained_build_directory, validate_build, validate_build_id  # noqa: F401  (validate_build: the canonical family calls it here, family._canonical_validate)
 
 from .config import DownloadLimits
 from .errors import (ArtifactSizeError, DistributionError, PointerRaceError,
                      RemoteValidationError, SyncLockError)
+from .family import CANONICAL_V1, BuildFamily
 from .keys import artifact_key, manifest_key, pointer_key
 from .store import ArtifactStore
 
@@ -71,22 +71,9 @@ def parse_pointer(data: bytes) -> dict[str, Any]:
     return value
 
 
-def _artifact_paths(manifest: dict[str, Any]) -> tuple[str, ...]:
-    entities = manifest.get("entity_files")
-    reports = manifest.get("report_files")
-    if not isinstance(entities, dict) or not isinstance(reports, dict):
-        raise RemoteValidationError("manifest artifact registries are missing")
-    return tuple(sorted([*entities.values(), *reports.values()]))
-
-
-def _expected_hash(manifest: dict[str, Any], relative: str) -> str:
-    for name, path in manifest["entity_files"].items():
-        if path == relative:
-            return manifest["parquet_byte_hashes"][name]
-    for name, path in manifest["report_files"].items():
-        if path == relative:
-            return manifest["report_byte_hashes"][name]
-    raise RemoteValidationError("manifest references an ungoverned artifact")
+#: Kept for callers of the pre-family names; the canonical family owns these now.
+_artifact_paths = CANONICAL_V1.artifact_paths
+_expected_hash = CANONICAL_V1.expected_hash
 
 
 def read_bounded(store: ArtifactStore, key: str, limit: int, total: list[int] | None = None,
@@ -129,23 +116,26 @@ def _refuse_live_trial_dir(build_dir: Path, where: str) -> None:
     refuse_live_trial(manifest, where)
 
 
-def publish_build(store: ArtifactStore, prefix: str, build_dir: Path, *, dry_run: bool = False) -> PublicationReport:
+def publish_build(store: ArtifactStore, prefix: str, build_dir: Path, *, dry_run: bool = False,
+                  family: BuildFamily = CANONICAL_V1) -> PublicationReport:
+    family.check_prefix(prefix)
+    # Shared, before any family-specific step: trial data is refused for every family.
     _refuse_live_trial_dir(build_dir, "publish_build")
-    manifest = validate_build(build_dir)
+    manifest = family.validate(build_dir)
     build_id = validate_build_id(manifest.get("build_id"))
     manifest_bytes = (build_dir / "manifest.json").read_bytes()
     manifest_hash = _sha(manifest_bytes)
-    paths = _artifact_paths(manifest)
+    paths = family.artifact_paths(manifest)
     payloads = []
     for relative in paths:
-        key = artifact_key(prefix, build_id, relative)
+        key = artifact_key(prefix, build_id, relative, family.governed_path)
         data = (build_dir / Path(*relative.split("/"))).read_bytes()
-        if _sha(data) != _expected_hash(manifest, relative):
+        if _sha(data) != family.expected_hash(manifest, relative):
             raise RemoteValidationError("local artifact hash changed after validation")
         payloads.append((key, data))
     if dry_run:
         return PublicationReport(build_id, 0, 0, manifest_hash)
-    old = store.head(pointer_key(prefix))
+    old = store.head(pointer_key(prefix, family.pointer_name))
     for key, data in payloads:
         meta = store.put_immutable(key, data, _sha(data))
         if meta.sha256 != _sha(data):
@@ -154,7 +144,7 @@ def publish_build(store: ArtifactStore, prefix: str, build_dir: Path, *, dry_run
     remote_manifest = read_bounded(store, manifest_key(prefix, build_id), 1_048_576)
     if _sha(remote_manifest) != manifest_hash:
         raise RemoteValidationError("remote manifest verification failed")
-    store.put_pointer(pointer_key(prefix), encode_pointer(build_id, manifest_hash), old.etag if old else None)
+    store.put_pointer(pointer_key(prefix, family.pointer_name), encode_pointer(build_id, manifest_hash), old.etag if old else None)
     return PublicationReport(build_id, len(payloads) + 1, sum(len(d) for _, d in payloads) + len(manifest_bytes), manifest_hash)
 
 
@@ -190,38 +180,40 @@ class SyncReport:
     bytes_transferred: int
 
 
-def sync_build(store: ArtifactStore, prefix: str, cache_root: Path, limits: DownloadLimits = DownloadLimits()) -> SyncReport:
+def sync_build(store: ArtifactStore, prefix: str, cache_root: Path, limits: DownloadLimits = DownloadLimits(),
+               family: BuildFamily = CANONICAL_V1) -> SyncReport:
+    family.check_prefix(prefix)
     with SyncLock(cache_root):
         total = [0]
-        pointer_data = read_bounded(store, pointer_key(prefix), limits.pointer, total, limits.total)
+        pointer_data = read_bounded(store, pointer_key(prefix, family.pointer_name), limits.pointer, total, limits.total)
         pointer = parse_pointer(pointer_data); build_id = pointer["build_id"]
-        local_pointer = cache_root / "_football_latest.json"
+        local_pointer = cache_root / family.pointer_name
         if local_pointer.is_file():
             try:
                 current = parse_pointer(local_pointer.read_bytes())
                 if current["build_id"] == build_id and current["manifest_hash"] == pointer["manifest_hash"]:
-                    validate_build(resolve_contained_build_directory(cache_root / "builds", build_id))
+                    family.validate(resolve_contained_build_directory(cache_root / "builds", build_id))
                     return SyncReport(build_id, False, 0, 0)
             except (OSError, DistributionError, ValueError, KeyError): pass
         manifest_data = read_bounded(store, manifest_key(prefix, build_id), limits.manifest, total, limits.total)
         if _sha(manifest_data) != pointer["manifest_hash"]:
             raise RemoteValidationError("pointer manifest hash mismatch")
         manifest = _strict_json(manifest_data, "remote manifest")
-        if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION or manifest.get("build_id") != build_id:
+        if manifest.get("schema_version") != family.manifest_schema_version or manifest.get("build_id") != build_id:
             raise RemoteValidationError("remote manifest version or build ID is incompatible")
-        refuse_live_trial(manifest, "sync_build")
+        refuse_live_trial(manifest, "sync_build")  # shared: every family
         staging_root = cache_root / ".staging"; staging_root.mkdir(parents=True, exist_ok=True)
         stage = Path(tempfile.mkdtemp(prefix=f"{build_id}-", dir=staging_root))
         try:
             (stage / "manifest.json").write_bytes(manifest_data)
             count = 0
-            for relative in _artifact_paths(manifest):
-                key = artifact_key(prefix, build_id, relative)
+            for relative in family.artifact_paths(manifest):
+                key = artifact_key(prefix, build_id, relative, family.governed_path)
                 cap = limits.parquet if relative.endswith(".parquet") else limits.report
                 data = read_bounded(store, key, cap, total, limits.total)
-                if _sha(data) != _expected_hash(manifest, relative): raise RemoteValidationError("remote artifact hash mismatch")
+                if _sha(data) != family.expected_hash(manifest, relative): raise RemoteValidationError("remote artifact hash mismatch")
                 target = stage / Path(*relative.split("/")); target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(data); count += 1
-            validate_build(stage)
+            family.validate(stage)
             builds = cache_root / "builds"; builds.mkdir(parents=True, exist_ok=True); final = builds / build_id
             if final.exists():
                 shutil.rmtree(stage)
@@ -232,7 +224,8 @@ def sync_build(store: ArtifactStore, prefix: str, cache_root: Path, limits: Down
             shutil.rmtree(stage, ignore_errors=True)
 
 
-def verify_remote(store: ArtifactStore, prefix: str, limits: DownloadLimits = DownloadLimits()) -> SyncReport:
+def verify_remote(store: ArtifactStore, prefix: str, limits: DownloadLimits = DownloadLimits(),
+                  family: BuildFamily = CANONICAL_V1) -> SyncReport:
     """Fully download and validate the active remote build without retaining it."""
     with tempfile.TemporaryDirectory(prefix="fi4b-verify-") as target:
-        return sync_build(store, prefix, Path(target), limits)
+        return sync_build(store, prefix, Path(target), limits, family)

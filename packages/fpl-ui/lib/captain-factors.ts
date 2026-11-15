@@ -12,22 +12,24 @@
  *     decision, never a warning, and never painted as danger.
  */
 import type { MinutesContext, RankedCaptainEntry } from '@/lib/types';
+import { translate } from '@/lib/i18n/dictionary';
+import type { Locale } from '@/lib/i18n/locale';
 
-export function minutesPhrase(context?: MinutesContext | null): string | null {
+export function minutesPhrase(context?: MinutesContext | null, locale: Locale = 'es'): string | null {
   if (context == null || context.degraded) return null;
   const { minutes_played, minutes_available, starts } = context;
   if (minutes_played == null || !minutes_available) return null;
-  const starts_text = starts === 1 ? '1 titularidad' : `${starts} titularidades`;
-  return `jugó ${minutes_played} de ${minutes_available} minutos posibles, ${starts_text}`;
+  const starts_text = starts === 1 ? translate(locale, 'factors.start') : translate(locale, 'factors.starts', { n: starts });
+  return translate(locale, 'factors.minutes', { played: minutes_played, available: minutes_available, starts: starts_text });
 }
 
-export function penaltiesPhrase(order?: number | null): string | null {
+export function penaltiesPhrase(order?: number | null, locale: Locale = 'es'): string | null {
   if (order == null || order <= 0) return null;
-  return order === 1 ? 'lanza los penaltis' : `penaltis, ${order}º en la lista`;
+  return order === 1 ? translate(locale, 'factors.penalty1') : translate(locale, 'factors.penaltyN', { n: order });
 }
 
-export function factorPhrases(entry: RankedCaptainEntry): string[] {
-  return [minutesPhrase(entry.minutes_context), penaltiesPhrase(entry.penalties_order)].filter(
+export function factorPhrases(entry: RankedCaptainEntry, locale: Locale = 'es'): string[] {
+  return [minutesPhrase(entry.minutes_context, locale), penaltiesPhrase(entry.penalties_order, locale)].filter(
     (phrase): phrase is string => phrase != null,
   );
 }
@@ -49,6 +51,7 @@ function fullParticipation(context?: MinutesContext | null): boolean {
 export function contradictionNote(
   entry: RankedCaptainEntry,
   all: RankedCaptainEntry[],
+  locale: Locale = 'es',
 ): string | null {
   if (!fullParticipation(entry.minutes_context)) return null;
   if (entry.penalties_order !== 1) return null;
@@ -58,8 +61,5 @@ export function contradictionNote(
   );
   if (outrankedWithLess.length === 0) return null;
 
-  return (
-    'Juega todos los minutos y lanza los penaltis, y aun así puntúa por debajo: ' +
-    'lo que más mueve la puntuación es la forma reciente, no el minutaje.'
-  );
+  return translate(locale, 'factors.contradiction');
 }

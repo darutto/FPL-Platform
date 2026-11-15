@@ -136,6 +136,12 @@ def translate_news(news: "str | None") -> "str | None":
     return None
 
 
-def news_label(news: "str | None") -> str:
-    """The text to show: the Spanish translation, or the original news."""
+def news_label(news: "str | None", locale: str = "es") -> str:
+    """The text to show: the Spanish translation, or the original news.
+
+    i18n S3: for ``en`` the original FPL news text is already English, so it is
+    passed through untouched -- no translation is attempted.
+    """
+    if locale == "en":
+        return news or ""
     return translate_news(news) or (news or "")

@@ -20,7 +20,7 @@
  * switcher does nothing; that shipped unannounced for six weeks with only a
  * footnote in the small print, which is why the notice is now in the card.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   buildRealSeasonOutlook,
   REAL_SEASON_GENERATION,
@@ -30,7 +30,10 @@ import {
   fixtureOutlookProvenance,
   type FixtureOutlookProvenance,
 } from '@/lib/fixture-outlook-provenance';
-import { axisLabel } from '@/lib/fixture-outlook-format';
+import { axisLabel, gwLabel, gwRange } from '@/lib/fixture-outlook-format';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import type { DictKey } from '@/lib/i18n/dictionary';
+import { fitCompactWindow, fitFixtureWindow, rowColumns } from '@/lib/fixture-board-fit';
 import { teamOutlookQuestion, fixtureCellQuestion } from '@/lib/fixture-chat-links';
 import {
   FIXTURE_WINDOW_SESSION_KEY,
@@ -43,6 +46,7 @@ import {
 import {
   extrasFor as competitionExtrasFor,
   parseCompetitions,
+  coverageNote,
   type CompetitionsView,
 } from '@/lib/fixture-competitions';
 import {
@@ -62,16 +66,18 @@ import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
 
 const HORIZONS = REAL_SEASON_HORIZONS;
+/** Wide workspace only: a wider center can hold a longer window (cells never stretch). */
+const WIDE_HORIZON = 12;
 const DAY_MS = 86_400_000;
 /** Presentation shows fewer gameweeks than the board: 6 by default, 8 on request. */
 const PRESENTATION_HORIZONS = [6, 8] as const;
 const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
 
-const VIEWS: Array<{ id: ViewMode; label: string }> = [
-  { id: 'detailed', label: 'Detallado' },
-  { id: 'compact', label: 'Compacto' },
-  { id: 'tendency', label: 'Tendencia' },
+const VIEWS: Array<{ id: ViewMode; label: DictKey }> = [
+  { id: 'detailed', label: 'fx.view.detailed' },
+  { id: 'compact', label: 'fx.view.compact' },
+  { id: 'tendency', label: 'fx.view.tendency' },
 ];
 
 export function FixturesBoard({
@@ -81,9 +87,21 @@ export function FixturesBoard({
   onAsk: (question: string) => void;
   initialView?: ViewMode;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [axis, setAxis] = useState<FixtureAxis>('attack');
-  const [horizon, setHorizon] = useState<number>(8);
+  // Inside the wide workspace the window follows the room available (largest
+  // option that fits) until the user picks a width; elsewhere it stays at 8.
   const [view, setView] = useState<ViewMode>(initialView);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const [rowsWidth, setRowsWidth] = useState<number | null>(null);
+  const [pickedHorizon, setPickedHorizon] = useState<number | null>(null);
+  const fit = rowsWidth === null ? null : view === 'compact' ? fitCompactWindow(rowsWidth) : fitFixtureWindow(rowsWidth);
+  const horizon = pickedHorizon ?? fit?.horizon ?? 8;
+  // Wide workspace + Compact: the title block shrinks to one line so the whole league fits on screen.
+  const condensed = view === 'compact' && fit !== null;
+  const rowColumnCount = rowsWidth === null ? 1 : rowColumns(rowsWidth, horizon);
+  const horizons: readonly number[] = fit === null ? HORIZONS : [...HORIZONS, WIDE_HORIZON];
   const [nextGameweek, setNextGameweek] = useState<number | null>(null);
   // Live yardstick for the provenance stamp: how far the real league has
   // got, so "this bundle is behind the season" is measured, not assumed.
@@ -115,8 +133,8 @@ export function FixturesBoard({
   );
   const visibleEndGameweek = data.teams[0]?.series.at(-1)?.gameweek ?? startGameweek;
   const provenance = useMemo(
-    () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek),
-    [finishedGameweek],
+    () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek, locale),
+    [finishedGameweek, locale],
   );
   const presentationStart = clampFixtureWindowStart(startGameweek, gameweeks, presentationHorizon) ?? startGameweek;
   const presentationData = useMemo(
@@ -239,6 +257,22 @@ export function FixturesBoard({
     return () => document.removeEventListener('fullscreenchange', syncFullscreen);
   }, []);
 
+  useEffect(() => {
+    const el = rowsRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      // The workspace class lands after mount, so it is checked on every measure.
+      if (!el.closest('.wide-workspace')) { setRowsWidth(null); return; }
+      // Hidden (the other center tab) reports 0 width: keep the last fit.
+      if (el.clientWidth === 0) return;
+      setRowsWidth(el.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -256,7 +290,7 @@ export function FixturesBoard({
                   : 'text-bf-gray hover:text-white'
               }`}
             >
-              {axisLabel(a)}
+              {axisLabel(a, locale)}
             </button>
           ))}
         </div>
@@ -264,12 +298,12 @@ export function FixturesBoard({
         {/* Horizon selector */}
         <div className="inline-flex items-center gap-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-bf-gray/60">
-            Jornadas
+            {t('fx.horizon')}
           </span>
-          {HORIZONS.map((h) => (
+          {horizons.map((h) => (
             <button
               key={h}
-              onClick={() => setHorizon(h)}
+              onClick={() => setPickedHorizon(h)}
               aria-pressed={horizon === h}
               className={`w-8 py-1 text-xs font-bold rounded-md border transition-colors ${
                 horizon === h
@@ -283,24 +317,24 @@ export function FixturesBoard({
         </div>
 
         {/* Gameweek window navigation */}
-        <div className="inline-flex items-center gap-1.5" aria-label="Navegar jornadas">
+        <div className="inline-flex items-center gap-1.5" aria-label={t('fx.nav.label')}>
           <button
             type="button"
             onClick={() => moveWindow(-1)}
             disabled={previousGameweek === null || previousGameweek === startGameweek}
-            aria-label="Jornada anterior"
+            aria-label={t('fx.nav.prev')}
             className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
           >
             ‹
           </button>
           <span className="text-[11px] font-extrabold text-bf-gray whitespace-nowrap" aria-live="polite">
-            J{startGameweek}–J{visibleEndGameweek}
+            {gwRange(startGameweek, visibleEndGameweek, locale)}
           </span>
           <button
             type="button"
             onClick={() => moveWindow(1)}
             disabled={followingGameweek === null || followingGameweek === startGameweek}
-            aria-label="Jornada siguiente"
+            aria-label={t('fx.nav.next')}
             className="w-7 h-7 rounded-md border border-white/10 text-bf-gray hover:text-white disabled:opacity-35 disabled:hover:text-bf-gray transition-colors"
           >
             ›
@@ -327,7 +361,7 @@ export function FixturesBoard({
                   : 'text-bf-gray hover:text-white'
               }`}
             >
-              {v.label}
+              {t(v.label)}
             </button>
           ))}
         </div>
@@ -337,63 +371,70 @@ export function FixturesBoard({
             onClick={openPresentation}
             className="rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-xs font-bold text-bf-turquoise transition-colors hover:bg-bf-turquoise/20"
           >
-            Presentar
+            {t('fx.present')}
           </button>
         )}
       </div>
 
       {competitions?.tier === 'free' && lockedOpen && <LockedCompetitionsLine />}
 
-      {/* FDR / venue / streak legend (above the board, design parity) */}
-      <BandLegend />
-      {layer && (view === 'detailed' ? <TimelineLegend /> : view === 'compact' ? <CompactLegend /> : null)}
+      {/* FDR / venue / streak legend (above the board, design parity); condensed Compact carries it in its header line */}
+      {!condensed && <BandLegend />}
+      {layer && (view === 'detailed' ? <TimelineLegend note={coverageNote(layer, locale)} /> : view === 'compact' ? <CompactLegend note={coverageNote(layer, locale)} /> : null)}
 
       {/* Board */}
       <div className={`${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
         <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
         <div className="relative z-10 p-5 md:p-6 space-y-4">
-          <div>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <h2 className="text-2xl font-black tracking-tight text-white">
-                Liga · orden por calendario
-              </h2>
-              <span
-                className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
-                style={{
-                  backgroundColor: `${ACCENT_HEX.turquoise}26`,
-                  color: ACCENT_HEX.turquoise,
-                  borderColor: `${ACCENT_HEX.turquoise}66`,
-                }}
-              >
-                {axisLabel(axis)}
-              </span>
-            </div>
-            <p className="mt-1.5 text-sm text-bf-gray">
-              Mejor calendario primero · FDR promedio J{startGameweek}–J{visibleEndGameweek}
-            </p>
-          </div>
+          {condensed ? (
+            <CompactHeader axis={axis} start={startGameweek} end={visibleEndGameweek} provenance={provenance} />
+          ) : (
+            <>
+              <div>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h2 className="text-2xl font-black tracking-tight text-white">
+                    {t('fx.league.title')}
+                  </h2>
+                  <span
+                    className="text-[13px] font-extrabold uppercase tracking-wider rounded-md px-3 py-1 border"
+                    style={{
+                      backgroundColor: `${ACCENT_HEX.turquoise}26`,
+                      color: ACCENT_HEX.turquoise,
+                      borderColor: `${ACCENT_HEX.turquoise}66`,
+                    }}
+                  >
+                    {axisLabel(axis, locale)}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm text-bf-gray">
+                  {t('fx.league.subtitle', { range: gwRange(startGameweek, visibleEndGameweek, locale) })}
+                </p>
+              </div>
 
-          <div className="max-w-prose">
-            <FixtureProvenanceStamp provenance={provenance} />
-          </div>
+              <div className="max-w-prose">
+                <FixtureProvenanceStamp provenance={provenance} />
+              </div>
+            </>
+          )}
 
           {/* Wrapped so a test can read what the board is actually showing.
               The axis-switcher bug was invisible to every existing test
               precisely because nothing ever compared one rendering to
               another. */}
-          <div data-testid="fixture-board-rows">
+          <div ref={rowsRef} data-testid="fixture-board-rows">
           {view === 'detailed' && (
-            <div>
-              {data.teams.map((t) => (
+            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
+              {data.teams.map((team, index) => (
                 <div
-                  key={t.team_short}
+                  key={team.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
                   <FixtureTickerRow
-                    team={t}
-                    onAskTeam={() => onAsk(teamOutlookQuestion(t.team_name, axis))}
-                    onAskCell={(gw) => onAsk(fixtureCellQuestion(t.team_name, gw))}
-                    extras={extrasFor(t.team_short)}
+                    rank={index + 1}
+                    team={team}
+                    onAskTeam={() => onAsk(teamOutlookQuestion(team.team_name, axis, locale))}
+                    onAskCell={(gw) => onAsk(fixtureCellQuestion(team.team_name, gw, locale))}
+                    extras={extrasFor(team.team_short)}
                   />
                 </div>
               ))}
@@ -401,25 +442,20 @@ export function FixturesBoard({
           )}
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
           {view === 'tendency' && (
-            <div>
-              {data.teams.map((t) => (
+            <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
+              {data.teams.map((team, index) => (
                 <div
-                  key={t.team_short}
+                  key={team.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
-                  <FixtureTendencyChart team={t} onAsk={onAsk} />
+                  <FixtureTendencyChart team={team} rank={index + 1} onAsk={onAsk} />
                 </div>
               ))}
             </div>
           )}
           </div>
 
-          <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
-            Calendario real desde la API oficial de FPL, sin datos inventados. El
-            eje de ataque usa la dificultad FDR de FPL; el de portería a cero la
-            ajusta por la forma atacante reciente del rival. El calendario del
-            final de temporada se completará según la API lo vaya publicando.
-          </p>
+          {!condensed && <FooterNote />}
         </div>
       </div>
 
@@ -429,24 +465,24 @@ export function FixturesBoard({
           className={presentationMode
             ? 'fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-bf-ink px-[clamp(16px,3vw,56px)] py-[clamp(14px,2.5vh,36px)] text-white'
             : 'pointer-events-none fixed inset-0 -z-10 flex min-h-[100dvh] flex-col overflow-hidden opacity-0'}
-          aria-label="Calendario en modo presentación"
+          aria-label={t('fx.present.aria')}
           aria-hidden={!presentationMode}
         >
           <div className="mb-[clamp(6px,1vh,14px)] flex items-center gap-[clamp(10px,1.4vw,28px)] whitespace-nowrap">
-            <span className="text-[clamp(16px,1.7vw,30px)] font-black tracking-tight">Calendario FDR</span>
+            <span className="text-[clamp(16px,1.7vw,30px)] font-black tracking-tight">{t('fx.present.title')}</span>
             <span className="text-[clamp(11px,1vw,18px)] font-extrabold uppercase tracking-wider text-bf-turquoise">
-              {axisLabel(axis)} · J{presentationStart}–J{presentationEnd}
+              {axisLabel(axis, locale)} · {gwRange(presentationStart, presentationEnd, locale)}
             </span>
             <div className="hidden min-w-0 flex-1 overflow-hidden lg:block">
               {layer ? (
-                <PresentationLegend />
+                <PresentationLegend note={coverageNote(layer, locale)} />
               ) : (
                 <span className="text-[clamp(10px,0.85vw,15px)] font-bold text-bf-gray">
-                  Fácil → difícil · ◯ racha favorable · ◯ racha difícil
+                  {t('fx.present.legend')}
                 </span>
               )}
             </div>
-            <div className="ml-auto inline-flex items-center gap-1" role="group" aria-label="Jornadas a mostrar">
+            <div className="ml-auto inline-flex items-center gap-1" role="group" aria-label={t('fx.present.horizonGroup')}>
               {PRESENTATION_HORIZONS.map((h) => (
                 <button
                   key={h}
@@ -459,7 +495,7 @@ export function FixturesBoard({
                       : 'border-white/15 text-bf-gray hover:text-white'
                   }`}
                 >
-                  {h} jornadas
+                  {t('fx.present.horizonOption', { n: h })}
                 </button>
               ))}
             </div>
@@ -468,7 +504,7 @@ export function FixturesBoard({
               onClick={closePresentation}
               className="rounded-md border border-white/15 px-3 py-1.5 text-[clamp(10px,1vw,14px)] font-bold text-bf-gray hover:text-white"
             >
-              Salir <span className="text-white/50">Esc</span>
+              {t('fx.present.exit')} <span className="text-white/50">Esc</span>
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -504,6 +540,74 @@ function FixtureProvenanceStamp({ provenance }: { provenance: FixtureOutlookProv
         >
           {provenance.warning}
         </p>
+      )}
+    </div>
+  );
+}
+
+function FooterNote() {
+  const t = useT();
+  return (
+    <p className="max-w-prose text-[10px] leading-snug text-bf-gray/50 pt-3 border-t border-white/5">
+      {t('fx.footer')}
+    </p>
+  );
+}
+
+/**
+ * Compact in the wide workspace: title, axis, window, legend and the data note on ONE line (it wraps only when
+ * the panel is too narrow). The note is not dropped: an icon opens it inline, with the same provenance stamp,
+ * warning and footer the full block shows, and its tooltip carries the warning (or the stamp) too.
+ */
+function CompactHeader({ axis, start, end, provenance }: {
+  axis: FixtureAxis; start: number; end: number; provenance: FixtureOutlookProvenance;
+}) {
+  const t = useT();
+  const { locale } = useLocale();
+  const [open, setOpen] = useState(false);
+  const warned = Boolean(provenance.warning);
+  return (
+    <div data-testid="compact-header">
+      <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+          <h2 className="text-lg font-black tracking-tight text-white">{t('fx.league.title')}</h2>
+          <span
+            className="text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2.5 py-0.5 border"
+            style={{
+              backgroundColor: `${ACCENT_HEX.turquoise}26`,
+              color: ACCENT_HEX.turquoise,
+              borderColor: `${ACCENT_HEX.turquoise}66`,
+            }}
+          >
+            {axisLabel(axis, locale)}
+          </span>
+          <span className="text-[13px] text-bf-gray whitespace-nowrap">
+            {t('fx.league.subtitle', { range: gwRange(start, end, locale) })}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-x-3 gap-y-1.5 flex-wrap justify-end">
+          <BandLegend inline />
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={t('fx.dataNote')}
+            title={provenance.warning ?? provenance.label}
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-full border text-[13px] font-black leading-none transition-colors ${
+              warned
+                ? 'border-bf-gold/50 bg-bf-gold/10 text-bf-gold hover:bg-bf-gold/20'
+                : 'border-white/15 text-bf-gray hover:text-white'
+            }`}
+          >
+            {warned ? '!' : 'i'}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div data-testid="compact-note" className="mt-3 space-y-2 max-w-prose">
+          <FixtureProvenanceStamp provenance={provenance} />
+          <p className="text-[11px] leading-snug text-bf-gray/70">{t('fx.footer')}</p>
+        </div>
       )}
     </div>
   );

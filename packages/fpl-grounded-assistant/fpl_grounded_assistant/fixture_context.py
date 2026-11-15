@@ -26,7 +26,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from .catalogue import t
 from .fixture_outlook import AXES, DEFAULT_HORIZON, get_team_outlook
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 
 
 # ---------------------------------------------------------------------------
@@ -159,11 +161,14 @@ def _tiebreaker_signal(runs: list[dict[str, Any]]) -> int:
     return 1 if run["type"] == "good" else -1
 
 
-def _gw(n: int) -> str:
-    return f"J{n}"
+def _gw(n: int, locale: Locale = DEFAULT_LOCALE) -> str:
+    return t("fxo.gw", locale, n=n)
 
 
-def _phrase(axis: str, runs: list[dict[str, Any]], defensive_mid: bool = False) -> str:
+def _phrase(
+    axis: str, runs: list[dict[str, Any]], defensive_mid: bool = False,
+    locale: Locale = DEFAULT_LOCALE,
+) -> str:
     """A short Spanish, schedule-only clause for the earliest run.
 
     ``defensive_mid`` softens the defence-axis wording: a defensive midfielder's
@@ -172,23 +177,11 @@ def _phrase(axis: str, runs: list[dict[str, Any]], defensive_mid: bool = False) 
     """
     run = _earliest_run(runs)
     if run is None:
-        return "calendario sin rachas marcadas"
-    span = f"{_gw(run['start_gw'])}–{_gw(run['end_gw'])}"
-    good = run["type"] == "good"
-    if axis == "attack":
-        return (
-            f"calendario ofensivo favorable ({span})" if good
-            else f"calendario ofensivo exigente ({span})"
-        )
-    if defensive_mid:
-        return (
-            f"calendario defensivo favorable ({span})" if good
-            else f"calendario defensivo exigente ({span})"
-        )
-    return (
-        f"buen calendario para portería a cero ({span})" if good
-        else f"calendario difícil para portería a cero ({span})"
-    )
+        return t("fxo.ctx.no_runs", locale)
+    span = f"{_gw(run['start_gw'], locale)}–{_gw(run['end_gw'], locale)}"
+    side = "good" if run["type"] == "good" else "bad"
+    kind = "attack" if axis == "attack" else ("defmid" if defensive_mid else "cs")
+    return t(f"fxo.ctx.{kind}_{side}", locale, span=span)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +244,8 @@ def build_fixture_context(
     if team_id is None:
         return None
 
-    outlook = get_team_outlook(bootstrap, int(team_id), resolved_axis, horizon)
+    locale = bootstrap_locale(bootstrap)
+    outlook = get_team_outlook(bootstrap, int(team_id), resolved_axis, horizon, locale=locale)
     # No usable signal when there are no real fixtures (unknown team, or a team
     # that blanks the whole window → avg_band is None). Caller omits context.
     if not outlook.get("series") or outlook.get("avg_band") is None:
@@ -269,6 +263,7 @@ def build_fixture_context(
         "phrase":            _phrase(
             resolved_axis, runs,
             defensive_mid=bool(role_meta.get("is_defensive_mid")),
+            locale=locale,
         ),
     }
     context.update(role_meta)   # role_lean, is_defensive_mid, dc_* (additive)
@@ -279,6 +274,7 @@ def fixture_tiebreaker_line(
     entries: "list[tuple[str, dict[str, Any] | None]]",
     *,
     emit: bool,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> str | None:
     """Shared schedule-only tiebreaker line for close-call decisions.
 
@@ -293,4 +289,4 @@ def fixture_tiebreaker_line(
     parts = [f"{name}: {fc['phrase']}" for name, fc in entries if fc]
     if not parts:
         return None
-    return "Muy parejos; por calendario — " + "; ".join(parts) + "."
+    return t("fxo.tiebreak", locale, parts="; ".join(parts))

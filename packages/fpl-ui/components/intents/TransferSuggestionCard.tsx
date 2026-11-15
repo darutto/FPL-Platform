@@ -25,7 +25,8 @@
  */
 import type { TransferSuggestionMeta, TransferSuggestionEntry } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
-import { SUGGESTION_LABEL, SUGGESTION_ALTERNATIVES_LABEL, suggestionVerdict } from '@/lib/copy';
+import { useT } from '@/lib/i18n/LocaleProvider';
+import { interpolateNodes } from '@/lib/i18n/rich';
 import { TriangleField } from './CardOrnaments';
 
 interface Props {
@@ -35,6 +36,7 @@ interface Props {
 const ACCENT = 'coralSoft' as const;
 
 export default function TransferSuggestionCard({ data }: Props) {
+  const t = useT();
   const { position_label, team_short, team_name, max_price, horizon, picks } = data;
   if (picks.length === 0) return null;
 
@@ -48,7 +50,7 @@ export default function TransferSuggestionCard({ data }: Props) {
         {/* Header — micro-label + scope */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-extrabold text-bf-coral-soft uppercase tracking-wide">
-            {SUGGESTION_LABEL}
+            {t('suggest.label')}
           </span>
           <span className="text-[11px] text-bf-gray">
             {scope} · {horizon} GW
@@ -57,14 +59,15 @@ export default function TransferSuggestionCard({ data }: Props) {
 
         {/* Verdict headline */}
         <p className="text-lg font-extrabold leading-tight text-white">
-          La mejor selección es{' '}
-          <span className="text-bf-coral-soft">{top.web_name}</span>.
+          {interpolateNodes(t('transfer.verdict.in'), {
+            name: <span className="text-bf-coral-soft">{top.web_name}</span>,
+          })}
         </p>
 
         {/* Hero — #1 pick */}
         <div className="relative overflow-hidden rounded-xl border border-bf-coral-soft/40 bg-bf-coral-soft/[0.08] p-3">
           <span className="absolute right-0 top-0 rounded-bl-lg bg-bf-coral-soft px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-bf-ink">
-            Pick
+            {t('cmp.pick')}
           </span>
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
@@ -76,7 +79,7 @@ export default function TransferSuggestionCard({ data }: Props) {
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-bf-text/80">
                 <span>
-                  Forma <span className="font-bold text-white">{top.form.toFixed(1)}</span>
+                  {t('suggest.form')} <span className="font-bold text-white">{top.form.toFixed(1)}</span>
                 </span>
                 <span>
                   FDR <span className="font-bold text-white">{top.avg_fdr.toFixed(1)}</span>{' '}
@@ -84,7 +87,7 @@ export default function TransferSuggestionCard({ data }: Props) {
                 </span>
                 <span>
                   <span className="font-bold text-white">{formatOwnership(top.ownership)}</span>{' '}
-                  propiedad
+                  {t('suggest.ownership')}
                 </span>
               </div>
             </div>
@@ -96,7 +99,7 @@ export default function TransferSuggestionCard({ data }: Props) {
                 {top.composite_score.toFixed(1)}
               </span>
               <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-                índice
+                {t('suggest.index')}
               </span>
             </div>
           </div>
@@ -106,7 +109,7 @@ export default function TransferSuggestionCard({ data }: Props) {
         {rest.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-wide text-bf-gray">
-              {SUGGESTION_ALTERNATIVES_LABEL}
+              {t('suggest.others')}
             </p>
             <div>
               {rest.map((entry, idx) => (

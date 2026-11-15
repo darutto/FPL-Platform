@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { DEV_TIER_COOKIE, isQuotaBucket } from '@/lib/tiers';
+import { loginPathFor } from '@/lib/safe-next';
 
 // Both assistant shells require sign-in: the FPL chat (/chat) and the World
 // Cup chat (/wc/chat). Free tier is admitted (limited taste); anonymous is not.
@@ -37,7 +38,10 @@ export default clerkMiddleware(async (auth, req) => {
   // Sign-in is still required so each free user gets their own per-user quota
   // bucket rather than sharing one anonymous bucket.
   if (isProtectedRoute(req) && !userId) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    // Keep /chat?q=… across sign-in (loginPathFor sanitises; other routes get plain /login).
+    const { pathname, search } = req.nextUrl;
+    const target = pathname === '/chat' ? loginPathFor(pathname + search) : '/login';
+    return NextResponse.redirect(new URL(target, req.url));
   }
 
   // Forward identity + tier to the backend quota system. The API proxy routes

@@ -150,11 +150,16 @@ def _coerce(value: str, spec: ArgSpec) -> tuple[Any, str | None]:
             return None, f"{spec.name}: {v} > max {spec.max_value}"
         return v, None
     if spec.type == "enum":
-        folded = _nfc_fold(raw)
+        # "Triple Captain" / "triple-captain" must match the enum's "triple_captain":
+        # the chip names are typed as words, the enum stores them with underscores.
+        def _words(v: str) -> str:
+            return " ".join(re.split(r"[\s_\-]+", _nfc_fold(v)))
+
+        folded = _words(raw)
         if spec.enum is None:
             return None, f"{spec.name}: enum spec missing"
         for accepted in spec.enum:
-            if _nfc_fold(accepted) == folded:
+            if _words(accepted) == folded:
                 return accepted, None
         return None, f"{spec.name}: {raw!r} not in {list(spec.enum)}"
     return raw, None
@@ -256,6 +261,36 @@ def _parse_positional_then_flags(positional_arg: str | None):
     return _parser
 
 
+#: An ownership threshold typed in free text: "under 10", "menos del 10%",
+#: "below 7.5%", "menos de 10". The prefix words make the number unambiguous.
+#: "%" is optional after them. Prefixes like "max" or "up to" are left out on
+#: purpose: "max 3 players" must not read as a 3% threshold.
+_OWNERSHIP_PREFIX_RE = re.compile(
+    r"\b(?:under|below|less than|menos del|menos de|por debajo (?:de|del))\s*"
+    r"(\d+(?:[.,]\d+)?)\s*%?"
+)
+#: A bare "N%" anywhere in the text. A number WITHOUT "%" is never a threshold:
+#: "/differentials 3" is the top-N count.
+_OWNERSHIP_BARE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+
+
+def _parse_ownership_threshold(args_text: str) -> tuple[dict[str, str], list[str]]:
+    """Read the ownership threshold from free text ("under 10%", "10%").
+
+    Before this, /diferenciales and /differentials dropped any positional text,
+    so "/differentials under 10%" silently used the 15% default. Explicit
+    ``threshold=`` / ``umbral=`` / ``max_owned=`` flags are stripped before this
+    runs and still win over a positional value.
+    """
+    text = args_text.strip().casefold()
+    if not text:
+        return {}, []
+    match = _OWNERSHIP_PREFIX_RE.search(text) or _OWNERSHIP_BARE_RE.search(text)
+    if match is None:
+        return {}, []
+    return {"threshold": match.group(1).replace(",", ".")}, []
+
+
 # ---------------------------------------------------------------------------
 # Validation rule helpers
 # ---------------------------------------------------------------------------
@@ -304,8 +339,8 @@ _COMPARAR = PromptSpec(
     name="comparar",
     label="Comparar",
     argument_schema={
-        "a": ArgSpec(name="a", type="string", required=True, aliases=("jugador_a", "p1")),
-        "b": ArgSpec(name="b", type="string", required=True, aliases=("jugador_b", "p2")),
+        "a": ArgSpec(name="a", type="string", required=True, aliases=("jugador_a", "p1", "player_a", "player1")),
+        "b": ArgSpec(name="b", type="string", required=True, aliases=("jugador_b", "p2", "player_b", "player2")),
     },
     validation_rules=(_rule_not_equal("a", "b"),),
     workflow_intent=INTENT_COMPARE_PLAYERS,
@@ -319,8 +354,8 @@ _TRANSFERENCIA = PromptSpec(
     name="transferencia",
     label="Transferencia",
     argument_schema={
-        "out": ArgSpec(name="out", type="string", required=True, aliases=("salida", "vender")),
-        "in":  ArgSpec(name="in",  type="string", required=True, aliases=("entrada", "comprar")),
+        "out": ArgSpec(name="out", type="string", required=True, aliases=("salida", "vender", "sell", "transfer_out")),
+        "in":  ArgSpec(name="in",  type="string", required=True, aliases=("entrada", "comprar", "buy", "bring_in", "transfer_in")),
     },
     validation_rules=(_rule_not_equal("out", "in"),),
     workflow_intent=INTENT_TRANSFER_ADVICE,
@@ -338,7 +373,7 @@ _CALENDARIOS = PromptSpec(
         "horizon": ArgSpec(
             name="horizon", type="int", required=False,
             min_value=1, max_value=10, default=5,
-            aliases=("h", "n",),
+            aliases=("h", "n", "gameweeks", "gws", "next"),
             description="Number of upcoming fixtures",
         ),
     },
@@ -357,19 +392,19 @@ _DIFERENCIALES = PromptSpec(
         "threshold": ArgSpec(
             name="threshold", type="float", required=False,
             min_value=0.1, max_value=100.0, default=15.0,
-            aliases=("umbral", "owned_under"),
+            aliases=("umbral", "owned_under", "max_owned", "ownership"),
         ),
         "top_n": ArgSpec(
             name="top_n", type="int", required=False,
             min_value=1, max_value=20, default=5,
-            aliases=("n", "top"),
+            aliases=("n", "top", "count", "limit"),
         ),
     },
     validation_rules=(),
     workflow_intent=INTENT_DIFFERENTIAL_PICKS,
     mode=MODE_DISPATCH,
     expansion_template=None,
-    parse=_parse_positional_then_flags(None),
+    parse=_parse_ownership_threshold,
 )
 
 
@@ -398,7 +433,7 @@ _CLASIFICACION = PromptSpec(
         "n": ArgSpec(
             name="n", type="int", required=False,
             min_value=1, max_value=20, default=5,
-            aliases=("top",),
+            aliases=("top", "count", "limit"),
         ),
     },
     validation_rules=(),

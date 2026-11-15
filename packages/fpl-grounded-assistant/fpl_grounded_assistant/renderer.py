@@ -38,6 +38,14 @@ try:
 except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
     from catalogue import t  # type: ignore[no-redef]
 
+# Some renderers below bind a local `t` (a team row); they reach the catalogue through this alias.
+_tr = t
+
+try:
+    from .position_changes_text import gap_text, switch_text, out_date, out_text, role_text, slot_row_text, slot_summary_lines
+except ImportError:  # standalone load (test_renderer_zonal bypasses the package)
+    from position_changes_text import gap_text, switch_text, out_date, out_text, role_text, slot_row_text, slot_summary_lines  # type: ignore[no-redef]
+
 # ---------------------------------------------------------------------------
 # status_label: shared by resolve_player and get_player_summary.  F2.
 # ---------------------------------------------------------------------------
@@ -165,7 +173,6 @@ def _render_get_player_summary(output: dict[str, Any], locale: Locale = DEFAULT_
 
 
 def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         gw = output.get("gameweek", "?")
@@ -178,7 +185,7 @@ def _render_get_current_gameweek(output: dict[str, Any], locale: Locale = DEFAUL
         )
 
     code    = output.get("code", "unknown")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -281,7 +288,7 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             where = f"{team_s}, {pos_s}" if pos_s else team_s
             line = f"{rank}. {name} ({where}) [{tier_s}] {score}{(' ' + sp_sfx) if sp_sfx else ''}"
             if mark_owned and c.get("owned"):
-                line += " · tu plantilla" if locale == "es" else " · your squad"
+                line += t("renderer.captain.your_squad", locale)
             if reason_str:
                 line += f" — {reason_str}"
             if factor_str:
@@ -290,22 +297,13 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 
         notice = _captain_time_notice(output, locale)
         pool_source = output.get("pool_source")
-        if locale == "es":
-            pool_notice = (
-                "Origen del pool: derivado del bootstrap."
-                if pool_source == "derived"
-                else "Origen del pool: candidatos indicados por el usuario."
-                if pool_source == "caller"
-                else ""
-            )
-        else:
-            pool_notice = (
-                "Pool source: derived from bootstrap."
-                if pool_source == "derived"
-                else "Pool source: caller-supplied candidates."
-                if pool_source == "caller"
-                else ""
-            )
+        pool_notice = (
+            t("renderer.captain.pool_derived", locale)
+            if pool_source == "derived"
+            else t("renderer.captain.pool_caller", locale)
+            if pool_source == "caller"
+            else ""
+        )
         header = [value for value in (notice, pool_notice) if value]
         if pool_source != "derived":
             return "\n".join(header + [_line(c) for c in ok_entries])
@@ -332,21 +330,15 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             pick = presentation.get(key) or {}
             player_id = pick.get("player_id")
             if player_id is None:
-                return (
-                    "Sin hipster: nadie de poca propiedad llega al minimo."
-                    if locale == "es"
-                    else "No hipster: nobody lightly owned clears the bar."
-                )
+                return t("renderer.captain.no_hipster", locale)
             entry = by_id.get(int(player_id))
             if entry is None:
                 return None
             share_value = pick.get("selected_by_percent")
             if share_value is None:
                 share = ""
-            elif locale == "es":
-                share = f" - {share_value:.1f}% de propiedad"
             else:
-                share = f" - owned by {share_value:.1f}%"
+                share = t("renderer.captain.share", locale, v=f"{share_value:.1f}")
             return f"Hipster: {_line(entry)}{share}"
 
         global_entries = _shown("global_top", [
@@ -360,53 +352,33 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
 
         body: list[str] = []
         if squad_source == "connected":
-            body.append(
-                "A) Candidatos de tu plantilla:"
-                if locale == "es"
-                else "A) Candidates from your squad:"
-            )
+            body.append(t("renderer.captain.owned_header", locale))
             if owned_entries:
                 body.extend(_line(c) for c in owned_entries)
                 owned_hipster = _hipster_line("owned_hipster")
                 if owned_hipster:
                     body.append(owned_hipster)
             else:
-                body.append(
-                    "No hay candidatos disponibles en tu plantilla."
-                    if locale == "es"
-                    else "There are no available candidates in your squad."
-                )
+                body.append(t("renderer.captain.owned_none", locale))
         elif squad_source == "unavailable":
-            body.append(
-                "No pude cargar tu plantilla; te muestro solo el ranking global."
-                if locale == "es"
-                else "I could not load your squad, so I am showing only the global ranking."
-            )
+            body.append(t("renderer.captain.squad_unavailable", locale))
         else:
-            body.append(
-                "No hay equipo conectado; te muestro solo el ranking global."
-                if locale == "es"
-                else "No team is connected, so I am showing only the global ranking."
-            )
+            body.append(t("renderer.captain.not_connected", locale))
 
         excluded = output.get("squad_excluded") or []
         if excluded:
             reason_labels = {
-                "unavailable": "no disponible" if locale == "es" else "unavailable",
-                "unresolved": "sin resolver" if locale == "es" else "unresolved",
+                "unavailable": t("renderer.captain.excl_unavailable", locale),
+                "unresolved": t("renderer.captain.excl_unresolved", locale),
             }
             excluded_text = ", ".join(
                 f"{entry.get('web_name', '?')} "
                 f"({reason_labels.get(entry.get('reason'), entry.get('reason', '?'))})"
                 for entry in excluded
             )
-            body.append(
-                f"No evaluados para capitanía: {excluded_text}."
-                if locale == "es"
-                else f"Not evaluated for captaincy: {excluded_text}."
-            )
+            body.append(t("renderer.captain.not_evaluated", locale, items=excluded_text))
 
-        body.append("B) Mejores candidatos globales:" if locale == "es" else "B) Best global candidates:")
+        body.append(t("renderer.captain.global_header", locale))
         body.extend(_line(c, mark_owned=True) for c in global_entries)
         global_hipster = _hipster_line("global_hipster")
         if global_hipster:
@@ -430,8 +402,8 @@ def _render_rank_captain_candidates(output: dict[str, Any], locale: Locale = DEF
             if not note:
                 continue
             if entry.get("player_id") not in shown_ids:
-                body.append(f"Conviene saber: {_line(entry)}")
-            body.append(f"Sobre {entry.get('web_name', '?')}: {note}")
+                body.append(t("renderer.captain.worth_knowing", locale, line=_line(entry)))
+            body.append(t("renderer.captain.about", locale, name=entry.get('web_name', '?'), note=note))
         return "\n".join(header + body)
 
     code    = output.get("code", "error")
@@ -457,7 +429,11 @@ def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOC
     if status == "ok":
         rec = output.get("recommendation", "")
         return rec if rec else t("compare_players.ok_fallback", locale)
-    if status in ("not_found", "ambiguous"):
+    if status == "ambiguous":
+        # ``message`` is an LLM-facing English instruction ("Ask the user to
+        # clarify…"); never show it to the user.
+        return t("compare_players.ambiguous", locale, player=output.get("error_player", ""))
+    if status == "not_found":
         ep  = output.get("error_player", "")
         msg = output.get("message", t("compare_players.not_found_fallback", locale, player=ep))
         return msg
@@ -476,7 +452,6 @@ def _render_compare_players(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_chip_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_chip_advice raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         return output.get("advice_text", "Chip advice computed.")
@@ -484,23 +459,22 @@ def _render_get_chip_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOC
         chip = output.get("chip", "unknown")
         return f"'{chip}' is not a recognised FPL chip name."
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected chip advice error occurred.")
+    message = output.get("message", t("renderer.fallback.chip_error", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_transfer_advice(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render a get_transfer_advice raw_output dict into a human-readable string."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         rec_text = output.get("recommendation_text", "")
         return rec_text if rec_text else "Transfer advice computed."
     if status in ("not_found", "ambiguous"):
         ep  = output.get("error_player", "")
-        msg = output.get("message", f"Could not resolve player '{ep}'.")
+        msg = output.get("message", t("renderer.fallback.resolve_player", locale, ep=ep))
         return msg
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected transfer advice error occurred.")
+    message = output.get("message", t("renderer.fallback.transfer_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -620,30 +594,30 @@ def _render_get_player_fixture_run(output: dict[str, Any], locale: Locale = DEFA
 
 def _render_get_differential_picks(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render differential picks output.  Phase 7g."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         picks    = output.get("picks", [])
-        threshold = float(output.get("ownership_threshold", 15.0))
+        threshold = f"{float(output.get('ownership_threshold', 15.0)):.0f}"
         if not picks:
-            return f"No differential picks found (ownership < {threshold:.0f}%)."
-        lines = [f"Top differentials (ownership < {threshold:.0f}%):"]
+            return t("renderer.differentials.none", locale, threshold=threshold)
+        lines = [t("renderer.differentials.header", locale, threshold=threshold)]
         for p in picks:
             cost_m = p["now_cost"] / 10.0
             # Phase 8a1: display position_score (position-aware heuristic)
             display_score = p.get("position_score", p["captain_score"])
-            lines.append(
-                f"  {p['rank']}. {p['web_name']} ({p['team_short']}, "
-                f"{p['position']}) — score {display_score:.1f}, "
-                f"{p['ownership']:.1f}% owned, £{cost_m:.1f}m"
-            )
+            lines.append(t(
+                "renderer.differentials.row", locale,
+                rank=p["rank"], name=p["web_name"], team=p["team_short"],
+                position=p["position"], score=f"{display_score:.1f}",
+                owned=f"{p['ownership']:.1f}", cost=f"{cost_m:.1f}",
+            ))
         return "\n".join(lines)
 
     if status == "empty":
-        return output.get("message", "No differential picks found.")
+        return output.get("message", t("renderer.differentials.empty", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected differential picks error occurred.")
+    message = output.get("message", t("renderer.differentials.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -653,7 +627,6 @@ def _render_get_differential_picks(output: dict[str, Any], locale: Locale = DEFA
 
 def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_form output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         web_name  = output.get("web_name", "?")
@@ -681,13 +654,13 @@ def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
     if status in ("not_found", "ambiguous"):
         query = output.get("query", "that player")
-        return f"No player found matching '{query}'."
+        return t("renderer.fallback.no_player", locale, query=query)
 
     if status == "missing_context":
-        return output.get("message", "Player match history unavailable.")
+        return output.get("message", t("renderer.fallback.form_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected player form error occurred.")
+    message = output.get("message", t("renderer.fallback.form_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -697,7 +670,6 @@ def _render_get_player_form(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_season_points output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         season = output.get("season", "?")
@@ -728,10 +700,10 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 
     if status == "not_found":
         query = output.get("query", "that player")
-        return output.get("message", f"No player found matching '{query}'.")
+        return output.get("message", t("renderer.fallback.no_player", locale, query=query))
 
     code = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred looking up season points.")
+    message = output.get("message", t("renderer.fallback.season_points_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -739,49 +711,60 @@ def _render_get_player_season_points(output: dict[str, Any], locale: Locale = DE
 # Team results renderer (i107)
 # ---------------------------------------------------------------------------
 
-def _summary_line(s: dict[str, Any]) -> str:
-    return (
-        f"{s.get('played', 0)} PJ, {s.get('won', 0)}G {s.get('drawn', 0)}E {s.get('lost', 0)}P, "
-        f"GF {s.get('gf', 0)} GC {s.get('ga', 0)}, {s.get('clean_sheets', 0)} porterías a cero "
-        f"(media {s.get('avg_gf', 0.0)} a favor / {s.get('avg_ga', 0.0)} en contra)"
+def _summary_line(s: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    return t(
+        "renderer.team_results.line", locale,
+        played=s.get('played', 0), won=s.get('won', 0), drawn=s.get('drawn', 0), lost=s.get('lost', 0),
+        gf=s.get('gf', 0), ga=s.get('ga', 0), cs=s.get('clean_sheets', 0),
+        avg_gf=s.get('avg_gf', 0.0), avg_ga=s.get('avg_ga', 0.0),
     )
 
 
 def _render_get_team_results(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_team_results output.  i107."""
-    del locale  # mechanical signature only, as the sibling renderers.
+    """Render get_team_results output.  i107.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         team = output.get("team") or {}
         name = team.get("name") or team.get("short_name") or "?"
         venue = output.get("venue", "all")
-        venue_word = {"home": " de local", "away": " de visitante"}.get(venue, "")
+        venue_word = (
+            t("renderer.team_results.venue_home", locale) if venue == "home"
+            else t("renderer.team_results.venue_away", locale) if venue == "away"
+            else ""
+        )
         matches = output.get("matches") or []
-        lines = [f"{name} — últimos {len(matches)} partidos{venue_word}:"]
+        lines = [t("renderer.team_results.header", locale, name=name, n=len(matches), venue=venue_word)]
         for m in matches:
-            where = "vs" if m.get("is_home") else "en casa de"
+            where = (
+                t("renderer.team_results.where_home", locale) if m.get("is_home")
+                else t("renderer.team_results.where_away", locale)
+            )
             gw = m.get("gameweek")
-            gw_txt = f"J{gw} " if gw is not None else ""
+            gw_txt = t("renderer.team_results.gw", locale, gw=gw) if gw is not None else ""
             lines.append(
                 f"  {gw_txt}{where} {m.get('opponent_short', '?')} "
                 f"{m.get('goals_for', 0)}-{m.get('goals_against', 0)} ({m.get('result', '?')})"
             )
-        lines.append(f"Resumen: {_summary_line(output.get('summary') or {})}.")
+        lines.append(t("renderer.team_results.summary", locale, line=_summary_line(output.get('summary') or {}, locale)))
         split = output.get("venue_split") or {}
-        lines.append(f"Local: {_summary_line(split.get('home') or {})}.")
-        lines.append(f"Visitante: {_summary_line(split.get('away') or {})}.")
+        lines.append(t("renderer.team_results.home", locale, line=_summary_line(split.get('home') or {}, locale)))
+        lines.append(t("renderer.team_results.away", locale, line=_summary_line(split.get('away') or {}, locale)))
         prov = _provenance_line(output)
         if prov:
             lines.append(prov)
         return "\n".join(lines)
 
     if status == "ambiguous":
-        return output.get("message", f"'{output.get('query', '?')}' coincide con varios equipos.")
+        return output.get(
+            "message", t("renderer.team_results.ambiguous", locale, query=output.get('query', '?'))
+        )
     if status == "not_found":
-        return output.get("message", f"No encontré el equipo '{output.get('query', '?')}'.")
+        return output.get(
+            "message", t("renderer.team_results.not_found", locale, query=output.get('query', '?'))
+        )
 
     code = output.get("code", "error")
-    message = output.get("message", "Error inesperado al consultar los resultados del equipo.")
+    message = output.get("message", t("renderer.team_results.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -792,47 +775,47 @@ def _render_get_team_results(output: dict[str, Any], locale: Locale = DEFAULT_LO
 def _render_get_historical_gameweek_top_scorer(
     output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
 ) -> str:
-    """Render get_historical_gameweek_top_scorer output.
+    """Render get_historical_gameweek_top_scorer output.  i82.  i18n S5a: localized.
 
-    Spanish-first like the product; ``locale`` is accepted for signature
-    parity with the rest of the map and not yet honoured (same as the
-    season-points renderer above). One line for a single gameweek, one line
-    per gameweek for the season table. ``gameweek_not_finished`` gets its own
-    copy so an open gameweek never reads like a missing one.
+    One line for a single gameweek, one line per gameweek for the season table.
+    ``gameweek_not_finished`` gets its own copy so an open gameweek never reads
+    like a missing one.
     """
-    del locale
     status = output.get("status")
     if status == "ok":
         season = output.get("season", "?")
         entries = output.get("entries") or []
         if not entries:
-            return f"Sin datos de jornadas terminadas para la temporada {season}."
+            return t("renderer.top_scorer.none", locale, season=season)
 
         def _line(e: dict[str, Any]) -> str:
             who = f"{e.get('web_name', '?')} ({e.get('team_short', '?')}, {e.get('position', '?')})"
             pts = e.get("points")
-            pts_txt = f"{pts} puntos" if pts is not None else "puntos no disponibles"
+            pts_txt = (
+                t("renderer.top_scorer.points", locale, pts=pts) if pts is not None
+                else t("renderer.top_scorer.no_points", locale)
+            )
             hl = e.get("highlight")
-            return f"{who} — {pts_txt}" + (f" ({hl})" if hl else "")
+            return f"{who} \u2014 {pts_txt}" + (f" ({hl})" if hl else "")
 
         if output.get("gw") is not None:
             e = entries[0]
-            return f"Jugador de la jornada {e.get('event_id')} ({season}): {_line(e)}."
-        lines = [f"Jugador de la jornada, temporada {season}:"]
-        lines += [f"J{e.get('event_id')}: {_line(e)}" for e in entries]
+            return t("renderer.top_scorer.single", locale, gw=e.get('event_id'), season=season, line=_line(e))
+        lines = [t("renderer.top_scorer.season_header", locale, season=season)]
+        lines += [t("renderer.top_scorer.row_gw", locale, gw=e.get('event_id'), line=_line(e)) for e in entries]
         return "\n".join(lines)
 
     code = output.get("code")
     if code == "gameweek_not_finished":
         return output.get(
             "message",
-            f"La jornada {output.get('gw')} de {output.get('season')} aún no ha terminado.",
+            t("renderer.top_scorer.not_finished", locale, gw=output.get('gw'), season=output.get('season')),
         )
     if status == "not_found":
-        return output.get("message") or "No encontré datos para esa jornada o temporada."
+        return output.get("message") or t("renderer.top_scorer.not_found", locale)
     if status == "invalid_argument":
-        return output.get("message") or "Argumento inválido."
-    message = output.get("message", "Ocurrió un error inesperado consultando el histórico.")
+        return output.get("message") or t("renderer.top_scorer.invalid", locale)
+    message = output.get("message", t("renderer.top_scorer.error", locale))
     return f"Error ({code or 'error'}): {message}"
 
 
@@ -888,7 +871,6 @@ def _render_get_injury_list(output: dict[str, Any], locale: Locale = DEFAULT_LOC
 
 def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_price_changes output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         risers  = output.get("risers", [])
@@ -914,10 +896,10 @@ def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_L
         return " | ".join(parts) + "."
 
     if status == "empty":
-        return output.get("message", "No price-change data available.")
+        return output.get("message", t("renderer.fallback.price_none", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected price changes error occurred.")
+    message = output.get("message", t("renderer.fallback.price_error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -927,7 +909,6 @@ def _render_get_price_changes(output: dict[str, Any], locale: Locale = DEFAULT_L
 
 def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_fixture_calendar output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         mode    = output.get("mode", "easiest")
@@ -977,10 +958,10 @@ def _render_get_team_fixture_calendar(output: dict[str, Any], locale: Locale = D
         return "\n".join(lines)
 
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", _tr("renderer.fallback.schedule_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", _tr("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1073,7 +1054,6 @@ def _render_get_transfer_suggestion(output: dict[str, Any], locale: Locale = DEF
 
 def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_position_fixture_run output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         pos_label = output.get("position_label", output.get("position", "?"))
@@ -1116,11 +1096,11 @@ def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DE
             )
         return "\n".join(lines)
     if status == "invalid_position":
-        return output.get("message", "Unknown position.")
+        return output.get("message", _tr("renderer.fallback.unknown_position", locale))
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", _tr("renderer.fallback.schedule_unavailable", locale))
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", _tr("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1130,7 +1110,6 @@ def _render_get_position_fixture_run(output: dict[str, Any], locale: Locale = DE
 
 def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_team_schedule output."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         short   = output.get("team_short", "?")
@@ -1177,13 +1156,13 @@ def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_L
         )
 
     if status == "not_found":
-        return output.get("message", "Team not found.")
+        return output.get("message", t("renderer.fallback.team_not_found", locale))
 
     if status == "missing_context":
-        return output.get("message", "Fixture schedule data not available.")
+        return output.get("message", t("renderer.fallback.schedule_unavailable", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "An unexpected error occurred.")
+    message = output.get("message", t("renderer.fallback.error", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1192,8 +1171,7 @@ def _render_get_team_schedule(output: dict[str, Any], locale: Locale = DEFAULT_L
 # ---------------------------------------------------------------------------
 
 def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render find_players raw_output.  P2.1."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render find_players raw_output.  P2.1.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         matches = output.get("matches", [])
@@ -1201,8 +1179,7 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
         if not matches:
             return f"No players found matching '{query}'."
 
-        header = f"Jugadores encontrados para '{query}':"
-        lines = [header]
+        lines = [t("renderer.find_players.header", locale, query=query)]
         for m in matches:
             name      = m.get("web_name", "?")
             team      = m.get("team_short", "?")
@@ -1212,100 +1189,31 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
             pts       = m.get("total_points", 0)
             mins      = m.get("minutes_played_season", 0)
             lines.append(
-                f"  - {name} ({team}, {pos}) — £{cost:.1f}m | "
-                f"Forma {form} | {pts}pts | Mins {mins}"
+                t("renderer.find_players.row", locale, name=name, team=team, pos=pos,
+                  cost=f"{cost:.1f}", form=form, pts=pts, mins=mins)
             )
         return "\n".join(lines)
 
     if status == "not_found":
         query = output.get("query", "")
-        return f"No se encontró ningún jugador que coincida con '{query}'."
+        return t("renderer.find_players.not_found", locale, query=query)
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
-
-
-def _player_zonal_lines(zonal: Any) -> list[str]:
-    """Bloque 10: the zonal section of a snapshot as text lines, or [] when
-    the snapshot carries none (or a malformed block -- never raises).
-
-    ``share`` / ``player_share`` are 0-1 fractions; this is where the text
-    path converts to a percentage. Opportunity-framed, season stamp last.
-    """
-    try:
-        if not isinstance(zonal, dict) or not zonal.get("fixtures") or not zonal.get("zones"):
-            return []
-        window = zonal["window"]
-        lines = [
-            f"Zonas — partidos de las próximas 3 jornadas (J{window['gw_from']}-J{window['gw_to']}): "
-            f"{zonal['verdict']}",
-            "  Dónde genera su xG: " + ", ".join(
-                f"{z['zone']} ({z['share'] * 100:.0f}% de su xG sin penalti)"
-                for z in zonal["zones"]
-            ) + ".",
-        ]
-        for fx in zonal["fixtures"]:
-            venue = "casa" if fx.get("is_home") else "fuera"
-            head = f"  J{fx['gameweek']} vs {fx['opponent']} ({venue})"
-            if fx.get("status") == "favorable":
-                zones = "; ".join(
-                    f"{m['zone']} (rival {m['delta_vs_avg']:+.3f} vs media)"
-                    for m in fx.get("matches", [])
-                )
-                lines.append(f"{head}: favorable — {zones}")
-            elif fx.get("status") == "no_data":
-                lines.append(f"{head}: sin datos zonales del rival")
-            else:
-                lines.append(f"{head}: sin cruce destacado")
-        prov = _provenance_line(zonal)
-        if prov:
-            lines.append(prov)
-        return lines
-    except (KeyError, TypeError, ValueError):
-        return []
 
 
 def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_snapshot raw_output.  P2.2.  F1: localized.
 
-    ``news`` is FPL's own third-party API text (tier-3) and is passed
-    through verbatim in both locales — only the "News:"/"Noticias:" label
-    around it is this renderer's own prose.
+    ``ok`` renders NOTHING (verdict redesign, 2026-11-11): the text used to dump
+    the same numbers the card shows. What the card doesn't show now travels as
+    structured ``player.conclusions`` and the UI words it above the card.
+    ``ambiguous`` / ``not_found`` / ``error`` still need words: there is no card.
     """
     status = output.get("status")
     if status == "ok":
-        p = output.get("player", {})
-        name      = p.get("web_name", "?")
-        team      = p.get("team_short", "?")
-        pos       = p.get("position", "?")
-        cost      = p.get("now_cost", 0) / 10.0
-        own       = p.get("selected_by_percent", 0.0)
-        status_lbl = p.get("status", "?")
-        form      = p.get("form", 0.0)
-        pts       = p.get("total_points", 0)
-        ppg       = p.get("points_per_game", 0.0)
-        xg        = p.get("expected_goals", 0.0)
-        xa        = p.get("expected_assists", 0.0)
-        xgi       = p.get("expected_goal_involvements", 0.0)
-        ict       = p.get("ict_index", 0.0)
-        mins      = p.get("minutes_played_season", 0)
-        news      = p.get("news", "") or ""  # tier-3: third-party, verbatim
-        chance    = p.get("chance_of_playing_this_round")
-
-        lines = [
-            f"**{name}** ({team}, {pos})",
-            t("player_snapshot.price_line", locale, cost=f"{cost:.1f}", own=f"{own:.1f}", status_lbl=status_lbl),
-            t("player_snapshot.points_line", locale, pts=pts, ppg=f"{ppg:.1f}", form=form),
-            f"  xG: {xg:.2f} | xA: {xa:.2f} | xGI: {xgi:.2f} | ICT: {ict:.1f}",
-            t("player_snapshot.minutes_line", locale, mins=mins),
-        ]
-        if chance is not None:
-            lines.append(t("player_snapshot.chance_line", locale, chance=chance))
-        if news:
-            lines.append(t("player_snapshot.news_line", locale, news=news))
-        lines.extend(_player_zonal_lines(p.get("zonal")))
-        return "\n".join(lines)
+        return ""
 
     if status == "ambiguous":
         query      = output.get("query", "")
@@ -1328,8 +1236,7 @@ def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT
 
 
 def _render_get_player_history(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_player_history raw_output.  P2.3."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_player_history raw_output.  P2.3.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         p       = output.get("player", {})
@@ -1340,13 +1247,13 @@ def _render_get_player_history(output: dict[str, Any], locale: Locale = DEFAULT_
         history = output.get("history", [])
         summary = output.get("summary", {})
 
-        header = f"{name} ({team}, {pos}) — últimas {n} jornada(s):"
+        header = t("renderer.history.header", locale, name=name, team=team, pos=pos, n=n)
         if not history:
-            return header + " Sin historial disponible."
+            return header + t("renderer.history.empty", locale)
 
         lines = [header]
         # Table header
-        lines.append("  GW  | Rival | Mins | Pts | G | A  | xG   | xA")
+        lines.append(t("renderer.history.table", locale))
         lines.append("  ----|-------|------|-----|---|----|----- |-----")
         for h in history:
             gw   = h.get("round", "?")
@@ -1367,24 +1274,23 @@ def _render_get_player_history(output: dict[str, Any], locale: Locale = DEFAULT_
         avg_frm = summary.get("avg_form", 0.0)
         tot_xgi = summary.get("total_xgi", 0.0)
         lines.append(
-            f"\n  Resumen: {tot_pts}pts totales | Forma media: {avg_frm:.1f} | xGI total: {tot_xgi:.2f}"
+            t("renderer.history.summary", locale, pts=tot_pts, avg=f"{avg_frm:.1f}", xgi=f"{tot_xgi:.2f}")
         )
         return "\n".join(lines)
 
     if status == "ambiguous":
-        return output.get("message", "Múltiples jugadores coinciden — especifica el nombre.")
+        return output.get("message", t("renderer.history.ambiguous", locale))
 
     if status == "not_found":
-        return output.get("message", "Jugador no encontrado.")
+        return output.get("message", t("renderer.history.not_found", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_fixtures_for_gw(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_fixtures_for_gw raw_output.  P2.4."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_fixtures_for_gw raw_output.  P2.4.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         gw        = output.get("gw", "?")
@@ -1395,14 +1301,12 @@ def _render_get_fixtures_for_gw(output: dict[str, Any], locale: Locale = DEFAULT
 
         alerts: list[str] = []
         if is_blank:
-            alerts.append("⚠ Jornada en blanco (algún equipo sin partido)")
+            alerts.append(t("renderer.fixtures_gw.blank", locale))
         if is_double:
             dgw_teams = summary.get("double_gw_teams", [])
-            alerts.append(
-                "⚠ Jornada doble — equipos con 2 partidos: " + ", ".join(dgw_teams)
-            )
+            alerts.append(t("renderer.fixtures_gw.double", locale, teams=", ".join(dgw_teams)))
 
-        lines = [f"Partidos GW{gw}:"]
+        lines = [t("renderer.fixtures_gw.header", locale, gw=gw)]
         if alerts:
             lines += ["  " + a for a in alerts]
 
@@ -1413,30 +1317,28 @@ def _render_get_fixtures_for_gw(output: dict[str, Any], locale: Locale = DEFAULT
             h_fdr  = fx.get("home_fdr", "?")
             a_fdr  = fx.get("away_fdr", "?")
             lines.append(
-                f"  GW{gw}: {home} vs {away} (kickoff: {ko}) | "
-                f"FDR local {h_fdr}, FDR visit {a_fdr}"
+                t("renderer.fixtures_gw.row", locale, gw=gw, home=home, away=away, ko=ko, h=h_fdr, a=a_fdr)
             )
 
         if not fixtures:
-            lines.append("  Sin partidos para esta jornada.")
+            lines.append(t("renderer.fixtures_gw.none", locale))
 
         bgw = summary.get("blank_gw_teams", [])
         if bgw:
-            lines.append(f"  Equipos sin partido (BGW): {', '.join(bgw)}")
+            lines.append(t("renderer.fixtures_gw.bgw_teams", locale, teams=", ".join(bgw)))
 
         return "\n".join(lines)
 
     if status == "invalid_argument":
-        return output.get("message", "Número de jornada fuera de rango (1-38).")
+        return output.get("message", t("renderer.fixtures_gw.out_of_range", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_gameweek_context(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_gameweek_context raw_output.  P2.5."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_gameweek_context raw_output.  P2.5.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         curr_gw    = output.get("current_gw", "?")
@@ -1448,7 +1350,7 @@ def _render_get_gameweek_context(output: dict[str, Any], locale: Locale = DEFAUL
         double_al  = output.get("double_gw_alerts", [])
 
         if is_over:
-            return "La temporada ha finalizado."
+            return t("renderer.gw_context.season_over", locale)
 
         next_str = "N/A"
         if next_gw is not None:
@@ -1457,29 +1359,28 @@ def _render_get_gameweek_context(output: dict[str, Any], locale: Locale = DEFAUL
                 next_str += f" (deadline: {next_dl})"
 
         lines = [
-            f"Jornada actual: GW{curr_gw} ({curr_st}). Próxima jornada: {next_str}."
+            t("renderer.gw_context.line", locale, curr=curr_gw, status=curr_st, next=next_str)
         ]
 
         for alert in blank_al:
             gw    = alert.get("gw", "?")
             teams = ", ".join(alert.get("blank_teams", []))
-            lines.append(f"  • BGW{gw}: equipos sin partido — {teams}")
+            lines.append(t("renderer.gw_context.blank", locale, gw=gw, teams=teams))
 
         for alert in double_al:
             gw    = alert.get("gw", "?")
             teams = ", ".join(alert.get("double_teams", []))
-            lines.append(f"  • DGW{gw}: equipos con doble partido — {teams}")
+            lines.append(t("renderer.gw_context.double", locale, gw=gw, teams=teams))
 
         return "\n".join(lines)
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error obteniendo contexto de jornada.")
+    message = output.get("message", t("renderer.gw_context.error", locale))
     return f"Error ({code}): {message}"
 
 
 def _render_get_team_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render get_team_snapshot raw_output.  P2.6."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render get_team_snapshot raw_output.  P2.6.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         team      = output.get("team", {})
@@ -1494,51 +1395,54 @@ def _render_get_team_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_L
         top_sc    = summary.get("top_scorer_web_name", "?")
         top_frm   = summary.get("top_form_web_name", "?")
 
-        run_label = "fácil" if easy_run else ("dura" if summary.get("is_hard_run") else "media")
+        run_label = t(
+            "renderer.team_snapshot.run_easy" if easy_run
+            else "renderer.team_snapshot.run_hard" if summary.get("is_hard_run")
+            else "renderer.team_snapshot.run_mid",
+            locale,
+        )
 
-        lines = [f"**{name} ({short})** — racha {run_label} (FDR medio: {avg_fdr:.1f})"]
+        lines = [t("renderer.team_snapshot.header", locale, name=name, short=short, run=run_label, avg=f"{avg_fdr:.1f}")]
 
         # Upcoming fixtures table
         if fixtures:
-            lines.append("  Próximos partidos:")
+            lines.append(t("renderer.team_snapshot.fixtures", locale))
             for fx in fixtures:
                 gw       = fx.get("gw", "?")
                 opp      = fx.get("opponent_short", "?")
                 is_home  = fx.get("is_home", True)
                 fdr      = fx.get("fdr", "?")
-                venue    = "L" if is_home else "V"
+                venue    = t("advantage.venue_home" if is_home else "advantage.venue_away", locale)
                 lines.append(f"    GW{gw}: {opp} ({venue}) FDR {fdr}")
 
         # Top players table
         if players:
-            lines.append("  Mejores jugadores (por puntos):")
+            lines.append(t("renderer.team_snapshot.top_players", locale))
             for p in players:
                 pname = p.get("web_name", "?")
                 pos   = p.get("position", "?")
                 pts   = p.get("total_points", 0)
                 form  = p.get("form", 0.0)
                 cost  = p.get("now_cost", 0) / 10.0
-                lines.append(f"    {pname} ({pos}) — {pts}pts | forma {form} | £{cost:.1f}m")
+                lines.append(
+                    t("renderer.team_snapshot.player_row", locale, name=pname, pos=pos, pts=pts,
+                      form=form, cost=f"{cost:.1f}")
+                )
 
-        lines.append(
-            f"  Máximo goleador: {top_sc} | Mejor forma: {top_frm}"
-        )
+        lines.append(t("renderer.team_snapshot.leaders", locale, scorer=top_sc, form=top_frm))
         return "\n".join(lines)
 
     if status == "ambiguous":
         query      = output.get("query", "")
         candidates = output.get("candidates", [])
         shorts     = [c.get("short_name", "?") for c in candidates]
-        return (
-            f"Múltiples equipos coinciden con '{query}': {', '.join(shorts)}. "
-            "Por favor especifica."
-        )
+        return t("renderer.team_snapshot.ambiguous", locale, query=query, shorts=", ".join(shorts))
 
     if status == "not_found":
-        return output.get("message", "Equipo no encontrado.")
+        return output.get("message", t("renderer.team_snapshot.not_found", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
 
 
@@ -1553,6 +1457,13 @@ _CHIP_DISPLAY_LABEL: dict[str, str] = {
     "bench_boost":    "Bench Boost",
     "free_hit":       "Free Hit",
 }
+
+
+def _render_get_gw_report(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_gw_report raw_output.  R1 (wording lives in gw_report_text)."""
+    from .gw_report_text import render_gw_report  # noqa: PLC0415
+
+    return render_gw_report(output, locale)
 
 
 def _render_get_my_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
@@ -1651,18 +1562,17 @@ def _render_search_web(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) 
     individually, so the real content is always visible regardless of how
     this summary reads.
     """
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status != "ok":
         code    = output.get("code", "error")
-        message = output.get("message", "No se pudo completar la búsqueda web.")
+        message = output.get("message", t("renderer.web.error", locale))
         return f"Error ({code}): {message}"
 
     results = output.get("results") or []
     if not results:
-        return "No encontré resultados relevantes para esa búsqueda."
+        return t("renderer.web.none", locale)
 
-    lines = ["Esto encontré en la web:"]
+    lines = [t("renderer.web.found", locale)]
     for r in results[:3]:
         title = r.get("title", "")
         snippet = r.get("snippet", "")
@@ -1673,23 +1583,20 @@ def _render_search_web(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) 
 
 def _render_web_fetch(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render web_fetch raw_output.  P2.7."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
     if status == "ok":
         url      = output.get("url", "?")
         length   = output.get("content_length", 0)
         excerpt  = output.get("text_excerpt", "")
         trunc    = output.get("truncated", False)
-        trunc_note = " (truncado)" if trunc else ""
-        return (
-            f"Obtenido {url} ({length} bytes{trunc_note}).\n{excerpt}"
-        )
+        trunc_note = t("renderer.fetch.truncated", locale) if trunc else ""
+        return t("renderer.fetch.ok", locale, url=url, length=length, trunc=trunc_note, excerpt=excerpt)
 
     if status == "refused":
-        return output.get("message", "URL rechazada por la lista de dominios permitidos.")
+        return output.get("message", t("renderer.fetch.refused", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error al obtener la URL.")
+    message = output.get("message", t("renderer.fetch.error", locale))
     http_st = output.get("http_status")
     suffix  = f" (HTTP {http_st})" if http_st else ""
     return f"Error ({code}): {message}{suffix}"
@@ -1712,8 +1619,7 @@ def _rank_is_inverted(metric: str, order: "str | None") -> bool:
 
 
 def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
-    """Render rank_players_by_metric raw_output.  P2.8."""
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
+    """Render rank_players_by_metric raw_output.  P2.8.  i18n S5a: localized."""
     status = output.get("status")
     if status == "ok":
         metric    = output.get("metric", "?")
@@ -1724,27 +1630,26 @@ def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFA
 
         filter_parts: list[str] = []
         if pos_flt:
-            filter_parts.append(f"posición: {pos_flt}")
+            filter_parts.append(t("renderer.metric.pos_filter", locale, pos=pos_flt))
         if min_mins > 0:
-            filter_parts.append(f"min. minutos: {min_mins}")
+            filter_parts.append(t("renderer.metric.min_minutes", locale, n=min_mins))
         filter_str = f" [{', '.join(filter_parts)}]" if filter_parts else ""
 
         if not ranked:
-            return f"Sin jugadores para la métrica '{metric}'{filter_str}."
+            return t("renderer.metric.none", locale, metric=metric, filters=filter_str)
 
         # An inverted ranking must not be titled "Top": that is exactly how a
         # cheapest-first list got read back as the most expensive players.
         if _rank_is_inverted(metric, order):
-            extreme = "menor" if order == "asc" else "mayor"
-            header = (
-                f"Los {len(ranked)} jugadores con {extreme} "
-                f"{metric}{filter_str}:"
+            header = t(
+                "renderer.metric.inverted_asc" if order == "asc" else "renderer.metric.inverted_desc",
+                locale, n=len(ranked), metric=metric, filters=filter_str,
             )
         else:
-            header = f"Top {len(ranked)} jugadores por {metric}{filter_str}:"
+            header = t("renderer.metric.top", locale, n=len(ranked), metric=metric, filters=filter_str)
         lines = [header]
         # Table header
-        lines.append("  #  | Jugador       | Equipo | Pos | Valor métrica")
+        lines.append(t("renderer.metric.table", locale))
         lines.append("  ---|---------------|--------|-----|---------------")
         for entry in ranked:
             rank  = entry.get("rank", "?")
@@ -1759,10 +1664,10 @@ def _render_rank_players_by_metric(output: dict[str, Any], locale: Locale = DEFA
         return "\n".join(lines)
 
     if status == "invalid_argument":
-        return output.get("message", "Métrica no reconocida.")
+        return output.get("message", t("renderer.metric.unknown", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
 
 
@@ -2031,9 +1936,8 @@ def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE)
 
     Prints the totals the solver computed, in the solver's own units. Nothing
     here re-adds a column: the whole point of the tool is that the arithmetic
-    happens once, in one place.
+    happens once, in one place.  i18n S5a: localized.
     """
-    del locale  # F1 commit 1: mechanical signature only, not yet honored.
     status = output.get("status")
 
     if status == "ok":
@@ -2042,11 +1946,10 @@ def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE)
         xi_ids    = {entry.get("id") for entry in output.get("starting_xi", [])}
 
         lines = [
-            f"Equipo de {output.get('squad_size', len(squad))} jugadores "
-            f"por {output.get('objective', '?')} "
-            f"(base: {output.get('ranking_basis', '?')}):"
+            t("renderer.squad.header", locale, n=output.get('squad_size', len(squad)),
+              objective=output.get('objective', '?'), basis=output.get('ranking_basis', '?'))
         ]
-        lines.append("  Pos | Jugador          | Club | Precio | Valor  | XI")
+        lines.append(t("renderer.squad.table", locale))
         lines.append("  ----|------------------|------|--------|--------|----")
         for entry in squad:
             pos   = str(entry.get("position", "?")).ljust(3)
@@ -2054,46 +1957,45 @@ def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE)
             club  = str(entry.get("team_short", "?")).ljust(4)
             price = f"{entry.get('price', 0.0):.1f}m".rjust(6)
             value = str(entry.get("objective_value", "?")).rjust(6)
-            mark  = "XI" if entry.get("id") in xi_ids else "banca"
+            mark  = "XI" if entry.get("id") in xi_ids else t("renderer.squad.bench", locale)
             if entry.get("locked"):
                 mark += " *"
             lines.append(f"  {pos} | {name} | {club} | {price} | {value} | {mark}")
 
         lines.append(
-            f"  Coste total: {output.get('total_cost', 0.0)}m de "
-            f"{output.get('budget', 0.0)}m — queda {output.get('remaining', 0.0)}m."
+            t("renderer.squad.total", locale, cost=output.get('total_cost', 0.0),
+              budget=output.get('budget', 0.0), remaining=output.get('remaining', 0.0))
         )
         clubs = output.get("club_counts") or {}
         if clubs:
             lines.append(
-                "  Por club: "
-                + ", ".join(f"{club} {count}" for club, count in clubs.items())
-                + f" (máximo permitido {3})."
+                t("renderer.squad.clubs", locale,
+                  clubs=", ".join(f"{club} {count}" for club, count in clubs.items()), max=3)
             )
         if formation:
-            lines.append(f"  Alineación: {formation} (más portero).")
+            lines.append(t("renderer.squad.formation", locale, formation=formation))
         for warning in output.get("warnings", []):
-            lines.append(f"  Aviso: {warning}")
+            lines.append(t("renderer.squad.warning", locale, warning=warning))
         return "\n".join(lines)
 
     if status == "infeasible":
-        return output.get("message", "No existe ningún equipo legal con esas restricciones.")
+        return output.get("message", t("renderer.squad.infeasible", locale))
 
     if status == "ambiguous":
         candidates = ", ".join(
             str(candidate.get("web_name", "?")) for candidate in output.get("candidates", [])
         )
-        message = output.get("message", "Varios jugadores coinciden.")
-        return f"{message} Candidatos: {candidates}." if candidates else message
+        message = output.get("message", t("renderer.squad.ambiguous", locale))
+        return t("renderer.squad.candidates", locale, message=message, names=candidates) if candidates else message
 
     if status == "not_found":
-        return output.get("message", "No encontré a ese jugador.")
+        return output.get("message", t("renderer.squad.not_found", locale))
 
     if status == "invalid_argument":
-        return output.get("message", "Argumentos no válidos para armar el equipo.")
+        return output.get("message", t("renderer.squad.invalid", locale))
 
     code    = output.get("code", "error")
-    message = output.get("message", "Error inesperado.")
+    message = output.get("message", t("renderer.error_unexpected", locale))
     return f"Error ({code}): {message}"
 
 
@@ -2223,6 +2125,176 @@ def _render_player_intelligence_v2(output: dict[str, Any], locale: Locale = DEFA
     from .football_intelligence_renderer import render_player_intelligence
     return render_player_intelligence(output)
 
+def _render_get_position_changes(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_position_changes (B4). Deterministic and conservative: the slot is the announced XI, claims keep
+    their status (observed / associated / unproven), and nothing here says why a player was placed anywhere."""
+    status = output.get("status")
+    if status == "ambiguous":
+        return output.get("message") or t("renderer.position_changes.ambiguous", locale, query=output.get("query", "?"))
+    if status == "not_found":
+        return output.get("message") or t("renderer.position_changes.not_found", locale, query=output.get("query", "?"))
+    if status == "not_a_teammate":
+        return t("renderer.position_changes.not_a_teammate", locale, query=output.get("query", "?"),
+                 name=(output.get("player") or {}).get("web_name", "?"))
+    matches = output.get("matches") or []
+    if status != "ok" or not matches:
+        return t("renderer.position_changes.missing", locale)
+
+    player = output.get("player") or {}
+    lines = [t("renderer.position_changes.header", locale, name=player.get("web_name", "?"),
+               team=player.get("team_short", "?"), n=len(matches))]
+    if output.get("fpl_position_gap"):
+        lines.append("  " + gap_text(output["fpl_position_gap"], locale))
+    if output.get("role_switch"):
+        lines.append("  " + switch_text(output["role_switch"], locale))
+    any_change = False
+    for m in matches:
+        where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                  opp=m.get("opponent", "?"))
+        gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
+        pstatus = m.get("player_status")
+        if pstatus == "started":
+            what = t("renderer.position_changes.started", locale, role=role_text(m.get("slot"), locale))
+        elif pstatus == "bench":
+            what = t("renderer.position_changes.bench", locale)
+        else:
+            what = t("renderer.position_changes.not_listed", locale)
+        flag = t("renderer.position_changes.provisional", locale) if m.get("lineup_status") == "provisional" else ""
+        out = f"; {out_text(m['fpl_out'], locale)}" if m.get("fpl_out") else ""
+        slot_note = slot_row_text(m.get("slot_occupants"), locale)
+        out += f"; {slot_note}" if slot_note else ""
+        lines.append(f"  {gw} {where}: {what}{flag}{out}")
+        change = m.get("change")
+        if change and change.get("kind") == "line":
+            any_change = True
+            lines.append(t("renderer.position_changes.changed_line_forward" if change.get("direction") == "further_forward"
+                           else "renderer.position_changes.changed_line_deeper", locale))
+        elif change:
+            any_change = True
+            lines.append(t("renderer.position_changes.changed", locale, before=role_text(change.get("from"), locale)))
+        elif m.get("line_comparable") is False:
+            lines.append(t("renderer.position_changes.line_unknown", locale))
+        for a in m.get("associations") or []:
+            presence = t("renderer.position_changes.presence_bench" if a.get("presence") == "on_bench"
+                         else "renderer.position_changes.presence_not_listed", locale)
+            sidelined = t("renderer.position_changes.sidelined", locale) if a.get("listed_sidelined") else ""
+            unmapped = t("renderer.position_changes.unmapped", locale) if a.get("may_be_unmapped") else ""
+            lines.append(t("renderer.position_changes.assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?"),
+                           presence=presence, sidelined=sidelined, unmapped=unmapped))
+            hyp = a.get("hypothesis")
+            if hyp:
+                lines.append(t("renderer.position_changes.hypothesis", locale,
+                               name=(a.get("teammate") or {}).get("web_name", "?"), role=role_text(hyp.get("position"), locale)))
+        if m.get("associations_more"):
+            lines.append(t("renderer.position_changes.assoc_more", locale, n=m["associations_more"]))
+    if not any_change:
+        lines.append(t("renderer.position_changes.no_change", locale))
+    outs = [m["fpl_out"] for m in matches if m.get("fpl_out")]
+    if outs:
+        lines.append(t("renderer.position_changes.out_summary", locale, n=len(outs),
+                       date=out_date(str(min(o.get("since") or "" for o in outs)), locale)))
+    lines.extend(slot_summary_lines(output.get("slot_cover"), player.get("web_name", "?"), locale))
+    focus = output.get("absence_focus")
+    if focus:
+        none = t("renderer.position_changes.focus_none", locale)
+        lines.append(t("renderer.position_changes.focus", locale, name=(focus.get("teammate") or {}).get("web_name", "?"),
+                       k=len(focus.get("matches_without_him_in_xi") or []), m=len(focus.get("matches_with_him_in_xi") or []),
+                       without=role_text(focus.get("usual_role_without_him"), locale) if focus.get("usual_role_without_him") else none,
+                       with_him=role_text(focus.get("usual_role_with_him"), locale) if focus.get("usual_role_with_him") else none))
+    sample = output.get("sample") or {}
+    if sample.get("small_sample"):
+        lines.append(t("renderer.position_changes.small_sample", locale, n=sample.get("matches_with_stored_lineup", len(matches))))
+    if focus and focus.get("small_sample"):
+        lines.append(t("renderer.position_changes.small_focus", locale, name=(focus.get("teammate") or {}).get("web_name", "?"),
+                       k=len(focus.get("matches_without_him_in_xi") or []), m=len(focus.get("matches_with_him_in_xi") or []),
+                       min=focus.get("min_each_side", 3)))
+    lines.append(t("renderer.position_changes.footer", locale))
+    built = (output.get("data_provenance") or {}).get("built_at")
+    if built:
+        lines.append(t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]))
+    return "\n".join(lines)
+
+
+def _render_get_player_involvement(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render get_player_involvement (R6). Match totals only: no zones, no causes. A comparison with a teammate keeps its
+    ``associated`` status in the wording ("had more touches when X did not play"; the two coincided)."""
+    status = output.get("status")
+    if status == "ambiguous":
+        return output.get("message") or t("renderer.position_changes.ambiguous", locale, query=output.get("query", "?"))
+    if status == "not_found":
+        return output.get("message") or t("renderer.position_changes.not_found", locale, query=output.get("query", "?"))
+    if status == "not_a_teammate":
+        return t("renderer.position_changes.not_a_teammate", locale, query=output.get("query", "?"),
+                 name=(output.get("player") or {}).get("web_name", "?"))
+    if status == "invalid_args":
+        return t("renderer.player_involvement.invalid_args", locale)
+    matches = output.get("matches") or []
+    if status != "ok" or not matches:
+        return t("renderer.player_involvement.missing", locale)
+
+    def n(value: Any) -> str:
+        return "?" if value is None else (f"{value:g}" if isinstance(value, float) else str(value))
+
+    def block(answer: dict[str, Any]) -> list[str]:
+        rows = answer.get("matches") or []
+        who = answer.get("player") or {}
+        out = [t("renderer.player_involvement.header", locale, name=who.get("web_name", "?"),
+                 team=who.get("team_short", "?"), n=len(rows))]
+        for m in rows:
+            where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
+                      opp=m.get("opponent", "?"))
+            gw = t("renderer.position_changes.gw", locale, gw=m.get("gameweek")) if m.get("gameweek") is not None else ""
+            out.append(f"  {gw} {where}: " + t(
+                "renderer.player_involvement.row", locale, touches=n(m.get("touches")), passes=n(m.get("passes")),
+                acc=n(m.get("pass_accuracy_pct")), keyp=n(m.get("key_passes")), back=n(m.get("backward_passes")),
+                share=n(m.get("backward_share_pct")), mins=n(m.get("minutes"))))
+        avg = answer.get("averages") or {}
+        if avg.get("matches"):
+            out.append(t("renderer.player_involvement.avg", locale, min=30, n=avg["matches"],
+                         touches=n(avg.get("touches_per90")), passes=n(avg.get("passes_per90")),
+                         back=n(avg.get("backward_passes_per90")), acc=n(avg.get("pass_accuracy_pct"))))
+        return out
+
+    lines = block(output)
+    focus = output.get("absence_focus")
+    if focus:
+        mate = (focus.get("teammate") or {}).get("web_name", "?")
+        without, with_him = focus.get("without_him") or {}, focus.get("with_him_starting") or {}
+        direction = focus.get("touches_without_vs_with")
+        if direction is None:
+            lines.append(t("renderer.player_involvement.focus_none", locale, name=mate))
+        else:
+            lines.append(t("renderer.player_involvement.focus_head", locale, name=mate, k=n(without.get("matches")),
+                           a=n(without.get("touches_per90")), m=n(with_him.get("matches")), b=n(with_him.get("touches_per90"))))
+            lines.append(t(f"renderer.player_involvement.focus_{direction}", locale, name=mate))
+        if focus.get("matches_uncertain"):
+            lines.append(t("renderer.player_involvement.uncertain", locale, n=focus["matches_uncertain"], name=mate))
+    sample = output.get("sample") or {}
+    if sample.get("small_sample") or (focus and focus.get("small_sample")):
+        lines.append(t("renderer.player_involvement.small_sample", locale, n=sample.get("matches_with_stats", len(matches))))
+    second = output.get("compare")
+    if second:
+        lines += block(second)
+        if (second.get("sample") or {}).get("small_sample"):
+            lines.append(t("renderer.player_involvement.small_sample", locale,
+                           n=(second.get("sample") or {}).get("matches_with_stats", "?")))
+        comparison = output.get("comparison") or {}
+        a_name = (output.get("player") or {}).get("web_name", "?")
+        b_name = (second.get("player") or {}).get("web_name", "?")
+        cells = [t(f"renderer.player_involvement.cmp_{row['metric']}", locale, a=n(row.get("a")), b=n(row.get("b")))
+                 for row in comparison.get("per90") or []]
+        lines.append(t("renderer.player_involvement.cmp_head", locale, a=a_name, b=b_name) + " " + "; ".join(cells) + ".")
+    missing = output.get("compare_missing")
+    if missing:
+        lines.append(t("renderer.player_involvement.cmp_missing", locale,
+                       name=(missing.get("player") or {}).get("web_name") or "?"))
+    lines.append(t("renderer.player_involvement.footer", locale))
+    built = (output.get("data_provenance") or {}).get("built_at")
+    if built:
+        lines.append(t("renderer.player_involvement.provenance", locale, built_at=str(built)[:10]))
+    return "\n".join(lines)
+
+
 _RENDERERS = {
     "resolve_player":            _render_resolve_player,
     "get_player_summary":        _render_get_player_summary,
@@ -2252,6 +2324,7 @@ _RENDERERS = {
     "get_gameweek_context":     _render_get_gameweek_context,    # P2.5
     "get_team_snapshot":        _render_get_team_snapshot,       # P2.6
     "get_my_squad":             _render_get_my_squad,            # i39
+    "get_gw_report":            _render_get_gw_report,           # R1
     "web_fetch":                _render_web_fetch,               # P2.7
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
     "build_squad":              _render_build_squad,             # S1
@@ -2266,6 +2339,8 @@ _RENDERERS = {
     "get_tactical_role":        _render_tactical_role_v2,        # FI-7b3
     "get_fixture_context":      _render_fixture_context_v2,      # FI-7b3
     "get_player_intelligence":  _render_player_intelligence_v2,  # FI-7b3
+    "get_position_changes":     _render_get_position_changes,        # B4
+    "get_player_involvement":   _render_get_player_involvement,      # R6
 }
 
 

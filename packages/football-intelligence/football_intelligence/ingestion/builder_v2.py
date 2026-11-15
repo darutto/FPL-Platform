@@ -3,16 +3,22 @@ from __future__ import annotations
 import hashlib, json, os, re, shutil, tempfile
 from pathlib import Path
 import pandas as pd
-from football_intelligence.provenance import LIVE_TRIAL_LOCAL, LIVE_TRIAL_NORMALIZER, MOCK_VALIDATED
+from football_intelligence.provenance import (LICENSED_NORMALIZER, LICENSED_SOURCE_KIND, LICENSED_STARTER, LIVE_TRIAL_LOCAL,
+    LIVE_TRIAL_NORMALIZER, LIVE_TRIAL_SOURCE_KIND, MOCK_VALIDATED)
 from .context_v2 import MANIFEST_SCHEMA_VERSION, SCHEMA_VERSION, SCHEMAS, frame, normalize_context, semantic_hash, validate_tables
+
+#: The source kind and normalizer each provenance binds to; status and binding must agree.
+_BINDINGS = {MOCK_VALIDATED: ("checked-in-fixture", {"mock_adapter": "fi5ba-v1"}),
+             LIVE_TRIAL_LOCAL: (LIVE_TRIAL_SOURCE_KIND, {"live_trial_adapter": LIVE_TRIAL_NORMALIZER}),
+             LICENSED_STARTER: (LICENSED_SOURCE_KIND, {"licensed_adapter": LICENSED_NORMALIZER})}
 
 def _hash(path: Path) -> str: return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def build_context_v2(source: Path, destination: Path, *, build_id: str, built_at: str | None = None, fail_after_write: bool = False,
                      provenance: str = MOCK_VALIDATED) -> dict:
-    if provenance not in (MOCK_VALIDATED, LIVE_TRIAL_LOCAL):
+    if provenance not in _BINDINGS:
         raise ValueError("unknown provenance")
-    live = provenance == LIVE_TRIAL_LOCAL
+    source_kind, normalizer_versions = _BINDINGS[provenance]
     if not isinstance(build_id, str) or re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", build_id) is None:
         raise ValueError("build_id must match [a-z0-9]+(?:-[a-z0-9]+)*")
     payload = json.loads(source.read_text(encoding="utf-8")); tables, warnings = normalize_context(payload["canonical"])
@@ -28,8 +34,8 @@ def build_context_v2(source: Path, destination: Path, *, build_id: str, built_at
         (reports / "warnings.json").write_text(json.dumps(warnings, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         manifest = {"schema_version": MANIFEST_SCHEMA_VERSION, "canonical_schema_version": SCHEMA_VERSION,
             "build_family": "canonical-context-v2", "build_id": build_id, "built_at": built_at or payload["captured_at"],
-            "source": {"source_kind": "local-live-trial" if live else "checked-in-fixture", "source_version": payload["version"], "source_content_hash": _hash(source)},
-            "normalizer_versions": {"live_trial_adapter": LIVE_TRIAL_NORMALIZER} if live else {"mock_adapter": "fi5ba-v1"}, "entity_files": files,
+            "source": {"source_kind": source_kind, "source_version": payload["version"], "source_content_hash": _hash(source)},
+            "normalizer_versions": dict(normalizer_versions), "entity_files": files,
             "row_counts": {k: len(v) for k,v in frames.items()}, "content_hashes": content,
             "parquet_byte_hashes": parquet, "warning_count": len(warnings), "assumption_status": provenance}
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -50,10 +56,9 @@ def validate_context_build(build: Path) -> dict:
         "normalizer_versions", "entity_files", "row_counts", "content_hashes", "parquet_byte_hashes",
         "warning_count", "assumption_status"}
     if set(manifest) != fields or manifest.get("schema_version") != 2 or manifest.get("canonical_schema_version") != 2 or manifest.get("build_family") != "canonical-context-v2": raise ValueError("unsupported canonical context contract")
-    live = manifest.get("assumption_status") == LIVE_TRIAL_LOCAL
-    expected_versions = {"live_trial_adapter": LIVE_TRIAL_NORMALIZER} if live else {"mock_adapter": "fi5ba-v1"}
-    if manifest.get("assumption_status") not in (MOCK_VALIDATED, LIVE_TRIAL_LOCAL): raise ValueError("unsupported canonical context binding")
-    if set(manifest["source"]) != {"source_kind", "source_version", "source_content_hash"} or manifest["normalizer_versions"] != expected_versions: raise ValueError("unsupported canonical context binding")
+    if manifest.get("assumption_status") not in _BINDINGS: raise ValueError("unsupported canonical context binding")
+    expected_kind, expected_versions = _BINDINGS[manifest["assumption_status"]]
+    if set(manifest["source"]) != {"source_kind", "source_version", "source_content_hash"} or manifest["normalizer_versions"] != expected_versions or manifest["source"]["source_kind"] != expected_kind: raise ValueError("unsupported canonical context binding")
     tables = {}
     if any(set(manifest[name]) != set(SCHEMAS) for name in ("entity_files", "row_counts", "content_hashes", "parquet_byte_hashes")): raise ValueError("dataset registry mismatch")
     for name, relative in manifest["entity_files"].items():

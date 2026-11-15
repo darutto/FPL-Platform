@@ -220,7 +220,8 @@ or UI integration in FI-6a.
 Sportmonks reads into FI-4a replay sources (one canonical v1 build per
 competition) and one canonical-context-v2 build with all competitions. Every
 store is `live_trial_local` and is refused by every publishing and serving path
-(`provenance.py`). Its decisions are listed in the module docstring: trial-local
+(`provenance.py`); production builds from the paid plan are `licensed_starter`
+and are accepted (FEATURE_CONTRACT.md). Its decisions are listed in the module docstring: trial-local
 club seeds (status `trial-local-unverified`, never in the checked-in registry;
 two provider clubs with one key stop the build), identity only from the
 mapping's pairs, appearances only for players who took the field in completed

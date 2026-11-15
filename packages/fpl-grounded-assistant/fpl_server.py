@@ -84,14 +84,23 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
-from fpl_grounded_assistant.competition_calendar import competitions_response
+from fpl_grounded_assistant.competition_calendar import competitions_response, materialize_manual_layer
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
+from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
 from fpl_grounded_assistant.player_form import _element_summary_guard  # Phase 2.6d.3 — guard stats
 from fpl_pipeline import assemble_captain_context
 try:
     from football_intelligence.distribution import startup_sync as _football_startup_status
 except ImportError:  # fail-soft for partial/source-only deployments
     _football_startup_status = None
+try:
+    # B4: read-only sync of the licensed matchday family; off unless FPL_FOOTBALL_LICENSED_SYNC_ENABLED is truthy.
+    from football_intelligence.distribution.licensed_runtime import LicensedResync as _LicensedResync
+    from football_intelligence.distribution.licensed_runtime import licensed_startup_sync as _football_licensed_sync
+except ImportError:
+    _football_licensed_sync = None
+    _LicensedResync = None
+_licensed_resync: Any = None
 
 # Phase P3.1: quota meter + audit log
 from fpl_grounded_assistant.quota import (  # noqa: E402
@@ -302,6 +311,11 @@ class AskRequest(BaseModel):
     #: WEB_SEARCH_TIERS — see the gate in POST /ask. Parity with WC's
     #: AskRequest.web_search_requested.
     web_search_requested: bool = False
+    #: i18n S0: the UI's selected language, ``"es"`` or ``"en"``. Optional and
+    #: tolerant -- anything else (or absent) reads as the default locale in
+    #: ``resolve_locale``. Not identity and not a trust boundary: the UI decides
+    #: who may select ``en`` (rollout flag); the backend honours what it is told.
+    locale: str | None = None
 
 
 class AskResponse(BaseModel):
@@ -362,6 +376,8 @@ class AskResponse(BaseModel):
     suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
+    # A metric ranking's verdict: 0-3 {key, params, evidence} conclusions about the table; null when none fires.
+    table_conclusions:    list[dict[str, Any]] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -498,6 +514,8 @@ class SessionAskResponse(BaseModel):
     suggestions:          list[dict[str, Any]] | None = None
     # Phase A1 (post-graduation): full ResourceListResult dict for @resource turns; null for all other intents.
     resource_rows:        dict[str, Any] | None = None
+    # A metric ranking's verdict: 0-3 {key, params, evidence} conclusions about the table; null when none fires.
+    table_conclusions:    list[dict[str, Any]] | None = None
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -1027,12 +1045,24 @@ async def lifespan(app: FastAPI):
     attempts fail the server starts in a degraded state and /ask returns 503
     until the bootstrap is populated externally (no manual restart required).
     """
-    global _football_distribution_status
+    global _football_distribution_status, _licensed_resync
     # FI-4b performs a bounded, fail-soft remote synchronization when configured.
     # Disabled/malformed configuration never prevents unrelated backend startup.
     if _football_startup_status is not None:
         _football_distribution_status = _football_startup_status()
         app.state.football_distribution_status = _football_distribution_status
+    if _football_licensed_sync is not None:
+        _licensed_status = _football_licensed_sync()
+        app.state.football_licensed_status = _licensed_status
+        # State and reason code only: nothing about the build's content is logged.
+        _LOG.info("football licensed sync: state=%s reason=%s", _licensed_status.state, _licensed_status.reason_code)
+        # Stay current without a restart: the ingestion publishes new builds all day. Same flag as the startup sync.
+        if _LicensedResync is not None:
+            _licensed_resync = _LicensedResync()
+            _licensed_resync.status = _licensed_status
+            _licensed_resync.start()
+    # European manual_curated layer: the pasted Railway variable -> its file. Fail-soft, counts only in the log.
+    app.state.manual_calendar_status = materialize_manual_layer()
     # H5: optional startup sync of the owned store from R2. Runs BEFORE the
     # bootstrap fetch so the bootstrap (and per-tool) fallbacks can read the
     # synced data. Gated by sync_enabled() — default-off preserves current
@@ -1065,13 +1095,15 @@ async def lifespan(app: FastAPI):
         _try_init_classifier_from_env()
     if not os.environ.get("FPL_INTERNAL_TOKEN", "").strip():
         _LOG.warning(
-            "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers. "
-            "Set this in production to restrict quota probing."
+            "FPL_INTERNAL_TOKEN not set — GET /quota is open to unauthenticated callers "
+            "and X-User-Tier is trusted from anyone. Set this in production."
         )
     try:
         yield
     finally:
         _stop_bootstrap_refresh()
+        if _licensed_resync is not None:
+            _licensed_resync.stop()
 
 
 app = FastAPI(
@@ -1404,6 +1436,15 @@ def _player_snapshot_meta_dict(ps: Any) -> dict[str, Any]:
         # Bloque 10: None when the zonal section is omitted. ``share`` and
         # ``player_share`` are 0-1 fractions (the UI converts to percent).
         "zonal": _dc_asdict(ps.zonal) if getattr(ps, "zonal", None) is not None else None,
+        # The fixture strip's axis from the observed role; None = FPL fallback in the UI.
+        "strip_axis": getattr(ps, "strip_axis", None),
+        # The verdict above the card; [] = no block. Structured: the UI words each key.
+        "conclusions": [
+            {"key": c.key, "params": c.params, "evidence": c.evidence}
+            for c in getattr(ps, "conclusions", ())
+        ],
+        # Player-card signals (player_signals.py): [] = no pill row.
+        "signals": [_dc_asdict(sig) for sig in getattr(ps, "signals", ())],
     }
 
 
@@ -1902,11 +1943,23 @@ def healthz() -> dict[str, Any]:
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
         "orchestrator":         orchestrator_info,
         "bootstrap":            _bootstrap_health(),  # i150
+        # i18n S0 (D1=B): turns by "<locale>:<question_lang>" and the share where
+        # the (known) question language differs from the selected locale.
+        "locale":               locale_mismatch.snapshot(),
     }
     # Key is added only once a tactical sync has run: with the flag off the
     # /healthz payload stays byte-for-byte identical to pre-go-live responses.
     if tactical_store_sync_info is not None:
         payload["tactical_store_sync"] = tactical_store_sync_info
+    # Startup states that module INFO logs cannot show on Railway (root logger at WARNING). Counts and codes only;
+    # each key appears once the lifespan has set it, so a payload without them is unchanged.
+    _manual = getattr(app.state, "manual_calendar_status", None)
+    if _manual is not None:
+        payload["manual_calendar"] = {k: _manual.get(k) for k in ("state", "matches", "list_date")}
+    _licensed = _licensed_resync.status if _licensed_resync is not None else getattr(
+        app.state, "football_licensed_status", None)
+    if _licensed is not None:
+        payload["football_licensed"] = {"state": _licensed.state, "reason_code": _licensed.reason_code}
     return payload
 
 
@@ -2051,12 +2104,21 @@ def _extract_user_context(request: Request) -> tuple[str, str]:
     user_id = hash_user_id(raw_user_id)
     _default_tier = os.environ.get("FPL_DEV_TIER", "free")
     tier    = request.headers.get("X-User-Tier", _default_tier) or _default_tier
+    # i153: the backend is public, so a tier header is believed only from the
+    # frontend, which proves itself with X-Internal-Token (same secret and scheme
+    # as GET /quota). Without FPL_INTERNAL_TOKEN set (local dev) there is nothing
+    # to check against and the header is taken as before.
+    _internal_token = os.environ.get("FPL_INTERNAL_TOKEN", "").strip()
+    if _internal_token and not hmac.compare_digest(
+        request.headers.get("X-Internal-Token", ""), _internal_token
+    ):
+        tier = "free"
     return user_id, tier
 
 
 def tier_of(request: Request) -> str:
-    """The caller's tier. The ONE place a non-/ask route reads it (i153 hardens it here:
-    today ``X-User-Tier`` is trusted from any caller, see ``_extract_user_context``)."""
+    """The caller's tier. The ONE place a non-/ask route reads it; a forged
+    ``X-User-Tier`` without the internal token is ``free`` (i153)."""
     return _extract_user_context(request)[1]
 
 
@@ -2076,22 +2138,41 @@ def fixtures_competitions(
 def resolve_locale(request: Request, body: "AskRequest") -> Locale:
     """Resolve the locale for one turn. Language-track F0 boundary carrier.
 
-    Phase F0: always returns ``DEFAULT_LOCALE`` — both parameters are
-    currently ignored. F2 (client signal, e.g. ``Accept-Language``) and F3
-    (system-prompt wiring) replace this function's body and nothing else.
+    i18n S0 (F2): the body's ``locale`` field, when it is ``"es"`` or ``"en"``;
+    otherwise ``DEFAULT_LOCALE``. ``Accept-Language`` is NOT consulted here --
+    the first-visit default is the UI's job (one policy, ``resolveLocale``),
+    and the choice reaches the backend as the explicit body field.
     """
-    del request, body  # F0: not yet honored.
+    del request  # reserved: no header signal by design (see docstring).
+    value = (body.locale or "").strip().lower()
+    if value in ("es", "en"):
+        return value  # type: ignore[return-value]
     return DEFAULT_LOCALE
+
+
+def _note_locale_turn(locale: Locale, question: str) -> str:
+    """Detect the question's language and count it against the locale (D1=B).
+
+    Feeds ``/healthz`` ``locale`` and the audit line. Never raises: a detector
+    problem must not cost the user a turn.
+    """
+    try:
+        question_lang = detect_question_lang(question)
+        locale_mismatch.record(locale, question_lang)
+        return question_lang
+    except Exception:  # noqa: BLE001
+        _LOG.exception("question_lang detection failed")
+        return "unknown"
 
 
 def _quota_upgrade_text(quota_check: "QuotaCheck", locale: Locale = DEFAULT_LOCALE) -> str:
     """Build the quota-exceeded upgrade message.
 
-    *locale* is a language-track F0 carrier param; ignored for now — the
-    message is always ``quota_check.upgrade_prompt_es`` (or its English
-    literal fallback) regardless of *locale*'s value (see F1).
+    ``quota._upgrade_prompts`` builds both languages; this picks one by
+    *locale* (i18n S0). Each falls back to its own language's literal.
     """
-    del locale  # F0: not yet honored.
+    if locale == "en":
+        return quota_check.upgrade_prompt_en or "You've reached your usage limit. Please upgrade your plan."
     return quota_check.upgrade_prompt_es or "Has alcanzado tu límite de uso. Por favor actualiza tu plan."
 
 
@@ -2172,6 +2253,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
 
     # Language track F0: resolve once at the boundary, thread down.
     locale = resolve_locale(request, req)
+    _question_lang = _note_locale_turn(locale, req.question)
 
     # ------------------------------------------------------------------
     # Premium web-search gate (tier allowlist + explicit opt-in).
@@ -2183,6 +2265,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     if req.web_search_requested and tier not in WEB_SEARCH_TIERS:
         return AskResponse(
             final_text=(
+                "Web search is a premium feature. "
+                "Upgrade to Socio Junior or above on Patreon to turn it on."
+                if locale == "en" else
                 "La búsqueda web es una función premium. "
                 "Sube a Socio Junior o superior en Patreon para activarla."
             ),
@@ -2358,13 +2443,15 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         guarded_raw_answer_text=ask_v2_dict.get("guarded_raw_answer_text"),
         # i116: present only when the Jev shadow ran on this turn.
         turn_id=_routing_trace.get("jev_shadow_turn_id"),
+        locale=locale,
+        question_lang=_question_lang,
     )
     try:
         write_audit_entry(_audit_entry)
     except Exception as _exc:  # noqa: BLE001
         _LOG.exception("audit write failed: %s", _exc)  # P3.f F8: observable signal
 
-    return _to_ask_response(ask_v2_dict, req, _turn_bootstrap)  # i137: chip windows
+    return _to_ask_response(ask_v2_dict, req, _turn_bootstrap, locale=locale)  # i137: chip windows; i18n S3b: locale
 
 
 @app.post("/session", response_model=CreateSessionResponse)
@@ -2496,6 +2583,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
 
     # Language track F0: resolve once at the boundary, thread down.
     locale = resolve_locale(request, req)
+    _question_lang = _note_locale_turn(locale, req.question)
 
     # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
     _sess_question_stripped = req.question.lstrip()
@@ -2624,6 +2712,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         final_text_guard_reason=_sess_guard_reason,
         guarded_raw_answer_text=_sess_guarded_raw,
         turn_id=_sess_turn_id,
+        locale=locale,
+        question_lang=_question_lang,
     )
     try:
         write_audit_entry(_sess_audit_entry)
@@ -2777,6 +2867,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
+        table_conclusions=r.table_conclusions,  # metric ranking's verdict (already plain JSON)
         # i102: the calendar card, already built correctly on FinalResponse by
         # Track D / i93 (composed_primary_call) and never serialized here.
         fixture_outlook=_to_dict(r.fixture_outlook),

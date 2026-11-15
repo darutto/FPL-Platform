@@ -235,6 +235,92 @@ def player_disambiguation_suggestions(
     return items or None
 
 
+def _fold_with_offsets(text: str) -> "tuple[str, list[int]]":
+    """Accent- and case-folded ``text`` plus, per folded char, its index in ``text``."""
+    import unicodedata  # noqa: PLC0415
+
+    folded: list[str] = []
+    origin: list[int] = []
+    for index, char in enumerate(text):
+        for piece in unicodedata.normalize("NFKD", char):
+            if unicodedata.combining(piece):
+                continue
+            folded.append(piece.lower())
+            origin.append(index)
+    return "".join(folded), origin
+
+
+def replace_mention(question: str, mention: str, replacement: str) -> "str | None":
+    """``question`` with the first whole-word ``mention`` swapped for ``replacement``.
+
+    Accent- and case-insensitive ("Joao Pedro" finds "João Pedro"); ``None`` when the
+    mention is not in the question, so the caller can decline to build a chip.
+    """
+    needle, _ = _fold_with_offsets(mention.strip())
+    haystack, origin = _fold_with_offsets(question)
+    if not needle:
+        return None
+    start = haystack.find(needle)
+    while start >= 0:
+        end = start + len(needle)
+        before_ok = start == 0 or not haystack[start - 1].isalnum()
+        after_ok = end == len(haystack) or not haystack[end].isalnum()
+        if before_ok and after_ok:
+            first, last = origin[start], origin[end - 1] + 1
+            return question[:first] + replacement + question[last:]
+        start = haystack.find(needle, start + 1)
+    return None
+
+
+def question_is_only_the_name(question: str, mention: str) -> bool:
+    """True when nothing but the player's name (and punctuation) is left of ``question``."""
+    rest = replace_mention(question, mention, "") if mention.strip() else None
+    if rest is None:
+        return False
+    return not any(char.isalnum() for char in rest)
+
+
+def question_resume_suggestions(
+    candidates: "list[dict[str, Any]] | tuple[dict[str, Any], ...]",
+    mention: str,
+    question: str,
+    bootstrap: "dict[str, Any] | None" = None,
+) -> "tuple[Suggestion, ...] | None":
+    """Pick-one chips that re-ask the user's OWN question with the player named in full.
+
+    For tools whose answer is not the player card (position changes, involvement):
+    the stable-id handoff would answer with the generic snapshot and drop the question.
+    Each chip's ``send_text`` is the original question with ``mention`` replaced by the
+    candidate's full name (which the resolver matches whole), sent verbatim with no id.
+    ``None`` when the mention cannot be found in the question or no candidate has a name,
+    and (loop guard) when two chips would send the same text or, given ``bootstrap``, a
+    full name does not resolve back to its own candidate: the caller then keeps today's chips.
+    """
+    items = []
+    for candidate in candidates:
+        full_name = str(candidate.get("name") or "").strip()
+        if not full_name and bootstrap is not None:
+            # get_player_snapshot / get_player_form candidates carry no first/second name.
+            element = next(
+                (e for e in bootstrap.get("elements", []) or [] if e.get("id") == candidate.get("id")), {}
+            )
+            full_name = f"{element.get('first_name', '')} {element.get('second_name', '')}".strip()
+        label = f"{candidate.get('web_name', '')} ({candidate.get('team_short', '')})"
+        rewritten = replace_mention(question, mention, full_name) if full_name else None
+        if rewritten is None or not candidate.get("web_name"):
+            return None
+        if bootstrap is not None:
+            from fpl_tool_contract import tool_resolve_player  # noqa: PLC0415
+
+            resolved = tool_resolve_player(full_name, bootstrap)
+            if resolved.get("status") != "ok" or resolved.get("player_id") != candidate.get("id"):
+                return None
+        items.append(Suggestion(label=label, send_text=rewritten, player_id=None, kind=KIND_PROMPT_REWRITE))
+    if len({item.send_text for item in items}) != len(items):
+        return None
+    return tuple(items) or None
+
+
 def historical_player_suggestions(
     candidates: "list[dict[str, Any]] | tuple[dict[str, Any], ...]",
     season: str,

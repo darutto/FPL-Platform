@@ -14,14 +14,17 @@
 import type { CaptainScoreMeta } from '@/lib/types';
 import { TIER_CONFIG, TIER_BADGE_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
+import { useT } from '@/lib/i18n/LocaleProvider';
+import type { DictKey } from '@/lib/i18n/dictionary';
 
 interface Props {
   data: CaptainScoreMeta;
 }
 
 export default function CaptainCard({ data }: Props) {
+  const t = useT();
   const { web_name, team_short, captain_score, tier, set_piece_notes } = data;
-  const { label, icon, badgeClass, barClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
+  const { labelKey, icon, badgeClass, barClass } = TIER_CONFIG[tier] ?? TIER_CONFIG.low_confidence;
 
   return (
     <div className={`mt-3 text-sm ${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
@@ -35,14 +38,14 @@ export default function CaptainCard({ data }: Props) {
           </div>
           <span className={`flex-shrink-0 ${TIER_BADGE_BASE} ${badgeClass}`}>
             <span className="text-[11px] leading-none">{icon}</span>
-            {label}
+            {t(labelKey)}
           </span>
         </div>
 
         {/* Score bar */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-bf-gray">
-            <span>Puntuación de capitán</span>
+            <span>{t('captain.score')}</span>
             <span className="font-display tracking-tighter text-white text-sm leading-none">{captain_score.toFixed(1)}</span>
           </div>
           <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
@@ -59,7 +62,7 @@ export default function CaptainCard({ data }: Props) {
             {set_piece_notes.map((note) => (
               <li key={note} className="text-xs text-bf-gray flex items-center gap-1.5">
                 <span aria-hidden="true" className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[7px] border-l-transparent border-r-transparent border-b-bf-turquoise" />
-                {translateSetPieceNote(note)}
+                {SET_PIECE_KEYS[note] ? t(SET_PIECE_KEYS[note]) : note.replace(/_/g, ' ')}
               </li>
             ))}
           </ul>
@@ -73,15 +76,11 @@ export default function CaptainCard({ data }: Props) {
 // Set piece note translation
 // ---------------------------------------------------------------------------
 
-const SET_PIECE_LABELS: Record<string, string> = {
-  penalty_taker_1: '1.º lanzador de penaltis',
-  penalty_taker_2: '2.º lanzador de penaltis',
-  freekick_taker_1: '1.º ejecutor de faltas',
-  freekick_taker_2: '2.º ejecutor de faltas',
-  corner_taker_1: 'Primer sacador de córners',
-  corner_taker_2: '2.º sacador de córners',
+const SET_PIECE_KEYS: Record<string, DictKey> = {
+  penalty_taker_1: 'setpiece.penalty_taker_1',
+  penalty_taker_2: 'setpiece.penalty_taker_2',
+  freekick_taker_1: 'setpiece.freekick_taker_1',
+  freekick_taker_2: 'setpiece.freekick_taker_2',
+  corner_taker_1: 'setpiece.corner_taker_1',
+  corner_taker_2: 'setpiece.corner_taker_2',
 };
-
-function translateSetPieceNote(note: string): string {
-  return SET_PIECE_LABELS[note] ?? note.replace(/_/g, ' ');
-}

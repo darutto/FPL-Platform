@@ -16,6 +16,8 @@
  * SlashMenu dropdown: implemented in Phase 2g (components/chat/SlashMenu.tsx).
  */
 import { INTENT_HINT_ALLOWLIST, type IntentHint } from './types';
+import { translate, type DictKey } from './i18n/dictionary';
+import type { Locale } from './i18n/locale';
 
 /**
  * Minimal shape needed by SlashMenu/InputBar — domain-agnostic.
@@ -115,11 +117,34 @@ for (const sc of SLASH_COMMANDS) {
 }
 
 /**
+ * The registry in the language being shown. Spanish is SLASH_COMMANDS itself, untouched;
+ * English keeps each command's intent_hint and swaps in the canonical English name, label
+ * and argument hint (lib/i18n/en.ts, per docs/i18n-glossary.md). The backend accepts both
+ * spellings of every command.
+ */
+export function slashCommandsFor(locale: Locale): SlashCommand[] {
+  if (locale === 'es') return SLASH_COMMANDS;
+  return SLASH_COMMANDS.map((sc) => {
+    const slug = sc.command.slice(1);
+    return {
+      ...sc,
+      command: translate(locale, `slash.${slug}.command` as DictKey),
+      label: translate(locale, `slash.${slug}.label` as DictKey),
+      placeholder: translate(locale, `slash.${slug}.placeholder` as DictKey),
+    };
+  });
+}
+
+/**
  * Return commands whose prefix matches the current input.
  * Returns [] when input doesn't start with '/'.
+ *
+ * In English the English names are offered first; a Spanish prefix that matches no English
+ * name ("/capi") still finds the Spanish command, so typing either language works.
  */
-export function matchSlashCommands(input: string): SlashCommand[] {
-  return matchCommands(input, SLASH_COMMANDS);
+export function matchSlashCommands(input: string, locale: Locale = 'es'): SlashCommand[] {
+  const own = matchCommands(input, slashCommandsFor(locale));
+  return own.length > 0 || locale === 'es' ? own : matchCommands(input, SLASH_COMMANDS);
 }
 
 /**
@@ -135,7 +160,8 @@ export function parseSlashCommand(
   input: string,
 ): { intent_hint: IntentHint; question: string } | null {
   const lower = input.toLowerCase();
-  for (const sc of SLASH_COMMANDS) {
+  // Both spellings of every command are recognised, whatever language is showing.
+  for (const sc of [...SLASH_COMMANDS, ...slashCommandsFor('en')]) {
     if (lower.startsWith(sc.command)) {
       const question = input.slice(sc.command.length).trim();
       return { intent_hint: sc.intent_hint, question };

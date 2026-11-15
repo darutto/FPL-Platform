@@ -1,0 +1,211 @@
+{
+  "accent": "cyan",
+  "title": "Comparación · participación",
+  "subtitle": null,
+  "hero": null,
+  "pills": [],
+  "columns": [
+    {
+      "header": "Por 90",
+      "align": "left",
+      "kind": "text"
+    },
+    {
+      "header": "Palmer",
+      "align": "right",
+      "kind": "mono"
+    },
+    {
+      "header": "Saka",
+      "align": "right",
+      "kind": "mono"
+    }
+  ],
+  "rows": [
+    [
+      "Toques/90",
+      "55.2",
+      "58"
+    ],
+    [
+      "Clave/90",
+      "2.5",
+      "1"
+    ],
+    [
+      "Pases/90",
+      "40",
+      "40"
+    ],
+    [
+      "Acierto",
+      "85%",
+      "85%"
+    ],
+    [
+      "Atrás",
+      "20%",
+      "20%"
+    ]
+  ],
+  "footer": "Palmer: 6 partidos · Saka: 5 partidos · totales por partido, sin zonas del campo",
+  "involvement_compare": {
+    "a": {
+      "name": "Palmer",
+      "team": "CHE"
+    },
+    "b": {
+      "name": "Saka",
+      "team": "ARS"
+    },
+    "per90": [
+      {
+        "metric": "touches",
+        "label": "Toques/90",
+        "a": 55.2,
+        "b": 58.0,
+        "winner": "b",
+        "unit": ""
+      },
+      {
+        "metric": "key_passes",
+        "label": "Clave/90",
+        "a": 2.5,
+        "b": 1.0,
+        "winner": "a",
+        "unit": ""
+      },
+      {
+        "metric": "passes",
+        "label": "Pases/90",
+        "a": 40.0,
+        "b": 40.0,
+        "winner": null,
+        "unit": ""
+      },
+      {
+        "metric": "pass_accuracy",
+        "label": "Acierto",
+        "a": 85.0,
+        "b": 85.0,
+        "winner": null,
+        "unit": "%"
+      },
+      {
+        "metric": "backward_share",
+        "label": "Atrás",
+        "a": 20.0,
+        "b": 20.0,
+        "winner": null,
+        "unit": "%"
+      }
+    ],
+    "series": {
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "gw_labels": [
+        "J1",
+        "J2",
+        "J3",
+        "J4",
+        "J5",
+        "J6"
+      ],
+      "metrics": [
+        {
+          "metric": "touches",
+          "label": "Toques por partido",
+          "a": [
+            58,
+            49,
+            54,
+            57,
+            30,
+            83
+          ],
+          "b": [
+            66,
+            61,
+            58,
+            55,
+            null,
+            50
+          ],
+          "trend_a": "up",
+          "trend_b": "down",
+          "avg_a": 55.2,
+          "avg_b": 58.0,
+          "avg_winner": "b"
+        },
+        {
+          "metric": "key_passes",
+          "label": "Pases clave por partido",
+          "a": [
+            3,
+            2,
+            3,
+            2,
+            2,
+            3
+          ],
+          "b": [
+            1,
+            1,
+            1,
+            1,
+            null,
+            1
+          ],
+          "trend_a": "flat",
+          "trend_b": "flat",
+          "avg_a": 2.5,
+          "avg_b": 1.0,
+          "avg_winner": "a"
+        },
+        {
+          "metric": "passes",
+          "label": "Pases por partido",
+          "a": [
+            40,
+            40,
+            40,
+            40,
+            40,
+            40
+          ],
+          "b": [
+            40,
+            40,
+            40,
+            40,
+            null,
+            40
+          ],
+          "trend_a": "flat",
+          "trend_b": "flat",
+          "avg_a": 40.0,
+          "avg_b": 40.0,
+          "avg_winner": null
+        }
+      ]
+    },
+    "labels": {
+      "title": "Comparación · participación",
+      "view_per90": "Por 90",
+      "view_series": "Por jornada",
+      "avg": "media /90",
+      "trend_up": "Al alza en estos partidos",
+      "trend_down": "A la baja en estos partidos",
+      "trend_flat": "Estable en estos partidos"
+    },
+    "footer": "Palmer: 6 partidos · Saka: 5 partidos · totales por partido, sin zonas del campo",
+    "note": null,
+    "provenance": "Fuente: estadísticas de partido con licencia, construidas el 2026-12-08."
+  }
+}

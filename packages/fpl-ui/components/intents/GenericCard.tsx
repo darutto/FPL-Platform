@@ -27,13 +27,17 @@ import {
 } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
 import CardTable from './CardTable';
+import InvolvementCompareCard from './InvolvementCompareCard';
+import PositionPitch from './PositionPitch';
 
 interface Props {
   data: GenericCardMeta;
 }
 
 export default function GenericCard({ data }: Props) {
-  const { accent, title, subtitle, hero, pills, columns, rows, footer } = data;
+  // R6 two players side by side: the backend sends its own payload; the plain table stays for other clients.
+  if (data.involvement_compare != null) return <InvolvementCompareCard data={data.involvement_compare} />;
+  const { accent, title, subtitle, hero, pills, columns, rows, footer, position_pitch } = data;
   const accentClasses = CARD_ACCENT[accent] ?? CARD_ACCENT.gray;
   const accentHex = ACCENT_HEX[accent] ?? ACCENT_HEX.gray;
 
@@ -76,6 +80,9 @@ export default function GenericCard({ data }: Props) {
             <span className="text-[11px] uppercase tracking-wide text-bf-gray">{hero.label}</span>
           </div>
         )}
+
+        {/* Position changes: the mini-pitch and its per-90 table (null on every other card) */}
+        {position_pitch != null && <PositionPitch data={position_pitch} />}
 
         {/* Table body */}
         {rows.length > 0 && columns.length > 0 && <CardTable columns={columns} rows={rows} />}

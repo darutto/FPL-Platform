@@ -371,7 +371,7 @@ def test_card_opportunity_levels():
 
 def test_card_weakness_label_and_verdict():
     out = get_zonal_opportunity("Palace", store=weakness_store())
-    assert out["weakness_label"] == "Débil dentro del área"
+    assert out["weakness_label"] == "Ataca dentro del área"
     # unified attacker/opportunity frame: the low-band weak zone is the
     # attacker's RIGHT flank and the verdict says "ataca por la derecha"
     # with the headline pct; opportunity framing only.
@@ -972,7 +972,7 @@ class TestFixtureDerivedScope:
 # Sunderland: only zone above average was in-box/left at +1.8%; one player
 # in the league cleared the gate there and the card served him like a +70%
 # read. The verdict must lead with "no clear weakness", the pill must not
-# say "Débil", and the payload must carry the strength so the UI can too.
+# say "Ataca", and the payload must carry the strength so the UI can too.
 # ---------------------------------------------------------------------------
 
 def _marginal_store() -> pd.DataFrame:
@@ -1021,7 +1021,7 @@ def test_marginal_weakness_is_framed_as_marginal():
 def test_clear_weakness_framing_unchanged():
     out = get_zonal_opportunity("Palace", store=weakness_store())
     assert out["weakness_strength"] == "clear"
-    assert out["weakness_label"] == "Débil dentro del área"
+    assert out["weakness_label"] == "Ataca dentro del área"
     assert out["verdict"].startswith("Ataca a Palace")
 
 

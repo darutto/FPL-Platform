@@ -17,6 +17,7 @@
  * `kind`, not as a correctness guard the frontend enforces).
  */
 import type { StatComparisonMeta, StatRow } from '@/lib/types';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
   data: StatComparisonMeta;
@@ -80,6 +81,7 @@ function StatCell({
   isBetter: boolean;
   muted: boolean;
 }) {
+  const t = useT();
   return (
     <td
       data-testid={isBetter ? 'stat-cell-better' : undefined}
@@ -91,7 +93,7 @@ function StatCell({
             : 'text-bf-text/70'
       }`}
     >
-      {isBetter && <span className="sr-only">Mejor valor: </span>}
+      {isBetter && <span className="sr-only">{t('stat.better')} </span>}
       {cell.display}
     </td>
   );

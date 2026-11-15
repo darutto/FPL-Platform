@@ -185,4 +185,4 @@ def test_served_text_unchanged_when_the_chip_is_available():
 
 def test_server_passes_its_bootstrap_to_the_adapter():
     src = (Path(__file__).resolve().parents[1] / "fpl_server.py").read_text(encoding="utf-8")
-    assert "_to_ask_response(ask_v2_dict, req, _turn_bootstrap)" in src
+    assert "_to_ask_response(ask_v2_dict, req, _turn_bootstrap" in src  # i18n S3b adds locale=

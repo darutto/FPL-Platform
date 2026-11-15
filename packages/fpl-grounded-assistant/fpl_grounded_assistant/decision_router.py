@@ -27,7 +27,9 @@ from .input_normalizer import (
     TextInput,
     RejectedInput,
 )
+from .catalogue import t
 from .intent_aliases import list_resources
+from .locale_types import DEFAULT_LOCALE, Locale
 from .resource_registry import has_resource, run_resource
 from .prompt_registry import (
     get_prompt_spec,
@@ -51,16 +53,55 @@ OUTCOME_FALLTHROUGH         = "fallthrough"  # plain text — caller dispatches 
 #: Fixed reply for "maximo goleador" of a PAST season (i82). Points, not goals,
 #: is what the owned store answers per gameweek; the wording is asserted
 #: end-to-end so a routing-only test cannot drift from what the user reads.
-PAST_SEASON_GOALS_REPLY = (
-    "No tengo goles por jornada de temporadas pasadas; sí puedo decirte quién "
-    "hizo más **puntos**. ¿Te sirve?"
-)
+PAST_SEASON_GOALS_REPLY = t("decision.past_season_goals", "es")
 
-_GOALS_RE = re.compile(r"\b(maximo goleador|maximos goleadores|mas goles|goalscorer|goleador(?:es)?)\b")
+# Goals phrases only. A bare English "top scorer" is NOT here: in FPL it usually means the top
+# POINTS scorer (get_historical_gameweek_top_scorer answers "who was top scorer in GW1 of
+# 2025-26?"), so adding it would turn a working question into this refusal.
+_GOALS_RE = re.compile(
+    r"\b(maximo goleador|maximos goleadores|mas goles|goal[ -]?scorers?|goleador(?:es)?|golden boot)\b"
+)
 _PAST_SEASON_RE = re.compile(
     r"\b(temporada (?:pasada|anterior)|ultima temporada|ano pasado|"
     r"(?:last|previous) season|(?:20)?[0-9]{2}\s*[-/]\s*(?:20)?[0-9]{2})\b"
 )
+
+
+# English command names (the registry's canonical names are Spanish). Used only
+# to word registry messages for an English turn; es keeps the canonical names.
+_EN_COMMAND_NAMES: dict[str, str] = {
+    "capitan":       "captain",
+    "comparar":      "compare",
+    "transferencia": "transfer",
+    "calendarios":   "fixtures",
+    "diferenciales": "differentials",
+    "clasificacion": "rankings",
+}
+
+_ENUM_ERROR_RE = re.compile(r"^(?P<arg>[^:]+): (?P<raw>.+) not in \[.*\]$")
+
+
+def _command_name(name: str, locale: Locale) -> str:
+    return _EN_COMMAND_NAMES.get(name, name) if locale == "en" else name
+
+
+def _clarification_errors(spec_name: str, errors: list[str], locale: Locale) -> list[str]:
+    """English turns get no internal enum codes from the registry error."""
+    if locale != "en":
+        return errors
+    out: list[str] = []
+    for err in errors:
+        m = _ENUM_ERROR_RE.match(err)
+        if m is None:
+            out.append(err)
+        elif spec_name == "chips":
+            out.append(
+                f"{m['arg']}: {m['raw']} is not a chip. "
+                "Try Wildcard, Bench Boost, Free Hit or Triple Captain"
+            )
+        else:
+            out.append(f"{m['arg']}: {m['raw']} is not a valid option")
+    return out
 
 
 def _fold(text: str) -> str:
@@ -89,7 +130,7 @@ def _suggestions() -> list[str]:
     return [public.get(name, f"@{name}") for name in list_resources()]
 
 
-def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
+def decide(question: str, bootstrap: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> dict[str, Any]:
     """Classify *question* via the input normalizer, then dispatch.
 
     Returns a dict with the following keys:
@@ -148,10 +189,10 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
                 "outcome":      OUTCOME_UNSUPPORTED,
                 "prompt_name":  norm.name,
                 "args_text":    norm.args_text,
-                "suggestions":  [f"/{p}" for p in list_prompts()],
+                "suggestions":  [f"/{_command_name(p, locale)}" for p in list_prompts()],
                 "message": (
                     f"Prompt '/{norm.name}' is not registered. "
-                    f"Available prompts: {', '.join('/' + p for p in list_prompts())}."
+                    f"Available prompts: {', '.join('/' + _command_name(p, locale) for p in list_prompts())}."
                 ),
             }
 
@@ -165,8 +206,8 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
                 "missing_fields": parsed["missing_fields"],
                 "errors":         parsed["errors"],
                 "message": (
-                    f"Prompt '/{spec.name}' needs more information: "
-                    f"{'; '.join(parsed['errors']) or 'missing fields'}."
+                    f"Prompt '/{_command_name(spec.name, locale)}' needs more information: "
+                    f"{'; '.join(_clarification_errors(spec.name, parsed['errors'], locale)) or 'missing fields'}."
                 ),
             }
 
@@ -210,7 +251,7 @@ def decide(question: str, bootstrap: dict[str, Any]) -> dict[str, Any]:
             "text":        norm.text,
             "rule":        "past_season_goals",
             "suggestions": [],
-            "message":     PAST_SEASON_GOALS_REPLY,
+            "message":     t("decision.past_season_goals", locale),
         }
     return {
         "kind":    "text",

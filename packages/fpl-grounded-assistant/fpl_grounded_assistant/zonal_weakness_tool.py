@@ -41,6 +41,8 @@ from fpl_player_registry import (
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
+from .catalogue import t as _cat
+from .locale_types import bootstrap_locale
 from .zonal_weakness import (
     get_player_zonal_outlook,
     get_zonal_opportunity,
@@ -231,6 +233,7 @@ def _enrich_exploiters(
     keep the store name as ``web_name``, ``position: ""`` and the store
     club; a player is never dropped and a club is never invented.
     """
+    locale = bootstrap_locale(bootstrap)
     short_by_id = _team_short_by_id(bootstrap)
     out: list[dict[str, Any]] = []
     for entry in exploiters:
@@ -249,7 +252,7 @@ def _enrich_exploiters(
             e["team_short"] = current_short
             e["club_source"] = "bootstrap"
             e["club_note"] = (
-                f"antes en {store_short or store_team}"
+                _cat("zonal.club_note", locale, club=store_short or store_team)
                 if current_short != store_short else None
             )
         else:
@@ -452,6 +455,7 @@ def _get_zonal_weakness_handler(
         result = get_zonal_weakness(
             _to_store_team(team_query, bootstrap),
             live_season=_live_season(bootstrap),
+            locale=bootstrap_locale(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {"status": "missing_context", "team": team_query, "message": str(exc)}
@@ -471,8 +475,9 @@ def _get_zonal_weakness_handler(
         # empty list) as the signal that this is a weakness-only turn, so
         # it renders the pitch without an empty "no matching players" claim
         # nobody asked about.
-        card = zonal_weakness_card_fields(result)
+        card = zonal_weakness_card_fields(result, bootstrap_locale(bootstrap))
         result["card_zones"] = card["zones"]
+        result["card_frontal_zones"] = card["frontal_zones"]
         result["weakness_label"] = card["weakness_label"]
         result["weakness_strength"] = card["weakness_strength"]
     return result
@@ -537,6 +542,7 @@ def _get_zonal_opportunity_handler(
         _fixtures_callback(bootstrap, horizon) if not team_queries else None
     )
 
+    locale = bootstrap_locale(bootstrap)
     try:
         result = get_zonal_opportunity(
             _to_store_team(opponent_query, bootstrap),
@@ -548,6 +554,7 @@ def _get_zonal_opportunity_handler(
             # store was built (the store still lists them under their old
             # club, so the engine alone would rank them against themselves).
             currently_at_opponent=_opponent_squad_guard(opponent_query, bootstrap),
+            locale=locale,
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {
@@ -574,9 +581,8 @@ def _get_zonal_opportunity_handler(
                 tf["source"] = "fixtures"
             elif scope_resolution == "fixtures_empty_fallback":
                 tf["source"] = None
-                result["message"] = (
-                    f"{opponent_query} no tiene partidos en las próximas "
-                    f"{horizon} jornadas: ranking de toda la liga."
+                result["message"] = _cat(
+                    "zonal.fixtures_empty", locale, team=opponent_query, horizon=horizon
                 )
             else:
                 # Provenance of the filter: did the model pass it, or did
@@ -598,7 +604,7 @@ def _get_zonal_opportunity_handler(
                     f"in the tactical store and was ignored."
                 )
         elif scope_resolution == "league" and fixtures_for_team is None and not team_queries:
-            result["message"] = "Sin calendario en el contexto: ranking de toda la liga."
+            result["message"] = _cat("zonal.no_calendar", locale)
     return result
 
 
@@ -633,6 +639,7 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
             "verdict":         {"type": "string"},
             "data_provenance": {"type": "object"},  # i74 season stamp
             "card_zones":        {"type": "array"},   # i91: 3 in-box lateral cells, for the card's pitch view
+            "card_frontal_zones": {"type": "array"},  # 3 edge-of-box lateral cells, same shape
             "weakness_label":    {"type": "string"},  # i91
             "weakness_strength": {"type": "string"},  # i91: clear | marginal | none
         },
@@ -698,6 +705,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "scope_resolution": {"type": "string"},  # i90: explicit | fixtures | fixtures_empty_fallback | league
             "opportunities":   {"type": "array"},
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
+            "frontal_zones":   {"type": "array"},   # 3 edge-of-box lateral cells, same shape
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope; i75: team_short is the CURRENT club, club_source ∈ bootstrap|store, club_note "antes en X" | null
             "team_filter":     {"type": "object"},  # i85–i90: {requested, matched, source, *_teams, fixture_window, fixtures, scheduled_opponents, candidates_per_team}; present when a team scope was given, inferred, or fixture-derived
             "weakness_strength": {"type": "string"},  # i89: clear | marginal | none
@@ -812,6 +820,7 @@ def _get_player_zonal_outlook_handler(
             player_query,
             fixtures_for_team=fixtures_for_team,
             live_season=_live_season(bootstrap),
+            locale=bootstrap_locale(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
         return {"status": "missing_context", "player": player_query, "message": str(exc)}
@@ -836,8 +845,8 @@ def _get_player_zonal_outlook_handler(
 GET_PLAYER_ZONAL_OUTLOOK_SPEC = ToolSpec(
     name="get_player_zonal_outlook",
     description=(
-        "Use when the subject is a specific named player and whether their "
-        "upcoming fixtures suit them zonally (do the next opponents' weak "
+        "Use when the subject is a specific named player and whether his "
+        "upcoming fixtures suit him zonally (do the next opponents' weak "
         "zones fit the player's shot profile). Per-GW favorable/neutral "
         "matchup read over the next 1-5 fixtures. Opportunity signal only — "
         "no buy/sell advice."

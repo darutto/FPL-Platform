@@ -93,3 +93,22 @@ test('changing the connected team clears the previous player selection', async (
   expect(defender).toHaveAttribute('aria-pressed', 'false');
   expect(screen.queryByRole('region')).not.toBeInTheDocument();
 });
+
+test('regression: the squad pitch keeps its own landscape drawing (unchanged by the position-changes pitch)', async () => {
+  const { container } = render(<SquadPitch teamId={123} onAskPlayer={jest.fn()} />);
+  await screen.findByRole('button', { name: 'Haaland, MCI' });
+  const box = container.querySelector('[data-squad-pitch]') as HTMLElement;
+  expect(box.className).toMatch(/aspect-\[5\/3\]/);
+  const marks = (sel: string) => {
+    const svg = container.querySelector(sel) as SVGSVGElement;
+    return [svg.getAttribute('viewBox'), svg.getAttribute('preserveAspectRatio'),
+      ...Array.from(svg.children).map((el) => `${el.tagName}:${['x', 'y', 'width', 'height', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r']
+        .map((k) => el.getAttribute(k)).filter((v) => v !== null).join(',')}`)];
+  };
+  expect(marks('.squad-pitch-standard')).toEqual(['0 0 400 240', 'xMidYMid meet',
+    'rect:8,8,384,224', 'line:8,120,392,120', 'circle:200,120,34', 'rect:130,8,140,36', 'rect:130,196,140,36',
+    'rect:162,8,76,15', 'rect:162,217,76,15']);
+  expect(marks('.squad-pitch-sidebar')).toEqual(['0 0 400 340', 'xMidYMid meet',
+    'rect:8,8,384,324', 'line:8,170,392,170', 'circle:200,170,34', 'rect:130,8,140,45', 'rect:130,287,140,45',
+    'rect:162,8,76,18', 'rect:162,314,76,18']);
+});

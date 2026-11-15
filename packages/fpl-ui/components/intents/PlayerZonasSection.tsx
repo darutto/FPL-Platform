@@ -19,21 +19,25 @@ import type { PlayerZonalFixture, PlayerZonalOutlookMeta } from '@/lib/types';
 import {
   LEVEL_PILL_CLASS,
   sharePercent,
-  zoneChipLabel,
+  zoneChipLabelFor,
 } from '@/lib/defensive-zones';
 import { ProvenanceStamp } from './DefensiveZonesCard';
 import { formatVenue } from './FixtureRunTable';
-import PlayerZonesPitch, { PITCH_LEGEND, hasPlaceableZones } from './PlayerZonesPitch';
+import PlayerZonesPitch, { hasPlaceableZones } from './PlayerZonesPitch';
+import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
+import { gwLabel, gwRange } from '@/lib/fixture-outlook-format';
 
 interface Props {
   zonal: PlayerZonalOutlookMeta;
 }
 
 export default function PlayerZonasSection({ zonal }: Props) {
+  const t = useT();
+  const { locale } = useLocale();
   if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
   const { gw_from, gw_to } = zonal;
   const hasPitch = hasPlaceableZones(zonal.zones);
-  const range = gw_from === gw_to ? `J${gw_from}` : `J${gw_from}–J${gw_to}`;
+  const range = gw_from === gw_to ? gwLabel(gw_from, locale) : gwRange(gw_from, gw_to, locale);
 
   return (
     <section
@@ -42,9 +46,9 @@ export default function PlayerZonasSection({ zonal }: Props) {
       className="space-y-2 border-t border-white/10 pt-2.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-bf-gray">Zonas</h3>
+        <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-bf-gray">{t('pz.title')}</h3>
         <span className="text-[10px] text-bf-gray">
-          Partidos de las próximas 3 jornadas · {range}
+          {t('pz.window', { range })}
         </span>
       </div>
 
@@ -74,13 +78,13 @@ export default function PlayerZonasSection({ zonal }: Props) {
                 key={z.zone}
                 className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-white"
               >
-                {zoneChipLabel(z.zone)} · {sharePercent(z.share)}% de su xG sin penalti
+                {t('pz.chip', { zone: zoneChipLabelFor(z.zone, locale), pct: sharePercent(z.share) })}
               </span>
             ))}
           </div>
           {zonal.fixtures.some((f) => f.status === 'favorable') && (
             <p data-testid="player-zonas-legend" className="text-[10px] leading-snug text-bf-gray">
-              {PITCH_LEGEND}
+              {t('pz.legend')}
             </p>
           )}
         </div>
@@ -98,8 +102,10 @@ export default function PlayerZonasSection({ zonal }: Props) {
 }
 
 function ZonasRow({ fixture }: { fixture: PlayerZonalFixture }) {
+  const t = useT();
+  const { locale } = useLocale();
   const { gameweek, opponent, is_home, status, matches } = fixture;
-  const zones = matches.map((m) => zoneChipLabel(m.zone)).join(', ');
+  const zones = matches.map((m) => zoneChipLabelFor(m.zone, locale)).join(', ');
   return (
     <li
       data-testid="player-zonas-row"
@@ -107,22 +113,22 @@ function ZonasRow({ fixture }: { fixture: PlayerZonalFixture }) {
       className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs"
     >
       <span className="min-w-0 truncate text-white">
-        <span className="font-bold text-bf-gray">J{gameweek}</span>{' '}
-        {opponent} <span className="text-bf-gray">({formatVenue(is_home)})</span>
+        <span className="font-bold text-bf-gray">{gwLabel(gameweek, locale)}</span>{' '}
+        {opponent} <span className="text-bf-gray">({formatVenue(is_home, locale)})</span>
       </span>
       {status === 'favorable' ? (
         <span
           className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${LEVEL_PILL_CLASS.opp}`}
         >
-          Cruce favorable{zones ? ` · ${zones}` : ''}
+          {t('pz.favourable')}{zones ? ` · ${zones}` : ''}
         </span>
       ) : status === 'no_data' ? (
-        <span className="flex-shrink-0 text-[10px] text-bf-gray">Sin datos del rival</span>
+        <span className="flex-shrink-0 text-[10px] text-bf-gray">{t('pz.noData')}</span>
       ) : (
         <span
           className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${LEVEL_PILL_CLASS.cool}`}
         >
-          Sin cruce destacado
+          {t('pz.neutral')}
         </span>
       )}
     </li>

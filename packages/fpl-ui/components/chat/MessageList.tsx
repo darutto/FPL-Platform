@@ -17,14 +17,14 @@ import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
 import { WIZARD_ARMING_INTENTS, isRewriteSuggestion } from '@/lib/wizard-arming';
 import type { WcAskResponse } from '@/lib/wc-types';
-import { selectIntentView } from '@/lib/intent-renderer';
+import { selectIntentView, type IntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
+import PlayerConclusions from '@/components/intents/PlayerConclusions';
+import TableConclusions, { tableConclusionRows } from '@/components/intents/TableConclusions';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
 import SuggestionChips, {
   PlayerPickChips,
-  COMPARE_STEP1_QUESTION,
-  PICK_ONE_QUESTION,
   type CompareWizardState,
   type PlayerPickWizardState,
 } from './SuggestionChips';
@@ -32,6 +32,7 @@ import ShareActions from '@/components/share/ShareActions';
 import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
 import MarkdownLite from '@/components/MarkdownLite';
+import { useT } from '@/lib/i18n/LocaleProvider';
 
 export interface Message {
   id: string;
@@ -77,6 +78,7 @@ export default function MessageList({
   playerPickWizard,
   onPlayerPick,
 }: Props) {
+  const t = useT();
   const listRef = useRef<HTMLDivElement>(null);
   const shareQuestionByAssistantId = assistantShareQuestionMap(messages);
 
@@ -98,7 +100,7 @@ export default function MessageList({
   const lastId = messages[messages.length - 1]?.id;
 
   return (
-    <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div ref={listRef} data-testid="conversation-scroll" className="flex-1 min-w-0 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}
@@ -117,7 +119,7 @@ export default function MessageList({
         <div className="flex justify-start">
           <div className="bg-white/5 border border-white/10 rounded-[14px] rounded-tl px-4 py-3 max-w-prose">
             <span className="text-bf-turquoise text-sm animate-pulse">
-              Pensando…
+              {t('msg.thinking')}
             </span>
           </div>
         </div>
@@ -151,11 +153,38 @@ interface MessageBubbleProps {
 export function looksLikeRenderedTable(text: string): boolean {
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
   const pipeRows = lines.filter((line) => (line.match(/\|/g)?.length ?? 0) >= 2);
-  const hasRule = lines.some((line) => /^[|\s]*-{3,}[-|\s]*$/.test(line));
+  // The rule row may carry alignment colons: |:---|---:|:---:|
+  const hasRule = lines.some((line) => /^[|:\s]*-{3,}[-:|\s]*$/.test(line));
   return pipeRows.length >= 2 && hasRule;
 }
 
+/** Views whose card IS a table: any deterministic text above them is the rows again (or a bare title). */
+const TABLE_VIEWS: ReadonlySet<IntentView> = new Set<IntentView>([
+  'resource_ranking',
+  'resource_injuries',
+  'ranking',
+  'differential',
+  'fixture_run',
+]);
+
+/**
+ * True when final_text sits above a TABLE card and the model did not write it.
+ *
+ * Slash (`/clasificacion`, `/diferenciales`, `/calendarios`) and `@resource` turns never reach
+ * the orchestrator, so `synthesis_turn` arrives null — not false — and the API does not expose
+ * the harness `kind`. What it does expose is `llm_used`, which the backend sets true only when
+ * the served text is the model's own. So: table view + no synthesis verdict + llm_used false.
+ * Orchestrator turns (synthesis_turn true/false) and non-table cards (/comparar, /capitan,
+ * /transferencia, /chips) never match.
+ */
+export function isDeterministicTableText(response: AskResponse | undefined): boolean {
+  if (response == null) return false;
+  const view = selectIntentView(response);
+  return view != null && TABLE_VIEWS.has(view) && response.synthesis_turn == null && response.llm_used === false;
+}
+
 function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
+  const t = useT();
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
@@ -173,7 +202,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     (responseSuggestions?.length ?? 0) > 0 &&
     (
       !WIZARD_ARMING_INTENTS.has(message.response?.intent ?? '') ||
-      responseSuggestions!.every((suggestion) => suggestion.player_id != null)
+      responseSuggestions!.every((suggestion) => suggestion.player_id != null || isRewriteSuggestion(suggestion))
     );
   // Which question this turn asked, for the superseded (non-interactive)
   // fallback copy below. A pick-one turn asks the user to identify ONE player
@@ -212,10 +241,21 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     message.text.trim().length > 0 &&
     message.response?.intent !== 'multi_intent' &&
     message.response?.synthesis_turn !== false &&
+    !isDeterministicTableText(message.response) &&
     !looksLikeRenderedTable(message.text);
   // Structured FPL turn → combine the model's verdict and the deterministic
   // view in one surface. The old card-only branch silently discarded
   // final_text, which removed the judgement needed to interpret a ranking.
+  // Player card verdict: 0-3 structured conclusions the card doesn't show, on
+  // both paths (deterministic and LLM). The model's prose, if any, follows.
+  const conclusions =
+    message.response?.intent === 'player_snapshot'
+      ? (message.response.player_snapshot?.conclusions ?? [])
+      : [];
+  // Table card verdict: 0-3 conclusions ABOUT the table (never its rows). Only the lines this
+  // UI can word count, so a payload of unknown keys leaves no empty band behind.
+  const showTableConclusions = tableConclusionRows(message.response?.table_conclusions, t).length > 0;
+  const showConclusions = conclusions.length > 0 || showTableConclusions;
   const hasFplCard =
     !isUser &&
     !message.isError &&
@@ -230,21 +270,28 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   if (hasFplCard) {
     return (
       <div className="flex justify-start">
-        <div className="w-full max-w-prose">
+        <div className="chat-answer w-full max-w-prose">
           <div
             role="region"
-            aria-label="Respuesta estructurada"
+            aria-label={t('msg.structuredAnswer')}
             className="relative overflow-hidden rounded-card border border-white/10 bg-gradient-to-br from-bf-surface/70 to-bf-surface/55 text-sm shadow-card"
           >
-            {showVerdict && (
+            {(showVerdict || showConclusions) && (
               <section
-                aria-label="Veredicto"
+                aria-label={t('msg.verdict')}
                 className="relative z-10 border-b border-white/10 bg-black/10 px-4 py-3 text-bf-text"
               >
                 <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
-                  Veredicto
+                  {t('msg.verdict')}
                 </span>
-                <MarkdownLite text={message.text} className="text-sm" />
+                {conclusions.length > 0 && <PlayerConclusions conclusions={conclusions} />}
+                {showTableConclusions && <TableConclusions conclusions={message.response!.table_conclusions} />}
+                {showVerdict && (
+                  <MarkdownLite
+                    text={message.text}
+                    className={`chat-prose text-sm${showConclusions ? ' mt-3 border-t border-white/10 pt-2.5' : ''}`}
+                  />
+                )}
               </section>
             )}
 
@@ -252,7 +299,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
                 layout. Remove only their outer shell so those become sections
                 of this surface instead of a second, nested card. */}
             <section
-              aria-label="Datos de la recomendación"
+              aria-label={t('msg.recommendationData')}
               className="[&>div]:!mt-0 [&>div]:!rounded-none [&>div]:!border-0 [&>div]:!shadow-none [&>div]:!from-transparent [&>div]:!to-transparent"
             >
               <IntentRenderer response={message.response!} />
@@ -279,7 +326,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   if (hasWcCard) {
     return (
       <div className="flex justify-start">
-        <div className="max-w-prose w-full [&>:first-child]:mt-0">
+        <div className="chat-answer max-w-prose w-full [&>:first-child]:mt-0">
           <WcIntentRenderer response={message.wcResponse!} />
           {showOriginBadge && <OriginBadges message={message} />}
           {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
@@ -291,7 +338,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`chat-message flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-prose px-4 py-3 ${
           isUser
@@ -321,7 +368,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           ))}
         {hasSuggestions && !showWizard && !showPlayerPickWizard && (
           <p className="text-sm font-semibold text-bf-text/90">
-            {isPickOneTurn ? PICK_ONE_QUESTION : COMPARE_STEP1_QUESTION}
+            {isPickOneTurn ? t('wizard.pickOne') : t('wizard.compareStep1')}
           </p>
         )}
 
@@ -358,6 +405,7 @@ function assistantShareQuestionMap(messages: Message[]): Record<string, string> 
 }
 
 function FollowUpButton({ armed, onClick }: { armed: boolean; onClick: () => void }) {
+  const t = useT();
   return (
     <button
       onClick={onClick}
@@ -367,12 +415,13 @@ function FollowUpButton({ armed, onClick }: { armed: boolean; onClick: () => voi
           : 'border-white/10 text-bf-gray hover:text-bf-text hover:border-white/20'
       }`}
     >
-      {armed ? 'Seguimiento activado ✓' : 'Seguir conversación →'}
+      {armed ? t('msg.followUpOn') : t('msg.followUp')}
     </button>
   );
 }
 
 function OriginBadges({ message }: { message: Message }) {
+  const t = useT();
   // World Cup turns: llm_used is true on nearly every turn (the LLM always
   // phrases final_text, even when 100% tool-grounded), so it isn't a useful
   // origin signal here. Use `grounded` instead — whether a real tool call
@@ -383,20 +432,20 @@ function OriginBadges({ message }: { message: Message }) {
   if (message.wcResponse?.source === 'web_search') {
     // Unverified external synthesis — NEVER "Datos verificados". Cyan matches
     // the WcWebSearchCard accent (the system's web/search color).
-    originBadgeLabel = 'Búsqueda web + IA';
+    originBadgeLabel = t('msg.badge.webAi');
     originBadgeClassName = 'border-bf-cyan/40 bg-bf-cyan/10 text-bf-cyan';
   } else if (message.wcResponse != null) {
     const grounded = message.wcResponse.grounded ?? false;
-    originBadgeLabel = grounded ? 'Datos verificados' : 'Sin datos del torneo';
+    originBadgeLabel = grounded ? t('msg.badge.verified') : t('msg.badge.noTournament');
     originBadgeClassName = grounded
       ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
       : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
   } else if (message.response?.web_search != null) {
     // Unverified external synthesis — same cyan accent as WebSearchCard.
-    originBadgeLabel = 'Búsqueda web + IA';
+    originBadgeLabel = t('msg.badge.webAi');
     originBadgeClassName = 'border-bf-cyan/40 bg-bf-cyan/10 text-bf-cyan';
   } else {
-    originBadgeLabel = message.llmUsed ? 'IA activa' : 'Determinístico';
+    originBadgeLabel = message.llmUsed ? t('msg.badge.aiOn') : t('msg.badge.deterministic');
     originBadgeClassName = message.llmUsed
       ? 'border-bf-turquoise/40 bg-bf-turquoise/10 text-bf-turquoise'
       : 'border-bf-gold/40 bg-bf-gold/10 text-bf-gold';
@@ -412,7 +461,7 @@ function OriginBadges({ message }: { message: Message }) {
       {/* Degraded notice — shown when LLM was attempted but provider failed (Phase 2.6b) */}
       {message.degraded && (
         <span className="inline-flex items-center rounded-full border border-bf-coral-soft/40 bg-bf-coral-soft/10 px-2 py-1 text-[11px] font-medium text-bf-coral-soft">
-          proveedor no disponible
+          {t('msg.providerDown')}
         </span>
       )}
     </div>

@@ -91,13 +91,16 @@ def presented_entries(output: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _score(value: Any) -> str:
+    """One decimal with a dot in every language (the Spanish audience is Latin American: 7.4, not 7,4)."""
     try:
-        return f"{float(value):.1f}".replace(".", ",")
+        return f"{float(value):.1f}"
     except (TypeError, ValueError):
         return "?"
 
 
-def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
+def captain_list(
+    output: dict[str, Any] | None, question: str, locale: str = "es",
+) -> str | None:
     """The numbered top N, or ``None`` when there is nothing to list."""
     if not isinstance(output, dict) or output.get("status") != "ok":
         return None
@@ -107,7 +110,13 @@ def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
     n = min(requested_top(question) or DEFAULT_TOP, len(entries))
     gw = (output.get("time_context") or {}).get("evaluated_gameweek")
     gw_part = f" — GW{gw}" if gw else ""
-    if output.get("squad_source") == "connected":
+    connected = output.get("squad_source") == "connected"
+    if locale == "en":
+        if connected:
+            title = f"**Your best captain options{gw_part}** (from your squad, by the ranking):"
+        else:
+            title = f"**Best captain options{gw_part}** (by the ranking):"
+    elif connected:
         title = f"**Tus mejores opciones de capitán{gw_part}** (de tu plantilla, según el ranking):"
     else:
         title = f"**Mejores opciones de capitán{gw_part}** (según el ranking):"
@@ -121,10 +130,12 @@ def captain_list(output: dict[str, Any] | None, question: str) -> str | None:
     return "\n".join(lines)
 
 
-def compose_captain_answer(body: str, output: dict[str, Any] | None, question: str) -> str:
+def compose_captain_answer(
+    body: str, output: dict[str, Any] | None, question: str, locale: str = "es",
+) -> str:
     """The deterministic list, then the model's commentary. *body* unchanged
     when there is nothing to list."""
-    header = captain_list(output, question)
+    header = captain_list(output, question, locale)
     if header is None:
         return body
     parts = [header]

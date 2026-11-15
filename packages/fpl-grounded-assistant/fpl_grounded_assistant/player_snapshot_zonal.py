@@ -55,6 +55,9 @@ from typing import Any, Callable
 import pandas as pd
 from fpl_player_registry import normalize_player_name
 
+from .catalogue import t
+from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
+
 from .zonal_weakness import (
     ZONES,
     _FPL_TACTICAL_AVAILABLE,
@@ -403,23 +406,19 @@ def _valid_zonal(zonal: dict[str, Any]) -> bool:
         return False
 
 
-def _verdict(web_name: str, fixtures: list[dict[str, Any]]) -> "tuple[str, str]":
+def _verdict(
+    web_name: str, fixtures: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+) -> "tuple[str, str]":
     favorable = [f for f in fixtures if f["status"] == "favorable"]
     if favorable:
-        gws = " y ".join(f"J{f['gameweek']} ({f['opponent']})" for f in favorable)
-        return "favorable", (
-            f"{web_name} genera su xG justo en zonas donde el rival concede por "
-            f"encima de la media — cruce favorable en {gws}."
+        gw_short = t("zonal.gw_short", locale)
+        gws = t("zonal.and", locale).join(
+            f"{gw_short}{f['gameweek']} ({f['opponent']})" for f in favorable
         )
+        return "favorable", t("zonal.player_favorable", locale, player=web_name, gws=gws)
     if all(f["status"] == "no_data" for f in fixtures):
-        return "no_data", (
-            "Sin datos zonales de los rivales de estos partidos, "
-            "no se puede valorar el cruce."
-        )
-    return "neutral", (
-        f"Sin cruce zonal destacado para {web_name} en los partidos de las "
-        "próximas 3 jornadas."
-    )
+        return "no_data", t("zonal.snap_no_data", locale)
+    return "neutral", t("zonal.snap_neutral", locale, player=web_name)
 
 
 def _compose(
@@ -468,9 +467,10 @@ def _compose(
             "is_home": home,
         })
 
-    provenance = _provenance_for(store, _live_season(bootstrap))
+    locale = bootstrap_locale(bootstrap)
+    provenance = _provenance_for(store, _live_season(bootstrap), locale)
     outlook = build_player_outlook(
-        name, info, engine_fixtures, bundle["profiles"], bundle["baseline"], provenance,
+        name, info, engine_fixtures, bundle["profiles"], bundle["baseline"], provenance, locale,
     )
 
     out_fixtures: list[dict[str, Any]] = []
@@ -486,7 +486,7 @@ def _compose(
             "status": entry["status"],
             "matches": entry["matches"],
         })
-    kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures)
+    kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale)
     zonal = {
         "zones": zones,
         "window": {"gw_from": window[0], "gw_to": window[1]},
