@@ -1,0 +1,20 @@
+{
+  "name": "fpl-promo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Short-form promo videos for FPL Asistente (Remotion)",
+  "scripts": {
+    "studio": "remotion studio",
+    "render:clip01": "remotion render Clip01 out/clip01.mp4 --browser-executable=$CHROMIUM_PATH"
+  },
+  "dependencies": {
+    "@fontsource/archivo-black": "^5.1.0",
+    "@fontsource/barlow": "^5.1.0",
+    "@remotion/cli": "^4.0.543",
+    "@types/react": "^18.3.12",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.543",
+    "typescript": "^5.6.3"
+  }
+}
