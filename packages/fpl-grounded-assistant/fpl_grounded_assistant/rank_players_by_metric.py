@@ -88,7 +88,14 @@ from fpl_grounded_assistant.ranking_provenance import get_ranking_basis
 _METRIC_ALIASES: dict[str, str] = {
     # Form & points
     "form":                           "form",
-    "total_points":                   "total_points",
+    # Spanish (golden tn-04): the model sends "forma" verbatim for "top 5 por
+    # forma", and it was refused 6/6. One-token key on purpose so token
+    # containment also covers "forma reciente" / "mejor forma" / "en forma";
+    # "forma" shares no token with any other alias ("formacion" is a different
+    # token), so the only new outcome next to another metric word is a tie,
+    # which refuses rather than guesses.
+    "forma":                          "form",
+    "total_points":                  "total_points",
     "points":                         "total_points",
     "points_per_game":                "points_per_game",
     "ppg":                            "points_per_game",

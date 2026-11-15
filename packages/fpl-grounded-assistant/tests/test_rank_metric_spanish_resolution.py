@@ -349,6 +349,70 @@ def test_clean_sheet_phrasings_all_resolve(price_bootstrap, phrase):
 
 
 # ---------------------------------------------------------------------------
+# Golden tn-04 — "top 5 por forma": the model sends metric="forma" verbatim
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def form_bootstrap() -> dict:
+    """Synthetic: form ascends with id; the top-form player barely played."""
+    return {
+        "teams": [{"id": 1, "name": "Arsenal", "short_name": "ARS"}],
+        "element_types": [{"id": 2, "singular_name_short": "DEF"}],
+        "events": [{"id": gw, "finished": True} for gw in range(1, 11)],
+        "elements": [
+            _element(idx, "Def%02d" % idx, form=str(float(idx)),
+                     minutes=30 if idx == 6 else 900, goals_scored=idx)
+            for idx in range(1, 7)
+        ],
+    }
+
+
+@pytest.mark.parametrize("phrase", [
+    "forma",
+    "Forma",
+    "forma reciente",
+    "mejor forma",
+    "en forma",
+    "jugadores en forma",
+    "estado de forma",
+])
+def test_spanish_form_phrases_resolve_to_form(form_bootstrap, phrase):
+    result = rank_players_by_metric(phrase, top_n=5, bootstrap=form_bootstrap)
+
+    assert result["status"] == "ok", result
+    assert result["metric"] == "form"
+    assert [row["metric_value"] for row in result["ranked"]] == [6.0, 5.0, 4.0, 3.0, 2.0]
+
+
+@pytest.mark.parametrize("phrase", [
+    # "forma" next to another metric word is a tie between two fields: refuse.
+    "goles en forma",
+    "forma xg",
+    "puntos de forma consistente",
+    # Meaning-changing modifiers and per-unit rates are still vetoed.
+    "forma esperada",
+    "forma por 90",
+    "forma por partido",
+    # Different tokens, not "forma".
+    "formacion",
+    "plataforma",
+])
+def test_form_alias_does_not_widen_into_other_phrases(form_bootstrap, phrase):
+    result = rank_players_by_metric(phrase, bootstrap=form_bootstrap)
+
+    assert result["status"] == "invalid_argument", result
+    assert result["code"] == "unknown_metric"
+
+
+def test_form_keeps_no_desc_minutes_floor(form_bootstrap):
+    """form is a trailing average, deliberately outside the per-90 floor."""
+    result = rank_players_by_metric("forma", top_n=1, bootstrap=form_bootstrap)
+
+    assert result["min_minutes_filter"] == 0
+    assert result["ranked"][0]["metric_value"] == 6.0
+
+
+# ---------------------------------------------------------------------------
 # i19 — sort direction
 # ---------------------------------------------------------------------------
 
