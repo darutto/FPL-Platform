@@ -91,7 +91,7 @@ test('breakpoint defaults, saved collapse choices, and disconnected Squad are us
   expect(screen.getByText(/Conecta tu equipo FPL en la pestaña Chat/)).toBeVisible();
 });
 
-test('selecting a Squad player only selects; Ask AI opens Chat and sends exactly once', async () => {
+test('selecting a Squad player only selects; the assistant button opens Chat and sends exactly once', async () => {
   const originalFetch = global.fetch;
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({
     gw: 8, summary: { gw_points: 61, total_points: 432, bank: 14 },
@@ -106,7 +106,7 @@ test('selecting a Squad player only selects; Ask AI opens Chat and sends exactly
     expect(player).toHaveAttribute('aria-pressed', 'true');
     expect(within(nav()).getByRole('button', { name: 'Calendar' })).toHaveAttribute('aria-pressed', 'true');
     expect(mockAsk).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Ask AI/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Asistente →' }));
     await screen.findByText(/^Answer:.*Haaland/);
     expect(within(nav()).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
     expect(mockAsk).toHaveBeenCalledTimes(1);

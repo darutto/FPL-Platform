@@ -424,16 +424,9 @@ describe('DefensiveZonesCard', () => {
     expect(screen.queryByText(/BUR ·/)).not.toBeInTheDocument();
   });
 
-  test('renders penalty footer and IA badge when ai_active', () => {
+  test('renders penalty footer and no IA badge (origin is the answer outline)', () => {
     render(<DefensiveZonesCard data={palaceMeta} />);
     expect(screen.getByText('0.140 xGA/partido')).toBeInTheDocument();
-    expect(screen.getByText('IA activa')).toBeInTheDocument();
-  });
-
-  test('hides IA badge when ai_active=false', () => {
-    render(
-      <DefensiveZonesCard data={{ ...palaceMeta, ai_active: false }} />,
-    );
     expect(screen.queryByText('IA activa')).not.toBeInTheDocument();
   });
 

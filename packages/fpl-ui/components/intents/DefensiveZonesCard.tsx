@@ -14,7 +14,7 @@
  * opportunity (saturation scales with the zone's strength; the % reading
  * lives inside its region, average zones read '≈ media'), per-zone
  * labels + pills, the "Quién lo explota" zone-fit table, and the footer
- * (penalty xGA + IA ACTIVA badge).
+ * (penalty xGA).
  *
  * Color semantics (do not invert): turquoise = your best zone, gold = slight
  * advantage, grey = none. The header pill follows the same coding (by
@@ -287,7 +287,8 @@ export default function DefensiveZonesCard({ data }: Props) {
           )
         )}
 
-        {/* Footer — penalty context + IA badge */}
+        {/* Footer — penalty context. `ai_active` is always true on the wire
+            and no longer drives a badge (origin is the answer outline). */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-white/[0.07] pt-3.5">
           <span className="text-[11px] text-bf-gray/60">
             {t('z.penalties')}{' '}
@@ -295,15 +296,6 @@ export default function DefensiveZonesCard({ data }: Props) {
               {t('z.xgaPerGame', { value: formatPenalty(data.penalty_xga_per_game) })}
             </span>
           </span>
-          {data.ai_active && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-bf-turquoise/40 bg-bf-turquoise/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-bf-turquoise">
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full bg-bf-turquoise"
-              />
-              {t('z.ai')}
-            </span>
-          )}
         </div>
       </div>
     </div>
