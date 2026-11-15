@@ -49,7 +49,7 @@ exports[`the player's Zonas section Spanish: the section is what it was 1`] = `
 exports[`the squad pitch English: the pitch, the detail and the question to the chat 1`] = `
 [
   "#N",
-  "Ask AI →",
+  "Assistant →",
   "Bank",
   "Bench",
   "C",
@@ -111,7 +111,7 @@ exports[`the squad pitch Spanish: every empty and failure state is what it was 1
 exports[`the squad pitch Spanish: the pitch, with a player selected, is what it was 1`] = `
 [
   "#N",
-  "Ask AI →",
+  "Asistente →",
   "Banco",
   "Bench",
   "C",
@@ -146,7 +146,6 @@ exports[`the zones card English: nothing of the interface is left in Spanish 1`]
 [
   "#",
   "+N%",
-  "AI on",
   "Anthony",
   "Ataca a Tottenham por el centro en la frontal del área — concede un",
   "Ataca la frontal del área",
@@ -207,7 +206,6 @@ exports[`the zones card Spanish: the card is what it was before the dictionary 1
   "Frontal centro",
   "Frontal del área",
   "Heavy Hitter",
-  "IA activa",
   "Izq",
   "Izquierda",
   "JN · XXX recibe a Tottenham",
@@ -252,7 +250,6 @@ exports[`the zones card Spanish: without a frontal band, a clear read and a leag
   "Der",
   "Derecha",
   "Dónde atacar a",
-  "IA activa",
   "Izquierda",
   "Jugador",
   "N",

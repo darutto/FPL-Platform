@@ -182,11 +182,9 @@ export const en: typeof es = {
   'msg.recommendationData': 'Recommendation data',
   'msg.followUpOn': 'Follow-up on ✓',
   'msg.followUp': 'Follow up →',
-  'msg.badge.webAi': 'Web search + AI',
+  'msg.badge.webAi': 'Web search',
   'msg.badge.verified': 'Verified data',
   'msg.badge.noTournament': 'No tournament data',
-  'msg.badge.aiOn': 'AI on',
-  'msg.badge.deterministic': 'Deterministic',
   'msg.providerDown': 'provider unavailable',
 
   // --- Wizards (the questions the UI itself asks) ---
@@ -353,7 +351,7 @@ export const en: typeof es = {
 
   // --- Web search card ---
   'web.title': 'Web search',
-  'web.badge': 'Web search · AI · unverified information',
+  'web.badge': 'Web search · unverified',
   'web.sources': 'Sources consulted',
 
   // --- Sharing ---
@@ -509,7 +507,6 @@ export const en: typeof es = {
   'z.noExploiters': 'No player profiles fit these zones yet.',
   'z.penalties': 'Penalties (excluded):',
   'z.xgaPerGame': '{value} xGA/match',
-  'z.ai': 'AI on',
   'z.scope.fixtures': "{opponent}'s opponents up to GW{gw}",
   'z.scope.inferred': '{matched} · from your question',
   'z.group.home': 'GW{gw} · {team} host {opponent}',
@@ -577,7 +574,7 @@ export const en: typeof es = {
   'sq.pos.FWD': 'FWD',
   'sq.captainAria': ', captain',
   'sq.detailAria': 'Details for {name}',
-  'sq.ask': 'Ask AI →',
+  'sq.ask': 'Assistant →',
   'sq.askQuestion': 'Tell me about {name} — should I start this player this week?',
   'sq.stat.pts': 'GW pts',
   'sq.stat.sel': 'Sel.',

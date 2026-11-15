@@ -14,6 +14,12 @@
  * FI5 adds a per-team tendency sparkline (tap to expand) below the strip.
  *
  * Analytical card → FingerprintWaves ornament (design-system semantics).
+ *
+ * A fixture-cell answer (one gameweek) may carry `zonal_links`: the team zonal
+ * question per rival worth a tap («Quién del BHA explota al HUL ›», Leo
+ * 2026-11-13; decided in fixture_cell_zonal.py). They sit under the card, as a
+ * pill row outside it (the card never stretches), and only with a chat to send
+ * to (not on a shared answer).
  */
 import type { FixtureOutlookMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
@@ -21,6 +27,8 @@ import { axisLabel } from '@/lib/fixture-outlook-format';
 import { FixtureTickerRow, BandLegend, TeamHeader } from './FixtureTickerRow';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
 import { FingerprintWaves } from './CardOrnaments';
+import { SignalPill } from './PlayerSignals';
+import { useChatAsk } from '@/lib/chat-ask';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
@@ -31,41 +39,52 @@ export default function FixtureOutlookCard({ data }: Props) {
   const { axis, teams } = data;
   const t = useT();
   const { locale } = useLocale();
+  const ask = useChatAsk();
   if (teams.length === 0) return null;
+  const links = ask ? (data.zonal_links ?? []).filter((l) => l.label && l.send_text).slice(0, 2) : [];
 
   return (
-    <div className={`mt-3 ${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
-      {/* Analytical card → fingerprint waves (design-system semantics). */}
-      <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
-      <div className="relative z-10 p-4 space-y-3">
-        {/* Header */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-extrabold text-white">{t('fx.card.title')}</span>
-          <span className="text-bf-gray/60">·</span>
-          <span
-            className="text-[10px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5"
-            style={{ backgroundColor: `${ACCENT_HEX.turquoise}22`, color: ACCENT_HEX.turquoise }}
-          >
-            {axisLabel(axis, locale)}
-          </span>
-        </div>
+    <>
+      <div className={`mt-3 ${CARD_BASE} ${CARD_ACCENT.turquoise.border}`}>
+        {/* Analytical card → fingerprint waves (design-system semantics). */}
+        <FingerprintWaves color={ACCENT_HEX.turquoise} corner="br" />
+        <div className="relative z-10 p-4 space-y-3">
+          {/* Header */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-extrabold text-white">{t('fx.card.title')}</span>
+            <span className="text-bf-gray/60">·</span>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5"
+              style={{ backgroundColor: `${ACCENT_HEX.turquoise}22`, color: ACCENT_HEX.turquoise }}
+            >
+              {axisLabel(axis, locale)}
+            </span>
+          </div>
 
-        {/* Team rows. i110: ONE header per team (the sub-views no longer
-            paint their own here), and no tendency chart for a single
-            gameweek — one point has no trend, the cell already says it. */}
-        <div className="space-y-3">
-          {teams.map((team) => (
-            <div key={team.team_short} className="space-y-1.5" data-testid="fixture-outlook-team">
-              <TeamHeader team={team} />
-              <FixtureTickerRow team={team} showHeader={false} />
-              {team.series.length >= 2 && <FixtureTendencyChart team={team} showHeader={false} />}
-            </div>
+          {/* Team rows. i110: ONE header per team (the sub-views no longer
+              paint their own here), and no tendency chart for a single
+              gameweek — one point has no trend, the cell already says it. */}
+          <div className="space-y-3">
+            {teams.map((team) => (
+              <div key={team.team_short} className="space-y-1.5" data-testid="fixture-outlook-team">
+                <TeamHeader team={team} />
+                <FixtureTickerRow team={team} showHeader={false} />
+                {team.series.length >= 2 && <FixtureTendencyChart team={team} showHeader={false} />}
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <BandLegend />
+        </div>
+      </div>
+      {ask && links.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" data-testid="fixture-zonal-links">
+          {links.map((l) => (
+            <SignalPill key={l.send_text} kind="zone" label={l.label} sendText={l.send_text} onAsk={ask} />
           ))}
         </div>
-
-        {/* Legend */}
-        <BandLegend />
-      </div>
-    </div>
+      )}
+    </>
   );
 }

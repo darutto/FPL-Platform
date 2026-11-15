@@ -14,8 +14,14 @@
  * Colour: favorable → turquoise, neutral → grey, no_data → plain text
  * («Sin datos del rival»; never rendered as neutral). Framing is opportunity
  * only. The season stamp is the same component the zonal card uses.
+ *
+ * The section closes with the team zonal question for the nearest favourable
+ * rival («Quién del BHA explota al HUL ›», Leo 2026-11-13) when a row is a
+ * favourable matchup and the answer has a chat to send it to.
  */
-import type { PlayerZonalFixture, PlayerZonalOutlookMeta } from '@/lib/types';
+import type { PlayerSignal, PlayerZonalFixture, PlayerZonalOutlookMeta } from '@/lib/types';
+import { useChatAsk } from '@/lib/chat-ask';
+import { SignalPill } from './PlayerSignals';
 import {
   LEVEL_PILL_CLASS,
   sharePercent,
@@ -29,11 +35,20 @@ import { gwLabel, gwRange } from '@/lib/fixture-outlook-format';
 
 interface Props {
   zonal: PlayerZonalOutlookMeta;
+  /** The team zonal question for the nearest favourable rival (player_signals.zone_signal); absent = no link. */
+  zoneLink?: PlayerSignal | null;
 }
 
-export default function PlayerZonasSection({ zonal }: Props) {
+export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
   const t = useT();
   const { locale } = useLocale();
+  const ask = useChatAsk();
+  // Only where a row is a favourable matchup, and only with a chat to send to (not on a shared answer).
+  const link =
+    ask != null && zoneLink?.kind === 'zone' && zoneLink.label && zoneLink.send_text &&
+    zonal.fixtures.some((f) => f.status === 'favorable')
+      ? zoneLink
+      : null;
   if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
   const { gw_from, gw_to } = zonal;
   const hasPitch = hasPlaceableZones(zonal.zones);
@@ -95,6 +110,12 @@ export default function PlayerZonasSection({ zonal }: Props) {
           <ZonasRow key={`${f.fixture_id ?? 'x'}-${f.gameweek}-${f.opponent_short}`} fixture={f} />
         ))}
       </ul>
+
+      {link && ask && (
+        <div className="flex flex-wrap gap-2" data-testid="player-zonas-link">
+          <SignalPill kind="zone" label={link.label} sendText={link.send_text} onAsk={ask} />
+        </div>
+      )}
 
       {zonal.data_provenance && <ProvenanceStamp provenance={zonal.data_provenance} />}
     </section>

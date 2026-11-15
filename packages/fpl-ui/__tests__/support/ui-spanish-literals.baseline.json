@@ -59,8 +59,7 @@
     "Equipo"
   ],
   "components/wc/WcWebSearchCard.tsx": [
-    "Búsqueda web",
-    "Búsqueda web · IA · información sin verificar"
+    "Búsqueda web"
   ],
   "lib/fixture-outlook-mock.ts": [
     "Buen tramo para portería a cero: calendario",

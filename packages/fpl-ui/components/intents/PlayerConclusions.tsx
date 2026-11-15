@@ -94,10 +94,14 @@ export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
     case 'points_clean_sheets':
       return t('concl.cleanSheets');
     case 'position': {
-      // The role word when his off-line starts agree on a role, else the line word; anything else is dropped.
+      // «Juega de extremo · 6 de 6»: the role word when his starts on that line agree on a role, else the line word,
+      // then the position card's own count. Anything else is dropped.
       const { role, line } = c.params;
-      if (role && POSITION_ROLES.includes(role)) return t(`concl.position.role.${role}`);
-      if (line && ['DEF', 'MID', 'FWD'].includes(line)) return t(`concl.position.line.${line as 'DEF' | 'MID' | 'FWD'}`);
+      const count = t('concl.position.count', { starts: c.params.starts, games: c.params.games });
+      if (role && POSITION_ROLES.includes(role)) return `${t(`concl.position.role.${role}`)} · ${count}`;
+      if (line && ['DEF', 'MID', 'FWD'].includes(line)) {
+        return `${t(`concl.position.line.${line as 'DEF' | 'MID' | 'FWD'}`)} · ${count}`;
+      }
       return null;
     }
     case 'set_pieces':
@@ -111,9 +115,16 @@ export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
   }
 }
 
-/** "xGI/90 · top 10 % de MID"; the clean-sheets line names its metric in the label, so evidence is "top N %" only. */
+/**
+ * "xGI/90 · top 10 % de MID"; the clean-sheets line names its metric in the label, so evidence is "top N %" only.
+ * The position line's evidence is the gameweeks of the position card's window («J5–J10»).
+ */
 export function conclusionEvidence(c: PlayerConclusion, t: T): string | null {
-  if (c.key === 'position') return t('concl.position.count', { starts: c.params.starts, games: c.params.games });
+  if (c.key === 'position') {
+    const ev = c.evidence;
+    if (ev == null) return null;
+    return ev.gw_from === ev.gw_to ? t('fx.gw', { n: ev.gw_from }) : t('fx.gwRange', { start: ev.gw_from, end: ev.gw_to });
+  }
   const ev = c.evidence;
   if (ev == null) return null;
   const top = t('concl.top', { n: ev.top_pct, pos: ev.position });
