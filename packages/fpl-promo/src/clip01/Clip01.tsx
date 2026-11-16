@@ -7,10 +7,26 @@
  * over the captures, swaps them where the app itself changes state, and adds captions,
  * tap pulses, a privacy blur over the manager's name and the official SVG logo.
  */
-import { AbsoluteFill, Img, staticFile, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, Audio, Img, interpolate, Sequence, staticFile, useCurrentFrame } from 'remotion';
 import { kf, p } from '../anim';
 import { Caption } from '../Caption';
 import { C, F } from '../theme';
+import { CUES, MUSIC, sfxPath } from './sound';
+
+export type Clip01Props = { withSound?: boolean };
+
+const Soundtrack: React.FC = () => (
+  <>
+    <Audio src={staticFile(sfxPath('music'))} volume={(f) =>
+      MUSIC.volume * interpolate(f, [0, MUSIC.fadeInFrames, MUSIC.fadeOutFrom, CLIP01_FRAMES], [0, 1, 1, 0],
+        { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
+    {CUES.map((c, i) => (
+      <Sequence key={i} from={c.at} layout="none">
+        <Audio src={staticFile(sfxPath(c.file))} volume={c.volume} />
+      </Sequence>
+    ))}
+  </>
+);
 
 export const CLIP01_FRAMES = 450;
 
@@ -110,7 +126,7 @@ const Glow: React.FC<{ f: number; box: { x: number; y: number; w: number; h: num
   );
 };
 
-export const Clip01: React.FC = () => {
+export const Clip01: React.FC<Clip01Props> = ({ withSound = false }) => {
   const f = useCurrentFrame();
   const shot = shotAt(f);
   const cam = camera(f);
@@ -128,6 +144,7 @@ export const Clip01: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: C.bg, overflow: 'hidden' }}>
+      {withSound && <Soundtrack />}
       <svg width={0} height={0} style={{ position: 'absolute' }}>
         <filter id="vblur"><feGaussianBlur stdDeviation={`0 ${blur}`} /></filter>
       </svg>

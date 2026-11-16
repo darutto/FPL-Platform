@@ -71,3 +71,7 @@ field-notes/SMOKE-*
 
 # i71: Windows-only pytest basetemp pinned under each package by its root conftest.py
 .pytest-tmp/
+
+# Stock music/SFX (Pixabay etc.): licensed for use inside finished videos only,
+# never as standalone files in this public repo. Rendered into the MP4 locally.
+docs/marketing/assets/sfx/
