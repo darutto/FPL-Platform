@@ -1,5 +1,5 @@
 /**
- * Clip 01 — "Toca. Pregunta. Entiende." (15 s, 1080×1920, 30 fps)
+ * Clip 01 — "Toca. Pregunta. Entiende." (16 s, 1080×1920, 30 fps)
  * Approved storyboard: docs/marketing/clip-01/storyboard/ (v3, 15 Nov 2026).
  *
  * Every pixel of UI is a real capture of the app (docs/marketing/clip-01/captures/,
@@ -11,15 +11,28 @@ import { AbsoluteFill, Audio, Img, interpolate, Sequence, staticFile, useCurrent
 import { kf, p } from '../anim';
 import { Caption } from '../Caption';
 import { C, F } from '../theme';
-import { CUES, MUSIC, sfxPath } from './sound';
+import { CUES, MUSIC, sfxPath, VOICE } from './sound';
 
 export type Clip01Props = { withSound?: boolean };
+
+// 1 while a voice line plays (with short ramps at its edges), 0 elsewhere.
+const voiceOn = (f: number) => Math.max(0, ...VOICE.map((v) => {
+  const end = v.at + v.to - v.from;
+  return interpolate(f, [v.at - MUSIC.duckRamp, v.at, end, end + MUSIC.duckRamp], [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+}));
 
 const Soundtrack: React.FC = () => (
   <>
     <Audio src={staticFile(sfxPath('music'))} volume={(f) =>
-      MUSIC.volume * interpolate(f, [0, MUSIC.fadeInFrames, MUSIC.fadeOutFrom, CLIP01_FRAMES], [0, 1, 1, 0],
+      MUSIC.volume * (1 - (1 - MUSIC.duck) * voiceOn(f)) *
+      interpolate(f, [0, MUSIC.fadeInFrames, MUSIC.fadeOutFrom, MUSIC.end], [0, 1, 1, 0],
         { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
+    {VOICE.map((v, i) => (
+      <Sequence key={`v${i}`} from={v.at} layout="none">
+        <Audio src={staticFile(sfxPath('voice'))} trimBefore={v.from} trimAfter={v.to} volume={v.volume} />
+      </Sequence>
+    ))}
     {CUES.map((c, i) => (
       <Sequence key={i} from={c.at} layout="none">
         <Audio src={staticFile(sfxPath(c.file))} volume={c.volume} />
@@ -28,7 +41,7 @@ const Soundtrack: React.FC = () => (
   </>
 );
 
-export const CLIP01_FRAMES = 450;
+export const CLIP01_FRAMES = 480;
 
 const cap = (f: string) => staticFile(`clip-01/captures/${f}`);
 const SCREEN_W = 1170; // captures are 390×844 CSS px at 3x
@@ -185,12 +198,13 @@ export const Clip01: React.FC<Clip01Props> = ({ withSound = false }) => {
       <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 600,
         background: `linear-gradient(${C.bg}f2 0%, ${C.bg}d9 38%, ${C.bg}00 100%)`, opacity: 1 - out }} />
 
-      <Caption text="¿Lo alineo esta semana?" start={4} end={70} y={300} />
-      <Caption text="Tu equipo, en la cancha." start={80} end={114} y={300} />
-      <Caption text="Toca a cualquier jugador." start={124} end={174} y={300} />
-      <Caption text="Pregúntale a tu asistente." start={184} end={212} y={300} />
-      <Caption text="Dónde dispara él." start={294} end={332} y={300} />
-      <Caption text="Dónde concede Sunderland." start={344} end={392} y={300} accent={["Sunderland"]} />
+      <Caption text="¿Lo alineo esta semana?" start={4} end={40} y={300} />
+      <Caption text="Conecta tu equipo." start={44} end={104} y={300} />
+      <Caption text="Toca cualquier jugador." start={108} end={156} y={300} />
+      <Caption text="Pregúntale a tu asistente." start={158} end={190} y={300} />
+      <Caption text="Respuesta clara: sí, alinéalo." start={192} end={262} y={300} />
+      <Caption text="Mira dónde dispara él." start={288} end={326} y={300} />
+      <Caption text="Y dónde concede Sunderland." start={332} end={384} y={300} accent={["Sunderland"]} />
 
       {/* CTA: official SVG logo, then the coral pill */}
       {f >= 404 && (
@@ -199,11 +213,11 @@ export const Clip01: React.FC<Clip01Props> = ({ withSound = false }) => {
             transform: `scale(${0.35 + 0.65 * logoIn})`, opacity: logoIn,
             filter: `drop-shadow(0 0 ${60 * logoIn}px ${C.gold}88)` }} />
           <div style={{ position: 'absolute', left: 0, right: 0, top: 1210 + (1 - pillIn) * 24, display: 'flex', justifyContent: 'center', opacity: pillIn }}>
-            <div style={{ background: C.coral, color: '#fff', fontFamily: F.sans, fontWeight: 800, fontSize: 58, padding: '26px 56px',
-              borderRadius: 999, boxShadow: `0 24px 70px ${C.coral}66`, whiteSpace: 'nowrap' }}>FPL Asistente · Prueba gratis</div>
+            <div style={{ background: C.coral, color: '#fff', fontFamily: F.sans, fontWeight: 800, fontSize: 52, padding: '26px 52px',
+              borderRadius: 999, boxShadow: `0 24px 70px ${C.coral}66`, whiteSpace: 'nowrap' }}>Tu asistente técnico · Prueba gratis</div>
           </div>
           <div style={{ position: 'absolute', left: 0, right: 0, top: 1380 + (1 - handleIn) * 24, textAlign: 'center', opacity: handleIn,
-            fontFamily: F.sans, fontWeight: 700, fontSize: 44, letterSpacing: 1, color: C.gray }}>benditofantasy</div>
+            fontFamily: F.sans, fontWeight: 700, fontSize: 44, letterSpacing: 1, color: C.gray }}>app.benditofantasy.com</div>
         </>
       )}
     </AbsoluteFill>
