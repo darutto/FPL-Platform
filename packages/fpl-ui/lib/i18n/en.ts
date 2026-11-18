@@ -387,7 +387,7 @@ export const en: typeof es = {
   'fx.swing.now': 'starting now',
   'fx.swing.from': 'from {gw}',
   'fx.swing.since': 'since {gw}',
-  'fx.swing.marker': 'Swing: {direction} from {gw}',
+  'fx.swing.marker': 'Swing: {direction}',
   'fx.blank.short': 'Blank',
   'fx.horizon': 'Gameweeks',
   'fx.nav.label': 'Browse gameweeks',

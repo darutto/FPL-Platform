@@ -17,6 +17,7 @@ import '@testing-library/jest-dom';
 
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 import { FixtureTendencyChart } from '@/components/intents/FixtureTendencyChart';
+import { translate } from '@/lib/i18n/dictionary';
 import type { Swing } from '@/lib/fixture-swing';
 import type { FixtureOutlookGW, TeamOutlook } from '@/lib/types';
 
@@ -68,6 +69,25 @@ describe('FixtureTendencyChart swing markers', () => {
     expect(pill).toHaveTextContent('Más fácil desde J13');
     expect(pill).toHaveTextContent('3.0 → 1.8');
     expect(pill).toHaveTextContent('en 2 J');
+  });
+
+  test('the divider is announced once: the gameweek is not repeated by the label template', () => {
+    render(<FixtureTendencyChart team={team(flat)} swing={swingAt(13)} />);
+    const label = screen.getByTestId('fixture-swing-divider').getAttribute('aria-label');
+    expect(label).toBe('Cambio de racha: Más fácil desde J13');
+    expect(label?.match(/J13/g)).toHaveLength(1);
+  });
+
+  test('the same holds in English, for easier and harder', () => {
+    const easier = translate('en', 'fx.swing.marker', { direction: translate('en', 'fx.swing.easier', { gw: 'GW14' }) });
+    const harder = translate('en', 'fx.swing.marker', { direction: translate('en', 'fx.swing.harder', { gw: 'GW14' }) });
+    expect(easier).toBe('Swing: Easier from GW14');
+    expect(harder).toBe('Swing: Harder from GW14');
+  });
+
+  test('the blank marker is called Blank in both languages', () => {
+    expect(translate('es', 'fx.blank.short')).toBe('Blank');
+    expect(translate('en', 'fx.blank.short')).toBe('Blank');
   });
 
   test('a harder swing says so', () => {

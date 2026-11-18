@@ -184,7 +184,7 @@ export function FixtureTendencyChart({
               />
             )}
             {swing && dividerX !== null && (
-              <g data-testid="fixture-swing-divider" aria-label={t('fx.swing.marker', { direction: t(swing.direction === 'easier' ? 'fx.swing.easier' : 'fx.swing.harder', { gw: gwLabel(swing.gameweek, locale) }), gw: gwLabel(swing.gameweek, locale) })}>
+              <g data-testid="fixture-swing-divider" aria-label={t('fx.swing.marker', { direction: t(swing.direction === 'easier' ? 'fx.swing.easier' : 'fx.swing.harder', { gw: gwLabel(swing.gameweek, locale) }) })}>
                 <line x1={dividerX} x2={dividerX} y1={12} y2={Y_BASE} stroke={swingHex as string} strokeWidth={2} strokeDasharray="4 3" />
                 <text x={dividerX} y={9} textAnchor="middle" style={{ fontSize: 10.5, fontWeight: 800, fill: swingHex as string }}>
                   {swingArrow(swing.direction)} {gwLabel(swing.gameweek, locale)}
