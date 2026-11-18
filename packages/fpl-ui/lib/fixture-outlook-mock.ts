@@ -153,14 +153,15 @@ export function buildLeagueOutlook(axis: FixtureAxis, horizon: number): FixtureO
       const fixtures = [{ opponent_short: pickOpponent(), is_home: home, band }];
 
       // Occasional double gameweek (~12%): a second fixture, band possibly
-      // different. Combined difficulty takes the easier of the two — two
-      // chances at goals/clean sheets is a schedule upside, not a wash.
+      // different. Combined difficulty is the rounded mean of the fixtures, as
+      // the engine does it (fixture_outlook._team_axis_series). It used to take
+      // the easier of the two, which no real bundle ever did.
       const isDgw = rng() < 0.12;
       let combinedBand = band;
       if (isDgw) {
         const band2 = clamp(band + Math.round((rng() - 0.5) * 2), 1, 5);
         fixtures.push({ opponent_short: pickOpponent(), is_home: rng() > 0.5, band: band2 });
-        combinedBand = Math.min(band, band2);
+        combinedBand = clamp(Math.round((band + band2) / 2), 1, 5);
       }
 
       series.push({
