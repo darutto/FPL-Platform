@@ -61,6 +61,7 @@ import { usePresentationAccess } from '@/lib/presentation-access';
 import { FixtureTickerRow, BandLegend } from './FixtureTickerRow';
 import { FixtureCompactGrid } from './FixtureCompactGrid';
 import { FixtureTendencyChart } from './FixtureTendencyChart';
+import { orderBySwing, type SwingGroup } from '@/lib/fixture-swing';
 import { FingerprintWaves } from './CardOrnaments';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import type { FixtureAxis } from '@/lib/types';
@@ -73,6 +74,14 @@ const DAY_MS = 86_400_000;
 const PRESENTATION_HORIZONS = [6, 8] as const;
 const OTHER_COMPETITIONS_KEY = 'fpl-fixtures-other-competitions';
 type ViewMode = 'detailed' | 'compact' | 'tendency';
+/** Trend view only: the board's best-run order, or grouped by where each run turns easier or harder. */
+type OrderMode = 'run' | 'swing';
+
+const SWING_GROUPS: Array<{ id: SwingGroup; label: DictKey; color: string }> = [
+  { id: 'easier', label: 'fx.swing.group.easier', color: ACCENT_HEX.turquoise },
+  { id: 'stable', label: 'fx.swing.group.stable', color: '#ABA9AC' },
+  { id: 'harder', label: 'fx.swing.group.harder', color: '#FF6A4D' },
+];
 
 const VIEWS: Array<{ id: ViewMode; label: DictKey }> = [
   { id: 'detailed', label: 'fx.view.detailed' },
@@ -93,6 +102,7 @@ export function FixturesBoard({
   // Inside the wide workspace the window follows the room available (largest
   // option that fits) until the user picks a width; elsewhere it stays at 8.
   const [view, setView] = useState<ViewMode>(initialView);
+  const [order, setOrder] = useState<OrderMode>('run');
   const rowsRef = useRef<HTMLDivElement>(null);
   const [rowsWidth, setRowsWidth] = useState<number | null>(null);
   const [pickedHorizon, setPickedHorizon] = useState<number | null>(null);
@@ -132,6 +142,20 @@ export function FixturesBoard({
     [horizon, sourceData, startGameweek],
   );
   const visibleEndGameweek = data.teams[0]?.series.at(-1)?.gameweek ?? startGameweek;
+  // Swings read the whole season (the trailing five are before the window), and are measured from
+  // the live gameweek, not from wherever the arrows have paged to.
+  const seasonSeries = useMemo(
+    () => new Map(sourceData.teams.map((team) => [team.team_short, team.series])),
+    [sourceData],
+  );
+  const swingEntries = useMemo(
+    () => orderBySwing(data.teams, seasonSeries, baseGameweek),
+    [data, seasonSeries, baseGameweek],
+  );
+  const swingByTeam = useMemo(
+    () => new Map(swingEntries.map((entry) => [entry.team.team_short, entry.swing])),
+    [swingEntries],
+  );
   const provenance = useMemo(
     () => fixtureOutlookProvenance(REAL_SEASON_GENERATION, finishedGameweek, locale),
     [finishedGameweek, locale],
@@ -348,8 +372,30 @@ export function FixturesBoard({
           <LockedCompetitionsToggle open={lockedOpen} onToggle={() => setLockedOpen((open) => !open)} />
         )}
 
+        {/* Order: only the trend view has swings to order by */}
+        {view === 'tendency' && (
+          <div className="inline-flex items-center gap-2 ml-auto">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-bf-gray">{t('fx.order.label')}</span>
+            <div role="group" aria-label={t('fx.order.label')} className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5">
+              {(['run', 'swing'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setOrder(mode)}
+                  aria-pressed={order === mode}
+                  className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                    order === mode ? 'bg-bf-coral/15 text-bf-coral' : 'text-bf-gray hover:text-white'
+                  }`}
+                >
+                  {t(mode === 'run' ? 'fx.order.run' : 'fx.order.swing')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* View toggle */}
-        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5 ml-auto">
+        <div className={`inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5 ${view === 'tendency' ? '' : 'ml-auto'}`}>
           {VIEWS.map((v) => (
             <button
               key={v.id}
@@ -441,16 +487,47 @@ export function FixturesBoard({
             </div>
           )}
           {view === 'compact' && <FixtureCompactGrid data={data} onAsk={onAsk} extrasFor={extrasFor} layerActive={layer !== null} />}
-          {view === 'tendency' && (
+          {view === 'tendency' && order === 'run' && (
             <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(data.teams.length / rowColumnCount) } as CSSProperties}>
               {data.teams.map((team, index) => (
                 <div
                   key={team.team_short}
                   className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
                 >
-                  <FixtureTendencyChart team={team} rank={index + 1} onAsk={onAsk} />
+                  <FixtureTendencyChart team={team} rank={index + 1} onAsk={onAsk} swing={swingByTeam.get(team.team_short) ?? null} />
                 </div>
               ))}
+            </div>
+          )}
+          {view === 'tendency' && order === 'swing' && (
+            <div data-testid="fixture-swing-groups">
+              {SWING_GROUPS.map(({ id, label, color }) => {
+                const entries = swingEntries.filter((entry) => entry.group === id);
+                if (entries.length === 0) return null;
+                const before = swingEntries.findIndex((entry) => entry.group === id);
+                return (
+                  <section key={id} data-testid={`fixture-swing-group-${id}`} className="mb-2">
+                    <h3
+                      className="flex items-center gap-3 mt-4 mb-2 text-[13px] font-extrabold uppercase tracking-wider"
+                      style={{ color }}
+                    >
+                      {t(label)}
+                      <span className="opacity-60">({entries.length})</span>
+                      <span className="flex-1 h-px bg-white/10" aria-hidden />
+                    </h3>
+                    <div className="fixture-rows" style={{ '--row-cols': rowColumnCount, '--row-rows': Math.ceil(entries.length / rowColumnCount) } as CSSProperties}>
+                      {entries.map((entry, index) => (
+                        <div
+                          key={entry.team.team_short}
+                          className="py-[18px] first:pt-0 border-t border-white/10 first:border-t-0"
+                        >
+                          <FixtureTendencyChart team={entry.team} rank={before + index + 1} onAsk={onAsk} swing={entry.swing} />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
           </div>

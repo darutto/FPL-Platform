@@ -28,6 +28,8 @@ const SAME_IN_BOTH = new Set<string>([
   'unit.pts',
   'evidence.dir.neutral',
   'share.club',
+  // The fixtures board says "Blank" in Spanish too, as the calendar's own vocabulary.
+  'fx.blank.short',
   // S4c: the squad pitch already used English words for these in Spanish; kept as they were.
   'sq.title',
   'sq.stat.gw',

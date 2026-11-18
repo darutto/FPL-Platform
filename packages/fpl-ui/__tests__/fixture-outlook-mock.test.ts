@@ -50,7 +50,7 @@ describe('buildLeagueOutlook', () => {
     expect(JSON.stringify(a1)).not.toBe(JSON.stringify(d1)); // axis changes seed
   });
 
-  test('double-gameweek invariants: 2 fixtures, no self-fixture, combined band is the easier of the two', () => {
+  test('double-gameweek invariants: 2 fixtures, no self-fixture, combined band is the rounded mean, as in the engine', () => {
     const meta = buildLeagueOutlook('attack', 10);
     let sawDgw = false;
     for (const t of meta.teams) {
@@ -61,7 +61,7 @@ describe('buildLeagueOutlook', () => {
         for (const f of gw.fixtures) {
           expect(f.opponent_short).not.toBe(t.team_short);
         }
-        expect(gw.band).toBe(Math.min(gw.fixtures[0].band, gw.fixtures[1].band));
+        expect(gw.band).toBe(Math.max(1, Math.min(5, Math.round((gw.fixtures[0].band + gw.fixtures[1].band) / 2))));
       }
     }
     expect(sawDgw).toBe(true); // sanity: the ~12% chance actually fires across 20 teams x 10 GWs
