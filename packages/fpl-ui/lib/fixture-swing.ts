@@ -20,10 +20,16 @@
  * the reference and the new run, so nothing is called on thin evidence (the last
  * gameweeks of the data, or a window that is mostly blanks).
  *
+ * The threshold is per axis. Attack bands are FPL's own FDR and move slowly; defence
+ * bands blend in the opponent's recent form and move a lot, so one number cannot serve
+ * both: measured on the 2026-27 bundle, 0.5 flagged 12 of 20 teams on attack and 19 of
+ * 20 on defence. The values below flag roughly five teams a week on each axis. They are
+ * tuned on one season's data and are meant to be revisited as more of it is played.
+ *
  * Doubles and blanks are NOT swings: they are volume, not difficulty, and keep
  * their own markers. They only enter here through the fixture counts above.
  */
-import type { FixtureOutlookGW, TeamOutlook } from './types';
+import type { FixtureAxis, FixtureOutlookGW, TeamOutlook } from './types';
 
 /** Gameweeks of already-played fixtures that form the reference. */
 export const SWING_TRAILING = 5;
@@ -31,8 +37,14 @@ export const SWING_TRAILING = 5;
 export const SWING_LOOKAHEAD = 10;
 /** Gameweeks, counted from the swing point, that make up the new run. */
 export const SWING_RUN = 5;
-/** Smallest average change that counts as a swing (a multiple of 0.2 in practice, so 0.5 acts as 0.6). */
-export const SWING_THRESHOLD = 0.5;
+/**
+ * Smallest average change that counts as a swing, per axis. Whole-band averages over five
+ * fixtures move in steps of 0.2, so both values are reachable exactly.
+ */
+export const SWING_THRESHOLDS: Record<FixtureAxis, number> = {
+  attack: 0.8,
+  defence: 1.6,
+};
 /** Fewest fixtures allowed behind the reference and behind the new run. */
 export const SWING_MIN_FIXTURES = 3;
 
@@ -76,6 +88,8 @@ function bandsBetween(byGameweek: Map<number, FixtureOutlookGW>, from: number, t
 }
 
 export interface SwingOptions {
+  /** Picks the threshold when `threshold` is not given. Defaults to attack. */
+  axis: FixtureAxis;
   threshold: number;
   lookahead: number;
 }
@@ -91,7 +105,7 @@ export function findSwing(
   now: number,
   options: Partial<SwingOptions> = {},
 ): Swing | null {
-  const threshold = options.threshold ?? SWING_THRESHOLD;
+  const threshold = options.threshold ?? SWING_THRESHOLDS[options.axis ?? 'attack'];
   const lookahead = options.lookahead ?? SWING_LOOKAHEAD;
   const byGameweek = new Map(series.map((gw) => [gw.gameweek, gw]));
 
@@ -151,7 +165,7 @@ export function orderBySwing(
   now: number,
 ): SwingEntry[] {
   const entries: SwingEntry[] = teams.map((team) => {
-    const swing = findSwing(full.get(team.team_short) ?? team.series, now);
+    const swing = findSwing(full.get(team.team_short) ?? team.series, now, { axis: team.axis });
     const group: SwingGroup = swing ? (swing.direction === 'easier' ? 'easier' : 'harder') : 'stable';
     return { team, swing, group };
   });

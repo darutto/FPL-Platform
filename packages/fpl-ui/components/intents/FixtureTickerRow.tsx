@@ -29,6 +29,7 @@ import {
   gwLabel,
   type Band,
 } from '@/lib/fixture-outlook-format';
+import type { ReactNode } from 'react';
 import type { TeamExtras } from '@/lib/fixture-competitions';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import type { Locale } from '@/lib/i18n/locale';
@@ -63,7 +64,18 @@ function cellVenue(gw: FixtureOutlookGW, locale: Locale): string {
  * own, rendered ONCE per team by whoever composes the views. `rank` is the team's place in the board's
  * best-first order; it is shown (muted) only inside the wide workspace.
  */
-export function TeamHeader({ team, onAskTeam, rank }: { team: TeamOutlook; onAskTeam?: () => void; rank?: number }) {
+export function TeamHeader({
+  team,
+  onAskTeam,
+  rank,
+  badge,
+}: {
+  team: TeamOutlook;
+  onAskTeam?: () => void;
+  rank?: number;
+  /** Extra pill after the average (the trend view's swing); absent everywhere else. */
+  badge?: ReactNode;
+}) {
   const { team_short, verdict, avg_band } = team;
   const t = useT();
   const { locale } = useLocale();
@@ -85,6 +97,7 @@ export function TeamHeader({ team, onAskTeam, rank }: { team: TeamOutlook; onAsk
       {rank !== undefined && <span className="fx-rank" aria-label={t('fx.rank', { n: rank })}>{rank}</span>}
       {teamLabel}
       <AvgPill avg={avg_band} />
+      {badge}
       {verdict && <span className="text-[14.5px] text-bf-gray">{fixtureVerdict(verdict, locale)}</span>}
     </div>
   );
