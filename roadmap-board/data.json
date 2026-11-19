@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-15",
+  "updated": "2026-11-19",
   "cards": [
     {
       "id": "s1",
@@ -2700,6 +2700,17 @@
         "Backend",
         "UI",
         "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s90",
+      "col": "shipped",
+      "title": "Aviso de cambio de racha en la vista de tendencia de /fixtures",
+      "desc": "Fusionada (PR #657, 18/11). La vista de tendencia de /fixtures suma un divisor que marca dónde la racha de un equipo pasa de fácil a difícil o al revés (gris antes, verde/rojo después, con pin cuando el giro cae fuera de la ventana visible y un pill de resumen en el header del equipo) más un orden «Swing» junto al «Best run» por defecto; el punto de giro lo calcula lib/fixture-swing.ts de forma pura y determinista comparando el promedio de las últimas 5 jornadas jugadas contra las 5 siguientes con umbrales por eje (0.8 ataque, 1.6 defensa), sin cambios de backend ni en las vistas detallada y compacta.",
+      "tags": [
+        "UI",
+        "Web"
       ],
       "progress": 100
     }
