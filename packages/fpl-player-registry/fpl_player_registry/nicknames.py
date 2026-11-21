@@ -89,3 +89,64 @@ KNOWN_NICKNAMES: dict[str, list[str]] = {
 }
 
 
+
+
+#: Interchangeable given names: the formal form, its diminutives and its
+#: foreign spellings. Entries are single words, already in the comparison form
+#: of ``normalize_player_name`` (lowercase, no accents). Used by the resolver to
+#: read a colloquial "Nico Jackson" against the full name "Nicolas Jackson":
+#: FPL's ``web_name`` ("N.Jackson", "Jackson") never carries the first name, so
+#: the ``KNOWN_NICKNAMES`` table above (keyed on web_name) cannot express it.
+#: A group only widens which *given names* are treated alike; the surname still
+#: has to match, and a tie still goes to the pick wizard.
+GIVEN_NAME_GROUPS: tuple[frozenset[str], ...] = tuple(
+    frozenset(group.split())
+    for group in (
+        "nicolas nico nick nicholas nicola nicolo nik",
+        "alexander alexandre alejandro alex alexandr",
+        "christopher chris kit",
+        "matthew matt matty matthias",
+        "william will willy willian bill billy",
+        "thomas tom tommy tomas",
+        "joseph joe joey josef",
+        "james jamie jim jimmy",
+        "benjamin ben benji benny",
+        "samuel sam sammy",
+        "daniel dan danny daniele",
+        "david dave davy",
+        "michael mike mikey",
+        "robert rob robbie bobby bob",
+        "richard rick ricky richie",
+        "anthony antony tony",
+        "edward ed eddie eddy ted",
+        "frederick fred freddie fredrick",
+        "jonathan jon jonny",
+        "joshua josh",
+        "jacob jake",
+        "philip phillip phil",
+        "steven stephen steve stevie",
+        "gabriel gabi gabby",
+        "leonardo leo leonard",
+        "francisco paco fran",
+        "rodrigo rodri",
+        "sebastian sebastien seb",
+        "timothy tim timmy",
+        "andrew andy drew",
+        "patrick pat paddy",
+        "kenneth ken kenny",
+        "ronald ron ronnie",
+        "dominic dominik dom",
+        "mohamed mohammed mohammad muhammad mohamad mo",
+        "emmanuel manu manny",
+        "maximilian max maxi",
+        "oliver ollie olly oli",
+        "henry harry",
+        "bernardo bernie",
+        "zachary zach zack zak",
+        "ignacio nacho",
+        "enrique kike quique",
+        "jeremy jeremie",
+        "lewis lew",
+        "theodore theo",
+    )
+)

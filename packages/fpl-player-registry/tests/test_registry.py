@@ -446,7 +446,7 @@ class TestPublicSurface:
         assert set(pkg.__all__) == {
             "PlayerRecord", "PlayerRegistry", "build_registry", "KNOWN_NICKNAMES",
             "PlayerMatch", "PlayerResolution", "normalize_player_name",
-            "resolve_player_candidates", "compound_name_forms",
+            "resolve_player_candidates", "compound_name_forms", "given_name_variant_forms",
             "RANK_EXACT", "RANK_COMPOUND", "RANK_PREFIX", "RANK_SUBSTRING",
             "RANK_AUTO_RESOLVE_MAX",
             # i67: the candidate shape has one owner. Exported because the

@@ -33,6 +33,7 @@ from .resolution import (
     candidate_dict,
     candidate_dicts,
     compound_name_forms,
+    given_name_variant_forms,
     normalize_player_name,
     resolve_player_candidates,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "candidate_dict",
     "candidate_dicts",
     "compound_name_forms",
+    "given_name_variant_forms",
     "normalize_player_name",
     "resolve_player_candidates",
 ]
