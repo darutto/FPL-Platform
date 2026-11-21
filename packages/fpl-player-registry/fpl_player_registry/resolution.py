@@ -11,7 +11,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from .nicknames import KNOWN_NICKNAMES
+from .nicknames import GIVEN_NAME_GROUPS, KNOWN_NICKNAMES
 from .registry import PlayerRecord, build_registry
 
 
@@ -30,8 +30,9 @@ _VIA_PRIORITY = {
     "exact_name": 2,
     "alias": 3,
     "compound_name": 4,
-    "prefix": 5,
-    "substring": 6,
+    "given_name_variant": 5,
+    "prefix": 6,
+    "substring": 7,
 }
 
 #: Rank tiers, strongest first.  ``best_matches`` only ever returns one tier,
@@ -168,6 +169,41 @@ def compound_name_forms(first: str, second: str) -> set[str]:
     return forms
 
 
+def _given_name_siblings() -> dict[str, frozenset[str]]:
+    """Given name -> every other name in its group (empty when ungrouped)."""
+    siblings: dict[str, set[str]] = {}
+    for group in GIVEN_NAME_GROUPS:
+        for name in group:
+            siblings.setdefault(name, set()).update(group - {name})
+    return {name: frozenset(others) for name, others in siblings.items()}
+
+
+_GIVEN_NAME_SIBLINGS = _given_name_siblings()
+
+
+def given_name_variant_forms(first: str, second: str) -> set[str]:
+    """Colloquial full-name forms for a player: ``Nicolas Jackson`` -> ``nico jackson``.
+
+    Swaps the player's first given name for each interchangeable one in
+    ``GIVEN_NAME_GROUPS`` and pairs it with the surname, plus the everyday
+    compound-surname suffixes (``Matheus Santos Carneiro da Cunha`` reaches
+    ``matt cunha``).  Symmetric: a player listed under the short form
+    (``Nico González``) is reachable by the formal one (``Nicolas Gonzalez``).
+
+    Both arguments must already be normalized.  The player's own first name
+    is not returned -- that is the exact ``full`` field, handled elsewhere.
+    """
+    given_words = first.split()
+    surname_words = second.split()
+    if not given_words or not surname_words:
+        return set()
+    siblings = _GIVEN_NAME_SIBLINGS.get(given_words[0], frozenset())
+    if not siblings:
+        return set()
+    surnames = {" ".join(surname_words[start:]) for start in range(len(surname_words))}
+    return {f"{name} {surname}" for name in siblings for surname in surnames}
+
+
 def _alias_targets(
     players: list[dict[str, Any]],
     aliases: dict[str, list[str]],
@@ -288,6 +324,8 @@ def resolve_player_candidates(
             add(player_id, RANK_EXACT, "exact_name")
         elif normalized_query in compound_name_forms(first, second):
             add(player_id, RANK_COMPOUND, "compound_name")
+        elif normalized_query in given_name_variant_forms(first, second):
+            add(player_id, RANK_COMPOUND, "given_name_variant")
         elif allow_prefix and any(field.startswith(normalized_query) for field in fields):
             add(player_id, RANK_PREFIX, "prefix")
         elif allow_substring and any(normalized_query in field for field in fields):
@@ -399,6 +437,7 @@ __all__ = [
     "candidate_dict",
     "candidate_dicts",
     "compound_name_forms",
+    "given_name_variant_forms",
     "normalize_player_name",
     "resolve_player_candidates",
 ]
