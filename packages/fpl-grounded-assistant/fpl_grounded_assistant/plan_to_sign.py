@@ -394,6 +394,7 @@ def plan_to_sign(
 
     sell_price = {pid: ctx.cost(pid) for pid in squad}
     price_basis = "current"
+    user_sell_prices: list[dict[str, Any]] = []
     if sell_prices:
         if not isinstance(sell_prices, list):
             return _error("bad_sell_prices", "sell_prices must be a list of {player, price} items.")
@@ -403,6 +404,7 @@ def plan_to_sign(
                 return _error("bad_sell_prices", f"{(item or {}).get('player')!r} is not a player in the squad.")
             try:
                 sell_price[int(hit["player_id"])] = int(round(float(item["price"]) * 10))
+                user_sell_prices.append({"player": str(int(hit["player_id"])), "price": float(item["price"])})
             except (KeyError, TypeError, ValueError):
                 return _error("bad_sell_prices", "each sell price needs a numeric price in millions.")
         price_basis = "user"
@@ -470,6 +472,10 @@ def plan_to_sign(
         "price_basis": price_basis,
         "free_transfers": ft,
         "excluded_out_ids": sorted(exclude),
+        # Everyone offered as a sale on this card, so "who else?" proposes new names.
+        "shown_out_ids": sorted({tr["out"]["id"] for o in options for tr in o["transfers"]}),
+        # The user's own selling prices, keyed by player id, so a follow-up keeps them.
+        "user_sell_prices": user_sell_prices,
     }
     return {
         **base,

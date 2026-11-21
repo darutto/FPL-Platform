@@ -55,6 +55,7 @@ ROUTE_STRUCTURAL_KEYS: frozenset[str] = frozenset({
     "session_id",           # session only: the id the client opened
     "rewritten_question",   # session only: reference resolution echo
     "web_search",           # /ask only: premium opt-in payload slot
+    "plan_state",           # /ask only: the chat posts plain turns there and sends this back next turn (plan_to_sign follow-up)
     "debug",                # different shapes by design (routing_trace vs session debug)
 })
 

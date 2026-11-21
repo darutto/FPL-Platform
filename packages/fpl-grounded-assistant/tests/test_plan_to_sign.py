@@ -308,3 +308,11 @@ def test_a_downgrade_that_sells_a_club_mate_can_make_a_plan_legal(run):
     assert all(o["moves"] >= 2 for o in legal)
     sold_clubs = {tr["out"]["team_short"] for o in legal for tr in o["transfers"][1:]}
     assert "C1" in sold_clubs
+
+
+def test_plan_state_lists_everyone_offered_and_keeps_the_users_prices(run):
+    res = run(moves="one", squad_bank=0, sell_prices=[{"player": "Alpha", "price": 8.0}])
+    state = res["plan_state"]
+    offered = {tr["out"]["id"] for o in res["options"] for tr in o["transfers"]}
+    assert state["shown_out_ids"] == sorted(offered)
+    assert state["user_sell_prices"] == [{"player": "13", "price": 8.0}]
