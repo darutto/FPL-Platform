@@ -202,6 +202,7 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
     "player_resolution_strategy",  # deterministic player resolution strategy
     "player_candidate_count",      # candidates at the best resolver rank
     "player_lookup_branch",        # explicit/bare outcome or specialized fallthrough
+    "player_lookup_diverted",      # why a terminal lookup went to the orchestrator
     # i80: projected straight off OrchestratorResult whenever the orchestrator
     # ran (both the grounded and the no-grounded-tool branches). The audit log
     # used to write retry_attempted=False as a literal; these are the values
@@ -217,6 +218,8 @@ ROUTING_TRACE_OPTIONAL_KEYS: frozenset[str] = frozenset({
                           #   executed call carried, not only its name)
     "composed_primary_tool",  # i93: the calendar call promoted to the singular
                               #   slot of a composed turn (final_response.composed_primary_call)
+    "web_search_enabled",  # bool: search_web was OFFERED this turn (tier + toggle)
+    "search_web_ran",      # bool: search_web was actually EXECUTED this turn
 })
 
 # ---------------------------------------------------------------------------
@@ -1100,13 +1103,24 @@ def ask_v2(
 
     # General named-player lookups are deterministic and precede orchestration.
     # Non-terminal misses retain the complete input for the existing LLM path.
-    from .player_lookup import classify_player_lookup, execute_player_lookup  # noqa: PLC0415
+    from .player_lookup import (  # noqa: PLC0415
+        classify_player_lookup,
+        execute_player_lookup,
+        should_divert_player_lookup,
+    )
 
     _player_lookup = classify_player_lookup(cleaned_text, actual_bootstrap)
     routing_trace["player_resolution_strategy"] = _player_lookup.resolution_strategy
     routing_trace["player_candidate_count"] = _player_lookup.candidate_count
     routing_trace["player_lookup_branch"] = _player_lookup.deterministic_branch
-    if _player_lookup.terminal:
+    routing_trace["web_search_enabled"] = bool(web_search_enabled)
+    routing_trace["search_web_ran"] = False
+    _divert, _divert_reason = should_divert_player_lookup(
+        _player_lookup, cleaned_text, web_search_enabled
+    )
+    if _divert:
+        routing_trace["player_lookup_diverted"] = _divert_reason
+    if _player_lookup.terminal and not _divert:
         from .suggestions import (  # noqa: PLC0415
             player_disambiguation_suggestions,
             suggestions_to_list,
@@ -1551,6 +1565,8 @@ def _project_orchestrator_run(routing_trace: dict[str, Any], orch_result: Any) -
         }
     )
     routing_trace["tool_sequence"] = [_n for _n in _names if _n]
+    # Did search_web actually run (vs merely offered)? Read off the same trace.
+    routing_trace["search_web_ran"] = "search_web" in routing_trace["tool_sequence"]
     # i93-b: the args each executed call carried, parallel to tool_sequence
     # (same filter). Read off the trace like the names; nothing derived.
     routing_trace["tool_args_sequence"] = [

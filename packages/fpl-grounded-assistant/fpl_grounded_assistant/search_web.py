@@ -179,17 +179,18 @@ def search_web(query: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> dict[str
 SEARCH_WEB_SPEC = ToolSpec(
     name="search_web",
     description=(
-        "LAST RESORT. Live web search for FPL/football information that NO other "
-        "tool can provide: breaking news, injuries/doubts, suspensions, "
-        "press-conference quotes, transfer/lineup rumours, or opinion/"
-        "prediction questions. NEVER use it for player stats, prices, fixtures, "
-        "form, or anything covered by a dedicated tool — those are always more "
-        "reliable. "
-        "QUERY CONSTRUCTION: the `query` must be concise, keyword-heavy, and "
-        "stripped of conversational filler. Never pass the user's raw "
-        "conversational sentence directly. Example — user 'oye, ¿sabes si "
-        "Salah está lesionado para el partido de mañana?' -> "
-        "query: 'Salah lesion estado Liverpool'."
+        "Live web search for FPL/football information that NO other tool can "
+        "provide: breaking news, suspensions, press-conference quotes, "
+        "transfer/lineup rumours, or opinion/prediction questions. NEVER use it "
+        "for player stats, prices, fixtures, or form — those have dedicated "
+        "tools and are always more reliable. "
+        "When the user asks about a player's injury, availability, fitness or "
+        "latest news, call search_web as well as get_player_snapshot: FPL's own "
+        "status/news can lag behind club news, so answer with both and say "
+        "which source says what. "
+        "QUERY CONSTRUCTION: `query` must be concise, keyword-heavy, and "
+        "stripped of conversational filler (e.g. '<player> injury update "
+        "<club>', not the user's raw sentence)."
     ),
     parameters={
         "type": "object",

@@ -1,6 +1,8 @@
 """Deterministic pre-orchestration classification for general player lookups."""
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,6 +45,58 @@ class PlayerLookupDecision:
     @property
     def terminal(self) -> bool:
         return self.status in {"ok", "ambiguous"}
+
+
+# Availability / news intent: whole words only (a "fit" must not hit "fixtures").
+_AVAILABILITY_WORDS = (
+    "lesion", "lesionado", "lesionada", "lesionarse", "lesiones",
+    "injury", "injuries", "injured",
+    "duda", "dudoso", "dudosa", "doubtful",
+    "fit", "available", "disponible",
+    "news", "noticias", "noticia",
+    "jugara", "suspended", "suspendido", "sancionado",
+)
+_AVAILABILITY_PHRASES = (
+    r"va a jugar", r"van a jugar", r"chance of playing", r"chances? of play",
+    r"(posibilidad|probabilidad|chance|opcion|opciones) de jugar",
+    r"\bwill\b.{0,40}\bplay\b", r"\bplay(ing)? this (week|gameweek)\b",
+)
+_AVAILABILITY_RE = re.compile(
+    r"\b(?:" + "|".join(_AVAILABILITY_WORDS) + r")\b|"
+    + "|".join(_AVAILABILITY_PHRASES)
+)
+
+
+def _fold(text: str) -> str:
+    """Lowercase and strip accents so 'lesión'/'jugará' match the word list."""
+    decomposed = unicodedata.normalize("NFKD", text.lower())
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
+def has_availability_intent(question: str) -> bool:
+    """True when the question asks about injury / availability / news."""
+    return _AVAILABILITY_RE.search(_fold(question)) is not None
+
+
+def should_divert_player_lookup(
+    decision: "PlayerLookupDecision",
+    question: str,
+    web_search_enabled: bool,
+) -> tuple[bool, str | None]:
+    """Whether a terminal lookup must go to the orchestrator instead of the card.
+
+    Only question-shaped turns (``decision.explicit``) divert; a bare name
+    stays on the free card path in every mode. With search on, every
+    question-shaped player turn diverts so ``search_web`` can be offered; with
+    search off, only an availability/news question does.
+    """
+    if not decision.terminal or not decision.explicit:
+        return False, None
+    if web_search_enabled:
+        return True, "web_search"
+    if has_availability_intent(question):
+        return True, "availability_intent"
+    return False, None
 
 
 def _strategy(resolution: PlayerResolution) -> str | None:
@@ -197,5 +251,7 @@ def execute_player_lookup(
 __all__ = [
     "PlayerLookupDecision",
     "classify_player_lookup",
+    "has_availability_intent",
+    "should_divert_player_lookup",
     "execute_player_lookup",
 ]
