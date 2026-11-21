@@ -172,6 +172,58 @@ def search_web(query: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> dict[str
     }
 
 
+_MD_LINK_RE = re.compile(r"\[([^\]]*)\]\((?:https?://)[^)\s]*\)")
+_BARE_URL_RE = re.compile(r"https?://[^\s)\]]+")
+_SPACE_BEFORE_PUNCT_RE = re.compile(r"[ \t]+([.,;:])")
+_EMPTY_BULLET_RE = re.compile(r"^[\s\-*•>]+$")
+_SOURCE_LABEL_ONLY_RE = re.compile(
+    r"^[\s\-*•>]*(?:fuentes?(?:\s+web)?|sources?|web\s+sources?)\s*:?[\s\-*•]*$",
+    re.IGNORECASE,
+)
+
+
+def strip_urls_from_prose(text: str) -> str:
+    """Remove links from model prose: the sources are shown separately as titled links.
+
+    ``[title](url)`` keeps its title; a bare URL is dropped; a line left holding only
+    a "Fuente web:" style label goes with it. Prose without links is returned unchanged.
+    """
+    if not text or "http" not in text:
+        return text
+    out = _MD_LINK_RE.sub(lambda m: m.group(1), text)
+    out = _BARE_URL_RE.sub("", out)
+    out = _SPACE_BEFORE_PUNCT_RE.sub(r"\1", out)
+    lines = [ln.rstrip() for ln in out.split("\n")]
+    lines = [
+        ln for ln in lines
+        if not _SOURCE_LABEL_ONLY_RE.match(ln) and not _EMPTY_BULLET_RE.match(ln)
+    ]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def web_search_sources_from_trace(trace: Any) -> dict[str, Any] | None:
+    """The last successful ``search_web`` call of a turn as {topic, results, timestamp}.
+
+    Read off the orchestrator's executed-call trace, whatever other tools ran in the
+    same turn, so the cited sources can reach the UI next to e.g. a player card.
+    None when no search ran or it returned nothing usable.
+    """
+    found: dict[str, Any] | None = None
+    for entry in trace or ():
+        if not isinstance(entry, dict) or entry.get("name") != "search_web":
+            continue
+        output = entry.get("output") or {}
+        results = output.get("results") if isinstance(output, dict) else None
+        if output.get("status") not in (None, "ok") or not results:
+            continue
+        found = {
+            "topic": (entry.get("args") or {}).get("query"),
+            "results": list(results),
+            "timestamp": output.get("timestamp"),
+        }
+    return found
+
+
 # ---------------------------------------------------------------------------
 # Tool-runner spec and handler
 # ---------------------------------------------------------------------------
@@ -187,7 +239,11 @@ SEARCH_WEB_SPEC = ToolSpec(
         "When the user asks about a player's injury, availability, fitness or "
         "latest news, call search_web as well as get_player_snapshot: FPL's own "
         "status/news can lag behind club news, so answer with both and say "
-        "which source says what. "
+        "which source says what, in words (\"según el club…\" / \"FPL lo marca…\"), "
+        "never by writing URLs or links: the sources are shown to the user "
+        "separately. If the question states a figure (e.g. a chance of "
+        "playing) that the FPL data contradicts, say what the data shows and "
+        "note the difference; never repeat the user's figure as FPL's. "
         "QUERY CONSTRUCTION: `query` must be concise, keyword-heavy, and "
         "stripped of conversational filler (e.g. '<player> injury update "
         "<club>', not the user's raw sentence)."

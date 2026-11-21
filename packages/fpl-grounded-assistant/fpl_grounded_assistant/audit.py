@@ -162,6 +162,12 @@ class AuditEntry:
     # carries neither key -- the line is byte-identical to before.
     locale: str | None = None
     question_lang: str | None = None
+    # Web-search routing, projected from routing_trace: was search_web OFFERED this turn,
+    # did it actually RUN, and why a terminal player lookup went to the orchestrator.
+    # None = the turn never reached that point; then the serialised line carries no key.
+    web_search_enabled: bool | None = None
+    search_web_ran: bool | None = None
+    player_lookup_diverted: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +300,12 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         entry_dict["locale"] = entry.locale
     if entry.question_lang is not None:
         entry_dict["question_lang"] = entry.question_lang
+    if entry.web_search_enabled is not None:
+        entry_dict["web_search_enabled"] = entry.web_search_enabled
+    if entry.search_web_ran is not None:
+        entry_dict["search_web_ran"] = entry.search_web_ran
+    if entry.player_lookup_diverted is not None:
+        entry_dict["player_lookup_diverted"] = entry.player_lookup_diverted
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
 
@@ -375,6 +387,9 @@ def make_audit_entry(
     retry_delivery: str | None = None,
     locale: str | None = None,
     question_lang: str | None = None,
+    web_search_enabled: bool | None = None,
+    search_web_ran: bool | None = None,
+    player_lookup_diverted: str | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -412,4 +427,7 @@ def make_audit_entry(
         retry_delivery=retry_delivery,
         locale=locale,
         question_lang=question_lang,
+        web_search_enabled=web_search_enabled,
+        search_web_ran=search_web_ran,
+        player_lookup_diverted=player_lookup_diverted,
     )

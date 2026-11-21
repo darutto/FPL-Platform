@@ -2454,6 +2454,10 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         turn_id=_routing_trace.get("jev_shadow_turn_id"),
         locale=locale,
         question_lang=_question_lang,
+        # Same routing_trace keys the harness stamps; absent -> None -> no key in the line.
+        web_search_enabled=_routing_trace.get("web_search_enabled"),
+        search_web_ran=_routing_trace.get("search_web_ran"),
+        player_lookup_diverted=_routing_trace.get("player_lookup_diverted"),
     )
     try:
         write_audit_entry(_audit_entry)
