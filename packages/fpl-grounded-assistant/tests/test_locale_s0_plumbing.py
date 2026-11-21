@@ -43,9 +43,13 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: 2026-11-13: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card (only values the shown card
 #:   displays; off-card evidence stays), and MATCH_COMPOSITION's calendar read no longer lists the card's values,
 #:   on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
-ES_ORCH_PROMPT_SHA256 = "b4b09715d1acd6691787b50f0fc237a97029a4c9c62def3c7b4c6f5c4ea9b956"
-ES_ORCH_LOOP_PROMPT_SHA256 = "25641eca803d135604d79f15f7e10859881951ca1b1ee1dbe7f4bbbd49e014b3"
-ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
+#: 2026-11-14: TOP_N_ASKS clause added under CARD_NO_RESTATE (a top N / ranking ask is answered ABOUT the table, not
+#:   with its rows), get_player_involvement / get_gw_report added to the per-card list, and a CARD TURNS rule added to
+#:   the evaluator (COMPLETE never demands the rows of a card shown), on purpose (Leo 2026-11-14: «VEREDICTO» talks
+#:   about the table and never reprints its rows).
+ES_ORCH_PROMPT_SHA256 = "0dbac2629cb36251c04b02055c3fe4edf7370cd8470d0323ef543e7b614afc5e"
+ES_ORCH_LOOP_PROMPT_SHA256 = "5879a4bb8811c01e3f734c8e1c23fd7081c6fbfaf8ed6b2468de89e0361ba4e8"
+ES_EVALUATOR_PROMPT_SHA256 = "2deef702cc20cec042b4d34d631277f2d0425b32027e45a5f4495e8838f930ee"
 
 
 def _sha(text: str) -> str:
@@ -90,6 +94,38 @@ def test_the_built_prompts_forbid_restating_any_card():
         # only its calendar read stops listing the card's values.
         assert "each with ONE number the tool returned" in prompt
         assert "the card shows the values, see CARD_NO_RESTATE" in prompt
+
+
+def test_the_built_prompts_answer_top_n_asks_about_the_table():
+    """2026-11-14: a top N / ranking ask is satisfied by the card; the prose is about the table. No provider call."""
+    for prompt in (static_system_prompt("es"), static_system_prompt("en"), orch_mod._LOOP_SYSTEM_PROMPT):
+        lines = prompt.splitlines()
+        rule = [line for line in lines if line.strip().startswith("TOP_N_ASKS:")]
+        assert len(rule) == 1
+        text = rule[0]
+        assert "asks for a top N, a ranking or a list" in text and "is satisfied by the card" in text
+        assert "1-2 sentences ABOUT the table" in text and "never the list itself" in text
+        assert 'even when the question literally says "dame el top 10"' in text
+        assert "do not repeat those points" in text and "the season-total caveat" in text
+        assert "get_player_involvement, get_gw_report: their figures and rows" in prompt
+        assert "MATCH_COMPOSITION:" in prompt  # untouched
+
+
+def test_the_evaluator_prompt_does_not_demand_the_rows_of_a_shown_card():
+    """2026-11-14: the evaluator must not mark a table answer INCOMPLETE for omitting rows. No provider call."""
+    for prompt in (evaluator_mod.evaluator_system_prompt("es"), evaluator_mod.evaluator_system_prompt("en")):
+        rule = [line for line in prompt.splitlines() if line.strip().startswith("- CARD TURNS:")]
+        assert len(rule) == 1
+        text = rule[0]
+        for tool in ("rank_players_by_metric", "get_player_form", "get_differential_picks", "get_position_changes",
+                     "get_price_changes", "get_injury_list", "rank_captain_candidates"):
+            assert tool in text
+        assert "NOT incomplete for omitting rows" in text
+        assert "retry_feedback must never ask to list, include or order the rows" in text
+        assert "GROUNDED and SAFE stay as strict as above" in text
+        # The grounded and safe criteria are untouched.
+        assert "GROUNDED  every factual claim cites a tool result" in prompt
+        assert "OFF-TOPIC RULE (strict)" in prompt
 
 
 def test_es_evaluator_prompt_is_byte_identical():
