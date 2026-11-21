@@ -284,7 +284,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
                 <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-bf-turquoise">
                   {t('msg.verdict')}
                 </span>
-                {conclusions.length > 0 && <PlayerConclusions conclusions={conclusions} />}
+                {conclusions.length > 0 && <PlayerConclusions conclusions={conclusions} newsLabel={message.response?.player_snapshot?.news_label} />}
                 {showTableConclusions && <TableConclusions conclusions={message.response!.table_conclusions} />}
                 {showVerdict && (
                   <MarkdownLite

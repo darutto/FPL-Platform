@@ -822,7 +822,8 @@ class PlayerZonalOutlookMeta:
 
 #: Conclusion keys the UI words (see player_conclusions); anything else is dropped at extraction.
 PLAYER_CONCLUSION_KEYS: frozenset[str] = frozenset({
-    "points_attack", "points_defence", "points_clean_sheets", "position", "set_pieces", "starts", "zonal",
+    "availability", "points_attack", "points_defence", "points_clean_sheets", "position", "set_pieces", "starts",
+    "zonal",
 })
 
 

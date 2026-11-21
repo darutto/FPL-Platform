@@ -135,7 +135,8 @@ def test_starts_fires_at_80_percent_of_finished_gameweeks():
 def test_starts_suppressed_when_not_available():
     for status in ("d", "i", "s", "u"):
         p = _el(1, MID, starts=10, status=status)
-        assert player_conclusions(p, _bootstrap([p], finished=10)) == [], status
+        keys = [c["key"] for c in player_conclusions(p, _bootstrap([p], finished=10))]
+        assert keys == ["availability"], status  # no starts line next to an availability doubt
 
 
 def test_starts_needs_enough_finished_gameweeks_and_is_capped():
@@ -227,3 +228,46 @@ def test_not_found_and_ambiguous_text_unchanged():
     assert render("get_player_snapshot", amb).startswith("Múltiples jugadores coinciden con 'twin'")
     nf = get_player_snapshot("Nobodyatall", boot)
     assert render("get_player_snapshot", nf) == "No player matching 'nobodyatall'."
+
+
+# -- availability ---------------------------------------------------------------
+
+def test_availability_fires_for_status_or_chance_below_100_with_fpl_text():
+    p = _el(1, MID, status="d", chance_of_playing_this_round=75, news="Synthetic knock", news_added="2026-11-18T10:00:00Z")
+    assert player_conclusions(p, _bootstrap([p]))[0] == {
+        "key": "availability",
+        "params": {"status": "d", "chance": 75},
+        "evidence": {"news": "Synthetic knock", "news_added": "2026-11-18T10:00:00Z"},
+    }
+    gone = _el(2, MID, status="i", chance_of_playing_this_round=0, news="Out", news_added=None)
+    assert player_conclusions(gone, _bootstrap([gone]))[0]["params"] == {"status": "i", "chance": 0}
+    no_chance = _el(3, MID, status="s", chance_of_playing_this_round=None, news="")
+    first = player_conclusions(no_chance, _bootstrap([no_chance]))[0]
+    assert first["params"] == {"status": "s", "chance": None}
+    assert first["evidence"] == {"news": "", "news_added": None}
+    # status says available but FPL still gives a chance below 100: shown
+    odd = _el(4, MID, status="a", chance_of_playing_this_round=75)
+    assert player_conclusions(odd, _bootstrap([odd]))[0]["params"] == {"status": "a", "chance": 75}
+
+
+def test_availability_silent_for_a_fully_available_player():
+    for chance in (None, 100):
+        p = _el(1, MID, status="a", chance_of_playing_this_round=chance)
+        assert all(c["key"] != "availability" for c in player_conclusions(p, _bootstrap([p])))
+
+
+def test_availability_is_first_and_the_cap_still_holds():
+    pool = _pool(MID, "expected_goal_involvements_per_90")
+    p = _el(1, MID, status="d", chance_of_playing_this_round=50, expected_goal_involvements_per_90=0.9, penalties_order=1)
+    keys = [c["key"] for c in player_conclusions(p, _bootstrap(pool + [p]), _zonal(("AAA", "favorable")))]
+    assert keys == ["availability", "points_attack", "set_pieces"]
+
+
+def test_availability_survives_snapshot_and_meta_extraction():
+    p = _el(1, MID, web_name="Hurtguy", second_name="Hurtguy", status="d", chance_of_playing_this_round=75,
+            news="Synthetic knock", news_added="2026-11-18T10:00:00Z")
+    raw = get_player_snapshot("Hurtguy", _bootstrap([p]))
+    assert raw["player"]["conclusions"][0]["key"] == "availability"
+    meta = _extract_player_snapshot_meta(raw)
+    assert meta is not None and meta.conclusions[0].key == "availability"
+    assert meta.conclusions[0].params == {"status": "d", "chance": 75}

@@ -134,3 +134,41 @@ describe('PlayerConclusions wording', () => {
     expect(items[1]).toHaveTextContent('Takes penalties, free kicks and corners');
   });
 });
+
+describe('availability line', () => {
+  const doubtful: PlayerConclusion = {
+    key: 'availability',
+    params: { status: 'd', chance: 75 },
+    evidence: { news: 'Synthetic knock', news_added: '2026-11-18T10:00:00Z' },
+  };
+
+  test('Spanish: chance in the label, FPL news and its date as evidence', () => {
+    render(<PlayerConclusions conclusions={[doubtful]} />);
+    const item = screen.getByRole('listitem');
+    expect(item).toHaveTextContent('FPL le da 75 % de jugar');
+    expect(item).toHaveTextContent('Synthetic knock · 2026-11-18');
+  });
+
+  test('Spanish: the translated news label wins over the raw news', () => {
+    render(<PlayerConclusions conclusions={[doubtful]} newsLabel="Golpe sintético" />);
+    expect(screen.getByRole('listitem')).toHaveTextContent('Golpe sintético · 2026-11-18');
+  });
+
+  test('English wording and no-chance fallback to the status word', () => {
+    const { unmount } = render(
+      <LocaleProvider initialLocale="en" canSwitch>
+        <PlayerConclusions conclusions={[doubtful]} />
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole('listitem')).toHaveTextContent('FPL gives him 75 % to play');
+    unmount();
+    render(
+      <LocaleProvider initialLocale="en" canSwitch>
+        <PlayerConclusions
+          conclusions={[{ key: 'availability', params: { status: 'i', chance: null }, evidence: { news: '', news_added: null } }]}
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole('listitem')).toHaveTextContent('FPL lists him as injured');
+  });
+});

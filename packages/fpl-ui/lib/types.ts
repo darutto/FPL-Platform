@@ -1038,6 +1038,13 @@ export interface PlayerConclusionEvidence {
 }
 
 export type PlayerConclusion =
+  | {
+      key: 'availability';
+      /** FPL status code: d doubtful, i injured, s suspended, u unavailable, n not in squad, a available (chance < 100). */
+      params: { status: 'd' | 'i' | 's' | 'u' | 'n' | 'a'; chance: number | null };
+      /** FPL's own news text and the date FPL added it, as they exist. */
+      evidence: { news: string; news_added: string | null } | null;
+    }
   | { key: 'points_attack' | 'points_defence' | 'points_clean_sheets'; params: { position: PlayerPosition }; evidence: PlayerConclusionEvidence | null }
   | {
       key: 'position';
