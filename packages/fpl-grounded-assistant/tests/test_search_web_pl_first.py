@@ -56,8 +56,8 @@ def test_player_availability_query_adds_a_pl_restricted_call_and_puts_it_first(p
     plan += [
         MAIN,
         {"results": [
-            _item("https://www.premierleague.com/news/1?_gl=1*abc&_ga=2.3", "official one"),
-            _item("https://www.premierleague.com/news/2", "official two"),
+            _item("https://www.premierleague.com/news/1?_gl=1*abc&_ga=2.3", "Saka official one"),
+            _item("https://www.premierleague.com/news/2", "Saka official two"),
         ]},
     ]
     out = sw.search_web("Saka injury update", bootstrap=bootstrap)
@@ -65,7 +65,7 @@ def test_player_availability_query_adds_a_pl_restricted_call_and_puts_it_first(p
     assert "include_domains" not in calls[0]
     assert calls[1]["include_domains"] == ["premierleague.com"]
     titles = [r["title"] for r in out["results"]]
-    assert titles[:2] == ["official one", "official two"]
+    assert titles[:2] == ["Saka official one", "Saka official two"]
     # then major outlet, then unlisted, then social / aggregator (reorder only)
     assert titles[2:] == ["major outlet", "unlisted", "social post"]
     assert out["answer"] == "synthetic answer"
@@ -85,11 +85,11 @@ def test_tracking_parameters_are_cleaned_from_shown_urls(posts, bootstrap):
 def test_duplicates_across_the_two_calls_collapse(posts, bootstrap):
     calls, plan = posts
     plan += [
-        {"results": [_item("https://premierleague.com/news/1/", "same page, main call"), _item("https://example.test/z", "other")]},
-        {"results": [_item("https://www.premierleague.com/news/1?_ga=2.9", "same page, pl call")]},
+        {"results": [_item("https://premierleague.com/news/1/", "Saka same page, main call"), _item("https://example.test/z", "other")]},
+        {"results": [_item("https://www.premierleague.com/news/1?_ga=2.9", "Saka same page, pl call")]},
     ]
     out = sw.search_web("Saka injury update", bootstrap=bootstrap)
-    assert [r["title"] for r in out["results"]] == ["same page, pl call", "other"]
+    assert [r["title"] for r in out["results"]] == ["Saka same page, pl call", "other"]
 
 
 def test_empty_pl_results_fall_back_to_the_normal_ones(posts, bootstrap):
@@ -143,6 +143,62 @@ def test_handler_passes_the_bootstrap_through(posts, bootstrap):
     plan += [MAIN, {"results": []}]
     out = sw._search_web_handler({"query": "Saka injury update"}, bootstrap)
     assert out["status"] == "ok" and len(calls) == 2
+
+
+def _pl(n: int, title: str, published=None, content: str = "c") -> dict[str, Any]:
+    return {**_item(f"https://www.premierleague.com/news/{n}", title), "content": content, "published_date": published}
+
+
+def test_irrelevant_official_pages_are_dropped(posts, bootstrap):
+    calls, plan = posts
+    plan += [MAIN, {"results": [
+        _pl(1, "Team news for the derby"),
+        _pl(2, "Predicted line-ups Matchweek 11"),
+        _pl(3, "Saka fitness update"),
+        _pl(4, "Preview", content="Arsenal are without two players"),  # club name in the content
+    ]}]
+    out = sw.search_web("Saka injury update", bootstrap=bootstrap)
+    official = [r["title"] for r in out["results"] if "premierleague.com" in r["url"]]
+    assert sorted(official) == ["Preview", "Saka fitness update"]
+
+
+def test_official_pages_are_capped_at_two_and_general_results_fill_in(posts, bootstrap):
+    calls, plan = posts
+    plan += [MAIN, {"results": [_pl(i, f"Saka news {i}") for i in range(1, 6)]}]
+    out = sw.search_web("Saka injury update", bootstrap=bootstrap)
+    titles = [r["title"] for r in out["results"]]
+    assert titles[:2] == ["Saka news 1", "Saka news 2"]
+    assert titles[2:] == ["major outlet", "unlisted", "social post"]
+    assert len(titles) == 5
+
+
+def test_official_pages_in_the_general_call_are_filtered_and_capped_too(posts, bootstrap):
+    calls, plan = posts
+    plan += [
+        {"results": [_pl(i, "Unrelated team news") for i in range(1, 4)] + [_item("https://example.test/ok", "kept")]},
+        {"results": []},
+    ]
+    out = sw.search_web("Saka injury update", bootstrap=bootstrap)
+    assert [r["title"] for r in out["results"]] == ["kept"]
+
+
+def test_no_relevant_official_page_falls_back_to_general(posts, bootstrap):
+    calls, plan = posts
+    plan += [MAIN, {"results": [_pl(1, "Predicted line-ups"), _pl(2, "Team news for the derby")]}]
+    out = sw.search_web("Saka injury update", bootstrap=bootstrap)
+    assert [r["title"] for r in out["results"]] == ["major outlet", "unlisted", "social post", "aggregator"]
+
+
+def test_recent_official_pages_come_first_when_dated(posts, bootstrap):
+    calls, plan = posts
+    plan += [MAIN, {"results": [
+        _pl(1, "Saka old", "2026-08-01T10:00:00Z"),
+        _pl(2, "Saka undated"),
+        _pl(3, "Saka new", "2026-11-18T10:00:00Z"),
+    ]}]
+    out = sw.search_web("Saka injury update", bootstrap=bootstrap)
+    assert [r["title"] for r in out["results"][:2]] == ["Saka new", "Saka old"]
+    assert not any(r["title"] == "Saka undated" for r in out["results"])
 
 
 @pytest.mark.parametrize(

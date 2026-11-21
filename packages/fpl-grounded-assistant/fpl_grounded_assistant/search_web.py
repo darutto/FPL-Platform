@@ -44,6 +44,7 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
@@ -115,6 +116,8 @@ def _clean_snippet(text: str) -> str:
 #: availability or news. One extra, domain-restricted Tavily call per such turn.
 PL_DOMAIN = "premierleague.com"
 _PL_MAX_RESULTS: int = 5
+#: At most this many official pages are shown; general results fill the rest.
+_PL_KEEP: int = 2
 
 #: Query parameters that only track the visitor; stripped from every shown URL.
 _TRACKING_PARAMS = frozenset({
@@ -223,6 +226,56 @@ def is_player_availability_query(query: str, bootstrap: dict[str, Any] | None) -
     return False
 
 
+def _query_terms(query: str, bootstrap: dict[str, Any] | None) -> set[str]:
+    """Normalised names that make a result about the player asked: surname / web
+    name plus his club's name and short name (whole-word matches in the query)."""
+    padded = f" {normalize_player_name(query)} "
+    teams = {t.get("id"): t for t in (bootstrap or {}).get("teams") or []}
+    terms: set[str] = set()
+    for element in (bootstrap or {}).get("elements") or []:
+        hit = False
+        for field in ("web_name", "second_name"):
+            name = normalize_player_name(element.get(field))
+            if len(name) >= 3 and f" {name} " in padded:
+                hit = True
+                terms.add(name)
+        if hit:
+            team = teams.get(element.get("team")) or {}
+            for field in ("name", "short_name"):
+                name = normalize_player_name(team.get(field))
+                if len(name) >= 3:
+                    terms.add(name)
+    return terms
+
+
+def _mentions(item: dict[str, Any], terms: set[str]) -> bool:
+    text = f" {normalize_player_name((item.get('title') or '') + ' ' + (item.get('snippet') or ''))} "
+    return any(f" {t} " in text for t in terms)
+
+
+def _published_ts(item: dict[str, Any]) -> float | None:
+    raw = item.get("published")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = parsedate_to_datetime(raw)
+        except (TypeError, ValueError):
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _freshest_first(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Newest first when a date is given; undated items keep their order, after."""
+    dated = [(ts, it) for it in items if (ts := _published_ts(it)) is not None]
+    undated = [it for it in items if _published_ts(it) is None]
+    return [it for _, it in sorted(dated, key=lambda p: p[0], reverse=True)] + undated
+
+
 def _tavily(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     """One Tavily call -> the decoded JSON body (``results``, ``answer``)."""
     try:
@@ -310,7 +363,23 @@ def search_web(
         except WebSearchError:
             pl_results = []  # the official pass is best-effort; normal results stand
 
-    ranked = rank_results(pl_results + results)[:_MAX_RESULTS]
+    if is_player_availability_query(query, bootstrap):
+        terms = _query_terms(query, bootstrap)
+        # official pages must be about this player or his club; the rest are dropped
+        pl_results = _freshest_first([r for r in pl_results if _mentions(r, terms)])
+        results = [r for r in results if domain_tier(r["url"]) != 0 or _mentions(r, terms)]
+    ranked = rank_results(pl_results + results)
+    if pl_results:
+        official = 0
+        capped: list[dict[str, Any]] = []
+        for r in ranked:
+            if domain_tier(r["url"]) == 0:
+                official += 1
+                if official > _PL_KEEP:
+                    continue
+            capped.append(r)
+        ranked = capped
+    ranked = ranked[:_MAX_RESULTS]
 
     answer = body.get("answer")
     answer_ok = bool(results) and isinstance(answer, str) and answer.strip()
