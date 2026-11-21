@@ -163,3 +163,24 @@ describe('PlayerCard — news in Spanish (i151c)', () => {
     expect(screen.queryByText(/rodilla/)).not.toBeInTheDocument();
   });
 });
+
+describe('PlayerCard — availability chance chip', () => {
+  const base = playerSnapshotDoubtfulResponse.player_snapshot!;
+
+  test('shows the verdict line chance beside the badge, not the this-round field', async () => {
+    const data = {
+      ...base,
+      chance_of_playing_this_round: 25,
+      conclusions: [
+        { key: 'availability' as const, params: { status: 'd' as const, chance: 75 }, evidence: null },
+      ],
+    };
+    await renderCard(<PlayerCard data={data} />);
+    expect(screen.getByTestId('player-chance')).toHaveTextContent('75 %');
+  });
+
+  test('no availability conclusion: no chip', async () => {
+    await renderCard(<PlayerCard data={{ ...base, conclusions: [] }} />);
+    expect(screen.queryByTestId('player-chance')).not.toBeInTheDocument();
+  });
+});

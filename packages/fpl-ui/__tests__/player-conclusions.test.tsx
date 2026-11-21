@@ -145,7 +145,7 @@ describe('availability line', () => {
   test('Spanish: chance in the label, FPL news and its date as evidence', () => {
     render(<PlayerConclusions conclusions={[doubtful]} />);
     const item = screen.getByRole('listitem');
-    expect(item).toHaveTextContent('FPL le da 75 % de jugar');
+    expect(item).toHaveTextContent('FPL le da un 75 % de probabilidad de jugar');
     expect(item).toHaveTextContent('Synthetic knock · 2026-11-18');
   });
 
@@ -160,7 +160,7 @@ describe('availability line', () => {
         <PlayerConclusions conclusions={[doubtful]} />
       </LocaleProvider>,
     );
-    expect(screen.getByRole('listitem')).toHaveTextContent('FPL gives him 75 % to play');
+    expect(screen.getByRole('listitem')).toHaveTextContent('FPL gives him a 75% chance of playing');
     unmount();
     render(
       <LocaleProvider initialLocale="en" canSwitch>

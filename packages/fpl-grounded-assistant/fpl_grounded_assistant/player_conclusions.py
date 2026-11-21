@@ -151,7 +151,10 @@ _UNAVAILABLE_STATUSES = frozenset({"d", "i", "s", "u", "n"})
 
 def _availability(element: dict[str, Any]) -> dict[str, Any] | None:
     status = element.get("status")
-    chance = _num(element.get("chance_of_playing_this_round"))
+    # The next deadline's figure first, this round's as fallback (same order as plan_to_sign._availability).
+    chance = _num(element.get("chance_of_playing_next_round"))
+    if chance is None:
+        chance = _num(element.get("chance_of_playing_this_round"))
     chance_i = None if chance is None else int(chance)
     if status not in _UNAVAILABLE_STATUSES and (chance_i is None or chance_i >= 100):
         return None

@@ -271,3 +271,13 @@ def test_availability_survives_snapshot_and_meta_extraction():
     meta = _extract_player_snapshot_meta(raw)
     assert meta is not None and meta.conclusions[0].key == "availability"
     assert meta.conclusions[0].params == {"status": "d", "chance": 75}
+
+
+def test_availability_prefers_next_round_chance_and_falls_back_to_this_round():
+    both = _el(1, MID, status="d", chance_of_playing_this_round=25, chance_of_playing_next_round=75)
+    assert player_conclusions(both, _bootstrap([both]))[0]["params"]["chance"] == 75
+    only_this = _el(2, MID, status="d", chance_of_playing_this_round=25, chance_of_playing_next_round=None)
+    assert player_conclusions(only_this, _bootstrap([only_this]))[0]["params"]["chance"] == 25
+    # next round fully fit while this round was doubtful: the decision figure is 100, status still shown
+    recovered = _el(3, MID, status="d", chance_of_playing_this_round=50, chance_of_playing_next_round=100)
+    assert player_conclusions(recovered, _bootstrap([recovered]))[0]["params"]["chance"] == 100
