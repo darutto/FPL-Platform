@@ -817,6 +817,17 @@ def ask_v2(
         actual_bootstrap = dict(actual_bootstrap)
         actual_bootstrap["_my_team_id"] = team_id
 
+    # Free transfers the user states in this turn's own words ("tengo 3 cambios
+    # disponibles"): plan_to_sign reads them from here when the model did not pass
+    # them, so the hit cost never depends on the model remembering. Shallow copy,
+    # same reasoning as the team id above; skipped when the text states none.
+    from .free_transfers_text import extract_free_transfers as _extract_free_transfers  # noqa: PLC0415
+
+    _stated_free_transfers = _extract_free_transfers(question)
+    if _stated_free_transfers is not None:
+        actual_bootstrap = dict(actual_bootstrap)
+        actual_bootstrap["_free_transfers_stated"] = _stated_free_transfers
+
     # i18n S3: see _carry_locale (the sub-branches that call ask() do the same).
     actual_bootstrap = _carry_locale(actual_bootstrap, locale)
 

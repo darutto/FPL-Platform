@@ -1447,7 +1447,11 @@ PLAN_TO_SIGN_SCHEMA = ToolSchema(
             },
             "free_transfers": {
                 "type":        "integer",
-                "description": "Free transfers the user said they have. Never infer it.",
+                "description": (
+                    "Free transfers the user said they have -- pass it whenever they state it, "
+                    "in English ('I have 2 free transfers', '2 FTs') or Spanish ('tengo 3 cambios "
+                    "disponibles', 'me quedan 2 cambios'). Never infer it."
+                ),
                 "minimum":     0,
             },
             "sell_prices": {
