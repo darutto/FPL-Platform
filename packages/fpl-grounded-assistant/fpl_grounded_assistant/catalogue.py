@@ -983,6 +983,73 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Error inesperado.",
     },
 
+    # -- plan_to_sign ---------------------------------------------------------
+    "plan_to_sign.chip_one": {"en": "1 transfer", "es": "1 traspaso"},
+    "plan_to_sign.chip_free": {
+        "en": "Only free transfers ({n})", "es": "Solo traspasos gratis ({n})",
+    },
+    "plan_to_sign.chip_hits": {
+        "en": "Use hits (−{cost} each)", "es": "Usar hits (−{cost} cada uno)",
+    },
+    "plan_to_sign.chip_send": {
+        "en": "How do I get {name} with my current team? Plan: {choice}",
+        "es": "¿Cómo ficho a {name} con mi equipo actual? Plan: {choice}",
+    },
+    "plan_to_sign.header": {
+        "en": "Getting {name} ({position}, {team}, {price}m): you have {bank}m in the bank{shortfall_part}.",
+        "es": "Para fichar a {name} ({position}, {team}, {price}m): tienes {bank}m en el banco{shortfall_part}.",
+    },
+    "plan_to_sign.shortfall_part": {
+        "en": ", so the money to find is {shortfall}m", "es": ", así que hay que reunir {shortfall}m",
+    },
+    "plan_to_sign.free_transfers_known": {
+        "en": "Free transfers: {n}.", "es": "Traspasos gratis: {n}.",
+    },
+    "plan_to_sign.free_transfers_unknown": {
+        "en": "Free transfers: unknown — tell me how many you have and I will count the hits exactly.",
+        "es": "Traspasos gratis: sin dato — dime cuántos tienes y cuento los hits con exactitud.",
+    },
+    "plan_to_sign.choose_moves": {
+        "en": "How many moves do you want to use? A single swap already works in {n} way(s).",
+        "es": "¿Cuántos movimientos quieres usar? Con un solo cambio ya hay {n} opción(es).",
+    },
+    "plan_to_sign.option_line": {
+        "en": "Option {i}: {moves} move(s), hit {hit}, bank after {bank_after}m",
+        "es": "Opción {i}: {moves} movimiento(s), hit {hit}, banco después {bank_after}m",
+    },
+    "plan_to_sign.hit_assumed": {
+        "en": " (assuming 1 free transfer)", "es": " (suponiendo 1 traspaso gratis)",
+    },
+    "plan_to_sign.sell_line": {
+        "en": "  Out: {out} ({out_team}, {out_price}m{status}) → in: {inn} ({in_team}, {in_price}m)",
+        "es": "  Sale: {out} ({out_team}, {out_price}m{status}) → entra: {inn} ({in_team}, {in_price}m)",
+    },
+    "plan_to_sign.unavailable_note": {
+        "en": "{names}: being out costs little, which makes the sale the easy one.",
+        "es": "{names}: al estar fuera cuesta poco, así que es la venta más fácil.",
+    },
+    "plan_to_sign.price_caveat": {
+        "en": (
+            "These use current prices: the public data has no real selling prices. "
+            "Tell me what you really have in the bank or what a player sells for and I will recompute."
+        ),
+        "es": (
+            "Uso precios actuales: los datos públicos no traen los precios reales de venta. "
+            "Dime cuánto tienes en el banco o en cuánto se vende un jugador y lo recalculo."
+        ),
+    },
+    "plan_to_sign.user_numbers": {
+        "en": "Using the numbers you gave me.", "es": "Usando los números que me diste.",
+    },
+    "plan_to_sign.infeasible": {
+        "en": "No plan within {moves} move(s) reaches {name}'s price. Allowing more moves, or more money in the bank, opens it up.",
+        "es": "Ningún plan de {moves} movimiento(s) llega al precio de {name}. Con más movimientos o más dinero en el banco se abre.",
+    },
+    "plan_to_sign.already_owned": {
+        "en": "{name} is already in your squad.", "es": "{name} ya está en tu equipo.",
+    },
+    "plan_to_sign.error_fallback": {"en": "Unexpected error.", "es": "Error inesperado."},
+
     # -- status_label: shared by resolve_player and get_player_summary ------
     # Closed 5-value vocabulary. The renderer never sees the raw single-char
     # status code ("a"/"d"/"i"/"s"/"u") -- fpl_query_tools._STATUS_LABELS

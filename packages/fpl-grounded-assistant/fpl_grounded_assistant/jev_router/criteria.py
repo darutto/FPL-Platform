@@ -150,6 +150,15 @@ CRITERIA: dict[str, dict[str, object]] = {
             "dos delanteros que me alcancen con lo que me queda",
         ],
     },
+    "plan_to_sign": {
+        "what": "Plan how the user's OWN squad affords one named player: who to sell, which downgrades raise the money, the three-per-club limit and the hit. Asks first how many moves the user will make.",
+        "not_for": "Comparing two named players (get_transfer_advice); a ranked list of targets (get_transfer_suggestion); a player profile (get_player_snapshot); a hypothetical squad that is not the user's (build_squad / select_players_within_budget).",
+        "examples": [
+            "¿cómo ficho a Palmer con mi equipo actual?",
+            "how do I get Haaland with my team?",
+            "who else can I sell to get the money for him",
+        ],
+    },
     "get_transfer_suggestion": {
         "what": "Ranked transfer TARGETS to bring in, filtered by position, club or a per-player price ceiling, considering the upcoming run.",
         "not_for": "Deciding whether to sell one named player for another (get_transfer_advice); low-ownership picks specifically (get_differential_picks); a set of players that must fit one budget together (select_players_within_budget); a full squad (build_squad).",

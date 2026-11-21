@@ -1394,6 +1394,85 @@ SELECT_PLAYERS_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# plan_to_sign — how the user's own squad affords a named target
+# ---------------------------------------------------------------------------
+
+PLAN_TO_SIGN_SCHEMA = ToolSchema(
+    name="plan_to_sign",
+    description=(
+        "Plans how the CONNECTED USER'S OWN squad can afford one named player, and does "
+        "all the money and legality arithmetic itself: who to sell, which cheaper "
+        "players to buy to raise the difference, the three-per-club limit, the "
+        "positions and the points hit. "
+        "USE IT for 'how do I get Palmer with my team?', 'cómo ficho a Haaland con mi "
+        "equipo', 'what do I need to sell to afford X', and for follow-ups like 'who else "
+        "can I sell to get the money'. "
+        "TWO STEPS. Call it with only the target first: it answers with the choices for "
+        "how many moves the user is willing to make; show them and wait. Call it again "
+        "with moves='one' (a single transfer), moves='free' (only the free transfers, "
+        "needs free_transfers) or moves='hits' (up to 3 moves, −4 each beyond the free "
+        "transfers) once the user has chosen. "
+        "Players who are injured, suspended or doubtful are the cheapest sales and come "
+        "first. Use the PRICES it returns; never add, subtract or re-rank. "
+        "It uses current prices: the public API has no real selling prices. If the user "
+        "says what they really have in the bank or what a player sells for, pass bank / "
+        "sell_prices. Pass free_transfers only when the user said it; never guess it. "
+        "For a follow-up that asks for OTHER players to sell, pass the players already "
+        "proposed in exclude_out_ids. "
+        "NOT for a plain comparison of two named players (get_transfer_advice), a ranked "
+        "list of targets (get_transfer_suggestion) or a player profile (get_player_snapshot). "
+        "status='no_team_connected' when no team is linked: say so, never ask for the 15 "
+        "players by hand."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "target": {
+                "type":        "string",
+                "description": "The player the user wants to sign, as written (name, nickname or web name).",
+            },
+            "moves": {
+                "type":        "string",
+                "enum":        ["one", "free", "hits"],
+                "description": (
+                    "Omit on the first call. 'one' = a single transfer, 'free' = only the "
+                    "free transfers (needs free_transfers of 2 or more), 'hits' = up to 3 "
+                    "moves in total, paying −4 for each beyond the free transfers."
+                ),
+            },
+            "bank": {
+                "type":        "number",
+                "description": "The user's real money in the bank, in millions, only if they said it.",
+                "minimum":     0,
+            },
+            "free_transfers": {
+                "type":        "integer",
+                "description": "Free transfers the user said they have. Never infer it.",
+                "minimum":     0,
+            },
+            "sell_prices": {
+                "type":        "array",
+                "description": "Real selling prices the user gave: [{player, price in millions}].",
+                "items": {
+                    "type": "object",
+                    "properties": {"player": {"type": "string"}, "price": {"type": "number"}},
+                    "required": ["player", "price"],
+                    "additionalProperties": False,
+                },
+            },
+            "exclude_out_ids": {
+                "type":        "array",
+                "description": "Player ids not to propose selling (already proposed earlier).",
+                "items":       {"type": "integer"},
+            },
+        },
+        "required":             ["target"],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # Web search — last-resort, premium-gated tool (kept OUT of _ALL_SCHEMAS)
 # ---------------------------------------------------------------------------
 # This schema is appended to the per-request tool list ONLY when web search is
@@ -1871,6 +1950,8 @@ _BASE_REGISTERED_SCHEMAS: tuple[ToolSchema, ...] = (
     # S1 — exact constrained squad construction
     BUILD_SQUAD_SCHEMA,
     SELECT_PLAYERS_SCHEMA,
+    # plan to sign: squad-aware transfer plan
+    PLAN_TO_SIGN_SCHEMA,
     # T-zonal atomic tools (orchestrator-only; no intent, no card)
     GET_ZONAL_WEAKNESS_SCHEMA,
     GET_ZONAL_OPPORTUNITY_SCHEMA,

@@ -1999,6 +1999,66 @@ def _render_build_squad(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE)
     return f"Error ({code}): {message}"
 
 
+def _render_plan_to_sign(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """Render plan_to_sign raw_output. Every figure is the tool's own."""
+    status = output.get("status")
+    if status in ("no_team_connected", "ambiguous", "not_found"):
+        return str(output.get("message") or t("plan_to_sign.error_fallback", locale))
+    if status != "ok":
+        return str(output.get("message") or t("plan_to_sign.error_fallback", locale))
+
+    target = output.get("target") or {}
+    name = target.get("web_name", "?")
+    stage = output.get("stage")
+    if stage == "already_owned":
+        return t("plan_to_sign.already_owned", locale, name=name)
+
+    shortfall = output.get("shortfall_tenths", 0) or 0
+    shortfall_part = (
+        t("plan_to_sign.shortfall_part", locale, shortfall=output.get("shortfall"))
+        if shortfall > 0 else ""
+    )
+    lines = [t(
+        "plan_to_sign.header", locale, name=name, position=target.get("position", ""),
+        team=target.get("team_short", ""), price=target.get("price"), bank=output.get("bank"),
+        shortfall_part=shortfall_part,
+    )]
+    ft = output.get("free_transfers")
+    lines.append(
+        t("plan_to_sign.free_transfers_known", locale, n=ft) if ft is not None
+        else t("plan_to_sign.free_transfers_unknown", locale)
+    )
+    if stage == "choose_moves":
+        lines.append(t("plan_to_sign.choose_moves", locale, n=output.get("one_move_options", 0)))
+        return "\n".join(lines)
+    if stage == "infeasible":
+        lines.append(t("plan_to_sign.infeasible", locale, moves=output.get("max_moves"), name=name))
+        return "\n".join(lines)
+
+    for index, option in enumerate(output.get("options") or [], start=1):
+        assumed = t("plan_to_sign.hit_assumed", locale) if option.get("hit_cost") and option.get("hit_basis") == "assumed_one_free" else ""
+        lines.append(t(
+            "plan_to_sign.option_line", locale, i=index, moves=option.get("moves"),
+            hit=f"−{option.get('hit_cost')}{assumed}" if option.get("hit_cost") else "0",
+            bank_after=option.get("bank_after"),
+        ))
+        for transfer in option.get("transfers") or []:
+            out, inn = transfer["out"], transfer["in"]
+            flag = "" if out.get("status_code") == "a" else f", {_localized_status_label(out.get('status'), locale)}"
+            lines.append(t(
+                "plan_to_sign.sell_line", locale, out=out["web_name"], out_team=out["team_short"],
+                out_price=out["price"], status=flag, inn=inn["web_name"], in_team=inn["team_short"],
+                in_price=inn["price"],
+            ))
+        if option.get("unavailable_sold"):
+            lines.append(t("plan_to_sign.unavailable_note", locale, names=", ".join(option["unavailable_sold"])))
+    lines.append(
+        t("plan_to_sign.user_numbers", locale) if output.get("price_basis") == "user"
+        else t("plan_to_sign.price_caveat", locale)
+    )
+    return "\n".join(lines)
+
+
 def _render_select_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render select_players_within_budget raw_output.  S2.  F1: localized.
 
@@ -2331,6 +2391,7 @@ _RENDERERS = {
     "rank_players_by_metric":   _render_rank_players_by_metric,  # P2.8
     "build_squad":              _render_build_squad,             # S1
     "select_players_within_budget": _render_select_players,      # S2
+    "plan_to_sign":             _render_plan_to_sign,            # plan to sign X
     "search_web":               _render_search_web,              # web search parity
     # T-zonal atomic tools
     "get_zonal_weakness":       _render_get_zonal_weakness,      # T-zonal
