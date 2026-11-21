@@ -225,6 +225,16 @@ def to_ask_response(
             "results": _raw.get("results") or [],
             "timestamp": _raw.get("timestamp"),
         }
+    elif d.get("web_search_sources"):
+        # search_web ran beside another tool (e.g. get_player_snapshot): the cited
+        # sources still reach the UI, next to that tool's card.
+        _src = d["web_search_sources"]
+        web_search = {
+            "topic": _src.get("topic"),
+            "summary": answer_text,
+            "results": _src.get("results") or [],
+            "timestamp": _src.get("timestamp"),
+        }
 
     # ------------------------------------------------------------------
     # 2. Derive intent from selected_tool (no top-level "intent" key in

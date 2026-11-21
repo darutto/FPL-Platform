@@ -1313,11 +1313,24 @@ def ask_v2(
                 _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None, locale)
                 if _overlay is not None:
                     _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
+            # The cited sources of a search_web call that ran this turn (alone or beside
+            # another tool): they reach the UI as titled links, so the prose carries none.
+            from .search_web import (  # noqa: PLC0415
+                strip_urls_from_prose,
+                web_search_sources_from_trace,
+            )
+            _web_sources = web_search_sources_from_trace(
+                getattr(orch_result, "tool_calls_trace", None)
+            )
             result = {
                 "selected_tool": _orch_tool,
                 "tool_input":    _orch_args,
                 "raw_output":    _orch_raw,
-                "answer_text":   orch_result.answer_text,
+                "answer_text":   (
+                    strip_urls_from_prose(orch_result.answer_text)
+                    if _web_sources is not None else orch_result.answer_text
+                ),
+                "web_search_sources": _web_sources,
                 "outcome":       _orch_outcome,
                 "kind":          "text",
                 # The table's verdict: only alongside the ranking card it talks

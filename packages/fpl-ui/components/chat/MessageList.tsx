@@ -21,6 +21,7 @@ import { selectIntentView, type IntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
 import IntentRenderer from './IntentRenderer';
 import PlayerConclusions from '@/components/intents/PlayerConclusions';
+import WebSearchSources from '@/components/intents/WebSearchSources';
 import TableConclusions, { tableConclusionRows } from '@/components/intents/TableConclusions';
 import WcIntentRenderer from '@/components/wc/WcIntentRenderer';
 import SuggestionChips, {
@@ -304,6 +305,9 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
             >
               <IntentRenderer response={message.response!} />
             </section>
+            {message.response!.web_search != null && selectIntentView(message.response!) !== 'web_search' && (
+              <WebSearchSources results={message.response!.web_search.results} />
+            )}
           </div>
 
           {message.response!.intent !== 'multi_intent' && (
