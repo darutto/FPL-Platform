@@ -37,9 +37,20 @@ every option as well as being inside the score.
 
 ``loss`` is the least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
 player's value is ``(form + XGI_WEIGHT * xGI/90) * availability * games / N``:
-the same ``form`` and ``xgi_per_90`` the transfer tools score with (reused via
-``scoring_shared._derive_scoring_inputs``, not re-derived), scaled by the
-chance the player plays and by how many fixtures the club has in the window.
+the same ``form`` and the minutes-shrunk ``xgi_per_90_shrunk`` the transfer tools
+feed their position score with (reused via ``scoring_shared._derive_scoring_inputs``,
+not re-derived), scaled by the chance the player plays and by how many fixtures
+the club has in the window. The RAW per-90 rate is never used: a cameo of ten
+minutes with one shot reads as an elite rate, and valuing a downgrade on it made a
+route "gain" value (a negative loss) and rank first. ``position_score.
+shrink_rate_by_minutes`` regresses a rate toward 0 in proportion to how little
+playing time backs it, for every player, sold or bought.
+
+Downgrade candidates must also have enough minutes to be judged: the repo's
+existing minutes floor for rate metrics, ``rank_players_by_metric.
+per_90_minutes_floor`` (270 minutes, or 30% of the minutes played so far, capped
+early in the season). It applies once the bootstrap has a finished gameweek; with
+none, minutes carry no information yet and the shrinkage alone limits the effect.
 An injured, suspended or doubtful player therefore gives up little, which makes
 him the best sale, and the card says why. Fixture difficulty is deliberately
 not part of the loss: the player being sold and the one coming in are compared
@@ -70,6 +81,7 @@ from .catalogue import t
 from .find_players import _STATUS_MAP, _safe_float, _safe_int
 from .get_my_squad import get_my_squad
 from .locale_types import bootstrap_locale
+from .rank_players_by_metric import finished_gameweeks, per_90_minutes_floor
 from .scoring_shared import _derive_scoring_inputs
 from .squad_solver import CLUB_CAP, POSITION_LABELS, SQUAD_QUOTAS, validate_squad
 from .tool_schema_registry import PLAN_TO_SIGN_SCHEMA
@@ -133,6 +145,8 @@ class _Context:
         self.fdr_map = bootstrap.get("fixture_difficulty_map", {}) or {}
         self.team_fixtures = bootstrap.get("team_fixtures") or {}
         self.current_gw = get_current_gameweek(bootstrap)
+        # Minutes a replacement needs before its rate means anything (see module docstring).
+        self.minutes_floor = per_90_minutes_floor(bootstrap) if finished_gameweeks(bootstrap) > 0 else 0
         self._value: dict[int, float] = {}
 
     def cost(self, pid: int) -> int:
@@ -148,7 +162,7 @@ class _Context:
         if pid not in self._value:
             el = self.elements[pid]
             inputs = _derive_scoring_inputs(el, self.fdr_map, self.team_fixtures, self.current_gw)
-            raw = inputs["form"] + XGI_WEIGHT * inputs["xgi_per_90"]
+            raw = inputs["form"] + XGI_WEIGHT * inputs["xgi_per_90_shrunk"]
             self._value[pid] = raw * _availability(el) * _games_factor(self.club(pid), self.team_fixtures, self.current_gw)
         return self._value[pid]
 
@@ -219,6 +233,8 @@ def _search(
     for pid, el in ctx.elements.items():
         if pid in squad_set or pid == target or el.get("status") != "a":
             continue
+        if _safe_int(el.get("minutes")) < ctx.minutes_floor:
+            continue  # too few minutes to judge: not a downgrade worth offering
         pools.setdefault(ctx.position(pid), []).append(pid)
     for position_pool in pools.values():
         position_pool.sort(key=lambda p: (-ctx.value(p), ctx.cost(p), p))
