@@ -86,7 +86,11 @@ export default function PlayerCard({ data }: Props) {
   // Tone and news visibility key off the English `status`; the text shown is
   // the Spanish `status_label` (i151), falling back to the raw status.
   const { className: badgeClass } = resolveStatusBadge(status);
+  // The chance comes from the verdict's availability line, so card and verdict always show the same figure.
+  const availability = data.conclusions?.find((c) => c.key === 'availability');
+  const chance = availability && availability.key === 'availability' ? availability.params.chance : null;
   const badgeLabel = status_label || status;
+  const showChance = chance != null && chance < 100;
   const showNews = status !== 'Available' && news.trim().length > 0;
   const toPer90 = (provided: number | undefined, total: number) =>
     provided ?? (minutes_played_season > 0 ? (total * 90) / minutes_played_season : 0);
@@ -109,7 +113,12 @@ export default function PlayerCard({ data }: Props) {
               {team_short} · {position}
             </span>
           </div>
-          <span className={`flex-shrink-0 ${PILL_BASE} ${badgeClass}`}>{badgeLabel}</span>
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {showChance && (
+              <span className="text-xs font-bold text-bf-text/80" data-testid="player-chance">{t('concl.avail.chip', { chance })}</span>
+            )}
+            <span className={`${PILL_BASE} ${badgeClass}`}>{badgeLabel}</span>
+          </div>
         </div>
 
         {showNews && <p className="text-xs text-bf-text/80 line-clamp-2">{news_label || news}</p>}

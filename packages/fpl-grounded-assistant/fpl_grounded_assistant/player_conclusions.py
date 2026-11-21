@@ -10,6 +10,9 @@ pre-rendered strings: the UI owns the wording in each locale.
 
 Priority (max :data:`MAX_CONCLUSIONS`, first wins):
 
+0. ``availability`` -- FPL does not list him as available (status d/i/s/u/n) or gives a chance of playing below
+   100. Observed only: FPL's own chance, its news text and the date FPL added it, as they exist. First, because a
+   fitness doubt outweighs every line below it.
 1. points source -- ``points_attack`` / ``points_defence`` / ``points_clean_sheets``: the one with the highest
    percentile among the player's own FPL position (pool: :data:`MIN_POOL_MINUTES`+ minutes), when it reaches
    :data:`PERCENTILE_FIRES`. Evidence ``top N %`` names the metric.
@@ -142,6 +145,33 @@ def _set_pieces(element: dict[str, Any]) -> dict[str, Any] | None:
     return {"key": "set_pieces", "params": {"pieces": pieces}, "evidence": None}
 
 
+#: FPL status codes that mean "not simply available" (d doubtful, i injured, s suspended, u unavailable, n not in squad).
+_UNAVAILABLE_STATUSES = frozenset({"d", "i", "s", "u", "n"})
+
+
+def _availability(element: dict[str, Any]) -> dict[str, Any] | None:
+    status = element.get("status")
+    # The next deadline's figure first, this round's as fallback (same order as plan_to_sign._availability).
+    chance = _num(element.get("chance_of_playing_next_round"))
+    if chance is None:
+        chance = _num(element.get("chance_of_playing_this_round"))
+    chance_i = None if chance is None else int(chance)
+    if status not in _UNAVAILABLE_STATUSES and (chance_i is None or chance_i >= 100):
+        return None
+    if status not in _UNAVAILABLE_STATUSES:
+        status = "a"
+    news = element.get("news")
+    news_added = element.get("news_added")
+    return {
+        "key": "availability",
+        "params": {"status": status, "chance": chance_i},
+        "evidence": {
+            "news": news if isinstance(news, str) else "",
+            "news_added": news_added if isinstance(news_added, str) and news_added else None,
+        },
+    }
+
+
 def _starts(element: dict[str, Any], bootstrap: dict[str, Any]) -> dict[str, Any] | None:
     if element.get("status") != "a":
         return None
@@ -197,6 +227,7 @@ def player_conclusions(
     fpl_position = _POSITIONS.get(int(_num(element.get("element_type")) or 0))
     elements = bootstrap.get("elements") or []
     rules = (
+        lambda: _availability(element),
         lambda: _points_source(element, fpl_position, elements) if fpl_position else None,
         lambda: _position(position),
         lambda: _set_pieces(element),

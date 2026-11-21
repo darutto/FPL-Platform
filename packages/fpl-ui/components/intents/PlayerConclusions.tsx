@@ -28,6 +28,13 @@ const SVG_PROPS = {
 };
 
 const ICONS: Record<PlayerConclusion['key'], ReactNode> = {
+  availability: (
+    <svg {...SVG_PROPS}>
+      <path d="M12 3l10 18H2z" />
+      <path d="M12 10v5" />
+      <circle cx="12" cy="18" r=".6" fill="currentColor" />
+    </svg>
+  ),
   points_attack: (
     <svg {...SVG_PROPS}>
       <circle cx="12" cy="12" r="9" />
@@ -87,6 +94,10 @@ function joinPieces(pieces: SetPiece[], t: T): string {
 /** The line's label, or null for a key/position this UI doesn't know (dropped, never shown raw). */
 export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
   switch (c.key) {
+    case 'availability':
+      return c.params.chance != null
+        ? t('concl.avail.chance', { chance: c.params.chance })
+        : t(`concl.avail.status.${c.params.status}`);
     case 'points_attack':
       return ['DEF', 'MID', 'FWD'].includes(c.params.position) ? t(`concl.attack.${c.params.position as 'DEF' | 'MID' | 'FWD'}`) : null;
     case 'points_defence':
@@ -119,7 +130,15 @@ export function conclusionLabel(c: PlayerConclusion, t: T): string | null {
  * "xGI/90 · top 10 % de MID"; the clean-sheets line names its metric in the label, so evidence is "top N %" only.
  * The position line's evidence is the gameweeks of the position card's window («J5–J10»).
  */
-export function conclusionEvidence(c: PlayerConclusion, t: T): string | null {
+export function conclusionEvidence(c: PlayerConclusion, t: T, newsLabel?: string): string | null {
+  if (c.key === 'availability') {
+    const ev = c.evidence;
+    if (ev == null) return null;
+    const news = (newsLabel || ev.news || '').trim();
+    const date = ev.news_added ? ev.news_added.slice(0, 10) : '';
+    if (news && date) return t('concl.avail.evidence', { news, date });
+    return news || date || null;
+  }
   if (c.key === 'position') {
     const ev = c.evidence;
     if (ev == null) return null;
@@ -132,10 +151,17 @@ export function conclusionEvidence(c: PlayerConclusion, t: T): string | null {
   return `${t(`concl.metric.${ev.metric}`)} · ${top}`;
 }
 
-export default function PlayerConclusions({ conclusions }: { conclusions: PlayerConclusion[] | undefined | null }) {
+export default function PlayerConclusions({
+  conclusions,
+  newsLabel,
+}: {
+  conclusions: PlayerConclusion[] | undefined | null;
+  /** The card's news text in the UI language (news_label), used for the availability line. */
+  newsLabel?: string;
+}) {
   const t = useT();
   const rows = (conclusions ?? [])
-    .map((c) => ({ c, label: conclusionLabel(c, t), evidence: conclusionEvidence(c, t) }))
+    .map((c) => ({ c, label: conclusionLabel(c, t), evidence: conclusionEvidence(c, t, newsLabel) }))
     .filter((r): r is { c: PlayerConclusion; label: string; evidence: string | null } => r.label != null)
     .slice(0, 3);
   if (rows.length === 0) return null;
