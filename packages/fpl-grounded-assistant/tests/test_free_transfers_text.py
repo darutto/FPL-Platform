@@ -30,6 +30,12 @@ pts = importlib.import_module("fpl_grounded_assistant.plan_to_sign")
     ("tengo tres cambios disponibles", 3),
     ("tengo 0 cambios gratis", 0),
     ("tengo cinco traspasos disponibles", 5),
+    # singular noun and singular free-word: the most common real case
+    ("tengo 1 cambio gratis", 1),
+    ("1 transferencia libre", 1),
+    ("un cambio disponible", 1),
+    ("tengo una transferencia gratuita", 1),
+    ("me queda un traspaso gratuito", 1),
     # English
     ("I have 2 free transfers", 2),
     ("2 FTs", 2),
@@ -48,6 +54,9 @@ def test_stated_free_transfers_are_read(text, expected):
     "",
     "cómo ficho a nico jackson",
     "3 cambios de posición",                       # a different kind of change
+    "1 cambio de posición",
+    "un cambio de táctica",
+    "tengo 1 cambio",                               # singular, but nothing says it is free
     "tengo 3 cambios",                              # no word saying they are free: ambiguous
     "quiero hacer 3 cambios",
     "tengo 3 millones en el banco",

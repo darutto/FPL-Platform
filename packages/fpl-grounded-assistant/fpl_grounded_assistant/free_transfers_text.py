@@ -31,16 +31,15 @@ _WORDS = {
     "five": 5, "cinco": 5,
 }
 _N = r"(\d{1,2}|" + "|".join(sorted(_WORDS, key=len, reverse=True)) + r")"
-_ES_NOUN = r"(?:cambios|transferencias|traspasos|fichajes)"
 _ES_NOUN_ANY = r"(?:cambios?|transferencias?|traspasos?|fichajes?)"
-_ES_FREE =r"(?:gratis|gratuitos|gratuitas|libres|disponibles|sin coste|sin costo)"
+_ES_FREE = r"(?:gratis|gratuitos?|gratuitas?|libres?|disponibles?|sin coste|sin costo)"
 
 #: Each pattern captures the number as group 1.
 _PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(pattern)
     for pattern in (
         # Spanish: «3 cambios gratis», «tengo 3 cambios disponibles», «3 transferencias libres»
-        r"\b" + _N + r" " + _ES_NOUN + r" " + _ES_FREE + r"\b",
+        r"\b" + _N + r" " + _ES_NOUN_ANY + r" " + _ES_FREE + r"\b",
         # «me quedan 2 cambios», «me queda 1 cambio»
         r"\bme quedan? " + _N + r" " + _ES_NOUN_ANY + r"\b",
         # English: «2 free transfers», «3 free transfers available»
