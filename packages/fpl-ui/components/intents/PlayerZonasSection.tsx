@@ -28,7 +28,7 @@ import {
   zoneChipLabelFor,
 } from '@/lib/defensive-zones';
 import { ProvenanceStamp } from './DefensiveZonesCard';
-import { formatVenue } from './FixtureRunTable';
+import { formatVenue } from './FixtureChip';
 import PlayerZonesPitch, { hasPlaceableZones } from './PlayerZonesPitch';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { gwLabel, gwRange } from '@/lib/fixture-outlook-format';
