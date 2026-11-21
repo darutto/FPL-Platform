@@ -268,6 +268,7 @@ from .web_fetch import web_fetch                            # P2.7 — triggers 
 from .rank_players_by_metric import rank_players_by_metric  # P2.8 — triggers TOOL_REGISTRY self-registration
 from .build_squad_tool import build_squad                    # S1 — triggers TOOL_REGISTRY self-registration
 from .select_players_tool import select_players_within_budget  # S2 — triggers TOOL_REGISTRY self-registration
+from .plan_to_sign import plan_to_sign                          # triggers TOOL_REGISTRY self-registration
 from .search_web import search_web                          # web search parity — triggers TOOL_REGISTRY self-registration
 from . import zonal_weakness_tool as zonal_weakness_tool    # T-zonal — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e
@@ -556,6 +557,7 @@ __all__ = [
     # S1: exact constrained squad construction
     "build_squad",
     "select_players_within_budget",
+    "plan_to_sign",
     # core harness
     "ask",
     "ask_v2",

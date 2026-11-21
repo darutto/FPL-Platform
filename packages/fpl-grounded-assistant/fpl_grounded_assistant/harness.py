@@ -1350,6 +1350,8 @@ def ask_v2(
                 **_orch_meta,
             }
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
+            if _chips is None:
+                _chips = _plan_to_sign_chips(orch_result.tool_chosen, _orch_raw)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1457,6 +1459,24 @@ def _suggestions_for_text() -> list[str]:
     """Return curated resource suggestions for the M3 text-unsupported path."""
     from .intent_aliases import list_resources
     return list(list_resources())
+
+
+def _plan_to_sign_chips(tool_name: str | None, raw_output: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """The "how many moves" chips of plan_to_sign, or ``None``.
+
+    The tool owns the options and their wording (``move_options``); this only
+    turns them into self-contained prompt-rewrite chips. The same tap re-asks
+    the question with the choice named, so nothing about it needs an id.
+    """
+    if tool_name != "plan_to_sign" or raw_output.get("stage") != "choose_moves":
+        return None
+    from .suggestions import KIND_PROMPT_REWRITE, Suggestion, suggestions_to_list  # noqa: PLC0415
+
+    return suggestions_to_list(tuple(
+        Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PROMPT_REWRITE)
+        for o in raw_output.get("move_options") or []
+        if o.get("label") and o.get("send_text")
+    ) or None)
 
 
 def _ambiguity_suggestions(
