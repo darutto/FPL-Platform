@@ -45,10 +45,11 @@ import os
 import re
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 import httpx
 
+from fpl_player_registry import normalize_player_name
 from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
@@ -106,13 +107,181 @@ def _clean_snippet(text: str) -> str:
     return t.strip()
 
 
-def search_web(query: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Result hygiene: tracking parameters, official-first ranking, PL-first pass
+# ---------------------------------------------------------------------------
+
+#: The Premier League's own site: the primary source for a PL player's injury,
+#: availability or news. One extra, domain-restricted Tavily call per such turn.
+PL_DOMAIN = "premierleague.com"
+_PL_MAX_RESULTS: int = 5
+
+#: Query parameters that only track the visitor; stripped from every shown URL.
+_TRACKING_PARAMS = frozenset({
+    "_gl", "_ga", "_gac", "gclid", "gbraid", "wbraid", "fbclid", "msclkid", "igshid",
+    "mc_cid", "mc_eid", "ref_src", "ref_url", "cmpid", "ocid", "ito",
+})
+
+#: Preferred-domain tiers (lower = earlier). Only a REORDER: no domain is ever
+#: dropped. Anything unlisted sits between the major outlets and the social /
+#: aggregator pages. Subdomains count (news.bbc.co.uk is bbc.co.uk).
+_TIER_OFFICIAL = ("premierleague.com",)
+_TIER_MAJOR = (
+    "bbc.co.uk", "bbc.com", "skysports.com", "theguardian.com", "telegraph.co.uk",
+    "theathletic.com", "nytimes.com", "espn.com", "reuters.com", "apnews.com",
+    "independent.co.uk", "standard.co.uk", "thetimes.co.uk", "uefa.com",
+)
+_TIER_SOCIAL_OR_AGGREGATOR = (
+    "x.com", "twitter.com", "facebook.com", "instagram.com", "threads.net", "tiktok.com",
+    "reddit.com", "youtube.com", "dongqiudi.com", "flipboard.com", "newsbreak.com",
+)
+
+
+def _host(url: str) -> str:
+    try:
+        host = urlparse(url).netloc.lower()
+    except (ValueError, TypeError):
+        return ""
+    host = host.split("@")[-1].split(":")[0]
+    return host[4:] if host.startswith("www.") else host
+
+
+def _on_domain(host: str, domains: tuple[str, ...]) -> bool:
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def clean_url(url: str) -> str:
+    """The URL without tracking query parameters (``_gl``, ``_ga``, ``utm_*``, ...)."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if not parts.query:
+        return url
+    kept = [
+        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
+        if k.lower() not in _TRACKING_PARAMS and not k.lower().startswith("utm_")
+    ]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(kept), parts.fragment))
+
+
+def _dedupe_key(url: str) -> str:
+    parts = urlsplit(clean_url(url))
+    query = urlencode(sorted(parse_qsl(parts.query, keep_blank_values=True)))
+    return f"{_host(url)}{parts.path.rstrip('/')}?{query}"
+
+
+def domain_tier(url: str) -> int:
+    """0 official, 1 major outlet, 2 everything else, 3 social / aggregator."""
+    host = _host(url)
+    if _on_domain(host, _TIER_OFFICIAL):
+        return 0
+    if _on_domain(host, _TIER_MAJOR):
+        return 1
+    if _on_domain(host, _TIER_SOCIAL_OR_AGGREGATOR):
+        return 3
+    return 2
+
+
+def rank_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate by cleaned URL, clean the shown URL, then order by domain tier.
+
+    The sort is stable: inside a tier the incoming order (the relevance order, and
+    the premierleague.com results first among the official ones) is kept.
+    """
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
+    for item in results:
+        url = item.get("url") or ""
+        key = _dedupe_key(url)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append({**item, "url": clean_url(url), "source": _source_from_url(clean_url(url))})
+    return sorted(unique, key=lambda it: domain_tier(it["url"]))
+
+
+def is_player_availability_query(query: str, bootstrap: dict[str, Any] | None) -> bool:
+    """True when *query* asks about injury / availability / news of a PL player.
+
+    Both halves must hold: an availability word (the same whole-word list that
+    diverts the player lookup) and a surname or web name from the bootstrap as a
+    whole word. No bootstrap -> False, so nothing else ever pays for the extra call.
+    """
+    if not bootstrap or not query:
+        return False
+    from .player_lookup import has_availability_intent  # noqa: PLC0415  (lazy: avoids a cycle)
+
+    if not has_availability_intent(query):
+        return False
+    padded = f" {normalize_player_name(query)} "
+    for element in bootstrap.get("elements") or []:
+        for field in ("web_name", "second_name"):
+            name = normalize_player_name(element.get(field))
+            if len(name) >= 3 and f" {name} " in padded:
+                return True
+    return False
+
+
+def _tavily(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+    """One Tavily call -> the decoded JSON body (``results``, ``answer``)."""
+    try:
+        resp = httpx.post(_BASE_URL, json=payload, timeout=timeout_s)
+    except httpx.TimeoutException as exc:
+        raise WebSearchError(f"web search timed out after {timeout_s}s") from exc
+    except httpx.HTTPError as exc:
+        raise WebSearchError(f"{type(exc).__name__}: {exc}") from exc
+
+    if resp.status_code >= 400:
+        raise WebSearchError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise WebSearchError("web search returned non-JSON body") from exc
+
+
+def _shape(raw_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Score-filter (when scores exist) and shape raw Tavily items."""
+    min_score = _min_score()
+    has_scores = any(isinstance(it.get("score"), (int, float)) for it in raw_items)
+    if has_scores:
+        kept = [it for it in raw_items if (it.get("score") or 0.0) >= min_score]
+        kept.sort(key=lambda it: it.get("score") or 0.0, reverse=True)
+    else:
+        kept = list(raw_items)
+    results: list[dict[str, Any]] = []
+    for item in kept:
+        url = item.get("url") or ""
+        results.append({
+            "title": _clip(_clean_snippet(item.get("title") or ""), 140),
+            "snippet": _clip(_clean_snippet(item.get("content") or ""), _SNIPPET_MAX),
+            "url": url,
+            "source": _source_from_url(url),
+            "published": item.get("published_date"),
+        })
+    return results
+
+
+def search_web(
+    query: str,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    bootstrap: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Run one focused web search and return a card-ready envelope.
 
     Returns ``{"results": [{title, snippet, url, source, published}],
     "answer": str | None, "timestamp": iso}``. ``answer`` is model input only.
     Raises ``WebSearchError`` on any failure so the executor can surface it as
     a tool-level error the LLM can react to.
+
+    For a PL player's injury / availability / news query (see
+    :func:`is_player_availability_query`) a SECOND call restricted to
+    premierleague.com runs and its results come first; if it fails or returns
+    nothing the normal results stand. Every result list is deduplicated,
+    stripped of tracking parameters and ordered official > major outlet > other
+    > social / aggregator (reorder only, nothing is blocked).
     """
     if not query or not query.strip():
         raise WebSearchError("empty search query")
@@ -125,48 +294,28 @@ def search_web(query: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> dict[str
         "max_results": _FETCH_RESULTS,
         "include_answer": True,
     }
+    body = _tavily(payload, timeout_s)
+    results = _shape(body.get("results") or [])
 
-    try:
-        resp = httpx.post(_BASE_URL, json=payload, timeout=timeout_s)
-    except httpx.TimeoutException as exc:
-        raise WebSearchError(f"web search timed out after {timeout_s}s") from exc
-    except httpx.HTTPError as exc:
-        raise WebSearchError(f"{type(exc).__name__}: {exc}") from exc
+    pl_results: list[dict[str, Any]] = []
+    if is_player_availability_query(query, bootstrap):
+        pl_payload = {
+            **payload,
+            "max_results": _PL_MAX_RESULTS,
+            "include_domains": [PL_DOMAIN],
+            "include_answer": False,
+        }
+        try:
+            pl_results = _shape(_tavily(pl_payload, timeout_s).get("results") or [])
+        except WebSearchError:
+            pl_results = []  # the official pass is best-effort; normal results stand
 
-    if resp.status_code >= 400:
-        raise WebSearchError(f"HTTP {resp.status_code}: {resp.text[:200]}")
-
-    try:
-        body = resp.json()
-    except ValueError as exc:
-        raise WebSearchError("web search returned non-JSON body") from exc
-
-    raw_items = body.get("results") or []
-
-    min_score = _min_score()
-    has_scores = any(isinstance(it.get("score"), (int, float)) for it in raw_items)
-    if has_scores:
-        kept = [it for it in raw_items if (it.get("score") or 0.0) >= min_score]
-        kept.sort(key=lambda it: it.get("score") or 0.0, reverse=True)
-    else:
-        kept = list(raw_items)
-    kept = kept[:_MAX_RESULTS]
-
-    results: list[dict[str, Any]] = []
-    for item in kept:
-        url = item.get("url") or ""
-        results.append({
-            "title": _clip(_clean_snippet(item.get("title") or ""), 140),
-            "snippet": _clip(_clean_snippet(item.get("content") or ""), _SNIPPET_MAX),
-            "url": url,
-            "source": _source_from_url(url),
-            "published": item.get("published_date"),
-        })
+    ranked = rank_results(pl_results + results)[:_MAX_RESULTS]
 
     answer = body.get("answer")
     answer_ok = bool(results) and isinstance(answer, str) and answer.strip()
     return {
-        "results": results,
+        "results": ranked,
         "answer": answer if answer_ok else None,
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
@@ -231,7 +380,7 @@ def _search_web_handler(
                 "code": "missing_argument",
                 "message": "'query' argument is missing or empty.",
             }
-        raw = search_web(query=query)
+        raw = search_web(query=query, bootstrap=bootstrap)
         return {"status": "ok", **raw}
     except WebSearchError as exc:
         return {
