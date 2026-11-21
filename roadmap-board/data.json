@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-19",
+  "updated": "2026-11-21",
   "cards": [
     {
       "id": "s1",
@@ -2711,6 +2711,17 @@
       "tags": [
         "UI",
         "Web"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s91",
+      "col": "shipped",
+      "title": "Resolución de diminutivos del nombre de pila (Nico → Nicolas)",
+      "desc": "Fusionada (PR #661, 21/11). El resolver de jugadores suma GIVEN_NAME_GROUPS en fpl-player-registry/nicknames.py (nicolas/nico/nick, alexander/alex, matthew/matt, …) y una ruta given_name_variant en resolution.py por debajo de nombre exacto y por encima de prefijo, simétrica y con apellido obligatorio; los empates siguen en ambiguous y un nombre completo exacto siempre gana al diminutivo, así que resolve_player_candidates y todas las herramientas de chat que lo usan heredan el cambio sin tocar prompts.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
       ],
       "progress": 100
     }
