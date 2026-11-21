@@ -172,3 +172,10 @@ def test_search_web_schema_steers_injury_questions_to_search_and_snapshot():
     assert "NEVER use it for player stats, prices, fixtures, or form" in text
     assert "LAST RESORT" not in text
     assert "Salah" not in text
+
+
+def test_search_web_spec_and_schema_descriptions_cannot_drift():
+    from fpl_grounded_assistant.search_web import SEARCH_WEB_SPEC
+    from fpl_grounded_assistant.tool_schema_registry import SEARCH_WEB_SCHEMA
+
+    assert SEARCH_WEB_SPEC.description == SEARCH_WEB_SCHEMA.description
