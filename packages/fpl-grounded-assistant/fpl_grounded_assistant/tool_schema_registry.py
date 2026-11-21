@@ -1406,14 +1406,18 @@ SELECT_PLAYERS_SCHEMA = ToolSchema(
 SEARCH_WEB_SCHEMA = ToolSchema(
     name="search_web",
     description=(
-        "LAST RESORT. Live web search for FPL/football information that NO other "
-        "tool can provide: breaking news, injuries/doubts, suspensions, "
-        "press-conference quotes, transfer/lineup rumours, or opinion/prediction "
-        "questions. NEVER use it for player stats, prices, fixtures, or form — "
-        "those have dedicated tools and are always more reliable. "
+        "Live web search for FPL/football information that NO other tool can "
+        "provide: breaking news, suspensions, press-conference quotes, "
+        "transfer/lineup rumours, or opinion/prediction questions. NEVER use it "
+        "for player stats, prices, fixtures, or form — those have dedicated "
+        "tools and are always more reliable. "
+        "When the user asks about a player's injury, availability, fitness or "
+        "latest news, call search_web as well as get_player_snapshot: FPL's own "
+        "status/news can lag behind club news, so answer with both and say "
+        "which source says what. "
         "QUERY CONSTRUCTION: `query` must be concise, keyword-heavy, and "
-        "stripped of conversational filler (e.g. 'Salah lesion estado Liverpool', "
-        "not the user's raw sentence)."
+        "stripped of conversational filler (e.g. '<player> injury update "
+        "<club>', not the user's raw sentence)."
     ),
     parameters={
         "type": "object",

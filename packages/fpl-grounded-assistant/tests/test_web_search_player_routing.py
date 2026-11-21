@@ -159,3 +159,16 @@ def test_plain_question_with_search_off_keeps_card(monkeypatch, bootstrap: dict)
     result = ask_v2("who is Saka?", bootstrap, orch_client=object())
     assert result["selected_tool"] == "get_player_snapshot"
     assert "player_lookup_diverted" not in result["routing_trace"]
+
+
+def test_search_web_schema_steers_injury_questions_to_search_and_snapshot():
+    from fpl_grounded_assistant.tool_schema_registry import SEARCH_WEB_SCHEMA
+
+    text = SEARCH_WEB_SCHEMA.description
+    assert "injury, availability, fitness or latest news" in text
+    assert "call search_web as well as get_player_snapshot" in text
+    assert "say which source says what" in text
+    # still forbidden for stats and the like; no longer a blanket last resort
+    assert "NEVER use it for player stats, prices, fixtures, or form" in text
+    assert "LAST RESORT" not in text
+    assert "Salah" not in text
