@@ -30,6 +30,7 @@ import { ask, sessionAsk, createSession, clearSession, apiErrorText, FplApiError
 import { ChatAskProvider } from '@/lib/chat-ask';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
+import { planStateForNextTurn } from '@/lib/plan-state';
 import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
 import { WIZARD_ARMING_INTENTS, isRewriteSuggestion, isStableIdSuggestion } from '@/lib/wizard-arming';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
@@ -199,6 +200,7 @@ export default function ChatShell() {
       let response: AskResponse;
       let responseSessionId: string | null = null;
 
+      const planState = planStateForNextTurn(messages);
       const requestBody = {
         question: effectiveQuestion,
         // The language the user is looking at governs the whole answer; the question's language only affects routing.
@@ -209,6 +211,8 @@ export default function ChatShell() {
         squad_context: squadContext ?? null,
         // team_id enables get_my_squad server-side (i39); null when no team connected
         team_id: teamId ?? null,
+        // plan_to_sign follow-up: the previous answer's plan state, this turn only (lib/plan-state.ts).
+        ...(planState ? { plan_state: planState } : {}),
         // Explicit opt-in only — never silent. Gated by tier eligibility so
         // an ineligible user can't spend a request on a feature the backend
         // would reject anyway (defense-in-depth; the UI already locks the

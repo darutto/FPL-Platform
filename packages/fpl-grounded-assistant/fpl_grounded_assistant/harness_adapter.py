@@ -419,6 +419,7 @@ def to_ask_response(
         squad_excluded=_to_dict(d.get("squad_excluded")),
         transfer=_to_dict(d.get("transfer")),
         chip=_to_dict(d.get("chip")),
+        plan_state=d.get("plan_state"),                          # plan_to_sign follow-up state (plain JSON)
         fixture_run=_to_dict(d.get("fixture_run")),
         differential=_to_dict(d.get("differential")),
         player_form=_to_dict(d.get("player_form")),

@@ -863,6 +863,55 @@ def ask_v2(
         _telemetry.record(routing_trace)
         return result
 
+    # plan_to_sign follow-up ("who else can I sell to get the money?"): the UI
+    # sends back the previous plan's state on this turn only; a recognised
+    # phrase re-runs the same deterministic tool with it. No model call.
+    if selected_player_id is None and isinstance(actual_bootstrap.get("_plan_state"), dict):
+        from .plan_followup import (  # noqa: PLC0415
+            followup_args as _plan_followup_args,
+            is_plan_followup as _is_plan_followup,
+            sanitize_plan_state as _sanitize_plan_state,
+        )
+
+        _plan_state_in = _sanitize_plan_state(actual_bootstrap["_plan_state"]) if _is_plan_followup(question) else None
+        if _plan_state_in is not None:
+            _plan_args = _plan_followup_args(_plan_state_in)
+            _plan_raw = run_tool("plan_to_sign", _plan_args, actual_bootstrap)
+            _plan_outcome = _outcome_from_status(_plan_raw)
+            routing_trace = {
+                "branch": "route",
+                "decision_kind": "plan_followup",
+                "decision_outcome": _plan_outcome,
+                "router_hit": True,
+                "classifier_called": False,
+                "classifier_confidence": None,
+                "classifier_intent": None,
+                "orchestrator_called": False,
+                "orchestrator_tool_calls": None,
+                "orchestrator_outcome": None,
+                "grounded": True,
+                "tool_call_count": None,
+                "synthesis_turn": None,
+                "feature_flag_orch_enabled": is_orch_enabled(),
+                "feature_flag_football_intelligence_enabled": is_football_intelligence_enabled(),
+            }
+            result = {
+                "selected_tool": "plan_to_sign",
+                "tool_input": _plan_args,
+                "raw_output": _plan_raw,
+                "answer_text": _render("plan_to_sign", _plan_raw, locale=locale),
+                "outcome": _plan_outcome,
+                "kind": "text",
+                "routing_trace": routing_trace,
+                **_meta("plan_to_sign", _plan_raw),
+            }
+            if _plan_raw.get("plan_state") is not None:
+                result["plan_state"] = _plan_raw["plan_state"]
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)
+            return result
+
     decision = decide(question, actual_bootstrap, locale=locale)
     kind = decision["kind"]
     outcome = decision["outcome"]
@@ -1361,6 +1410,8 @@ def ask_v2(
                 "get_player_intelligence",
             }:
                 result["evidence"] = _orch_raw.get("evidence")
+            if orch_result.tool_chosen == "plan_to_sign" and _orch_raw.get("plan_state") is not None:
+                result["plan_state"] = _orch_raw["plan_state"]  # the UI sends it back on the next turn
             _copy_existing_intent_evidence(result)
             if context_meta is not None:
                 result["context_meta"] = context_meta

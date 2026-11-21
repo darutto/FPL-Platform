@@ -207,6 +207,11 @@ export interface AskRequest {
    * `null`/omitted for every anonymous turn.
    */
   team_id?: number | null;
+  /**
+   * The `plan_state` of the immediately preceding plan_to_sign answer, sent back
+   * so a follow-up ("who else can I sell?") keeps its target. See lib/plan-state.ts.
+   */
+  plan_state?: Record<string, unknown> | null;
 }
 
 /** Optional squad state included on every /ask request once the user
@@ -238,6 +243,11 @@ export interface SquadContext {
  *   - Phase 2 will render structured metadata components per intent.
  */
 export interface AskResponse {
+  /**
+   * plan_to_sign answers only: the state a follow-up needs. Send it back on the
+   * next /ask as `plan_state` (lib/plan-state.ts); null/absent on every other turn.
+   */
+  plan_state?: Record<string, unknown> | null;
   // Stable fields — always present
   final_text: string;
   outcome: Outcome;

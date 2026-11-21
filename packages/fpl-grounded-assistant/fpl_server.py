@@ -316,6 +316,10 @@ class AskRequest(BaseModel):
     #: ``resolve_locale``. Not identity and not a trust boundary: the UI decides
     #: who may select ``en`` (rollout flag); the backend honours what it is told.
     locale: str | None = None
+    #: The ``plan_state`` the previous ``plan_to_sign`` answer returned, sent back
+    #: by the UI on the next turn so "who else can I sell?" keeps its target.
+    #: Client input: validated field by field in ``plan_followup.sanitize_plan_state``.
+    plan_state: dict[str, Any] | None = None
 
 
 class AskResponse(BaseModel):
@@ -356,6 +360,8 @@ class AskResponse(BaseModel):
     chip: dict[str, Any] | None = None                    # Phase 7b
     fixture_run: dict[str, Any] | None = None             # Phase 7h
     differential: dict[str, Any] | None = None            # Phase 7g
+    #: plan_to_sign: what a "who else can I sell?" follow-up needs; the UI sends it back next turn.
+    plan_state: dict[str, Any] | None = None
     orch_outcome: str | None = None                        # Orch-4c: audit
     degraded: bool = False                                 # Phase 2.6b: provider failed silently
     player_form: dict[str, Any] | None = None              # Phase 2.6d
@@ -2375,6 +2381,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     if req.squad_context is not None:
         _turn_bootstrap = dict(_bootstrap)
         _turn_bootstrap["_squad_context"] = dict(req.squad_context)
+    if req.plan_state is not None:
+        _turn_bootstrap = dict(_turn_bootstrap)
+        _turn_bootstrap["_plan_state"] = req.plan_state
     ask_v2_dict: dict[str, Any] = _ask_v2(
         effective_question,
         _turn_bootstrap,
