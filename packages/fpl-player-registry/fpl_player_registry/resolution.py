@@ -186,8 +186,8 @@ def given_name_variant_forms(first: str, second: str) -> set[str]:
 
     Swaps the player's first given name for each interchangeable one in
     ``GIVEN_NAME_GROUPS`` and pairs it with the surname, plus the everyday
-    compound-surname suffixes (``Matheus Santos Carneiro da Cunha`` reaches
-    ``matt cunha``).  Symmetric: a player listed under the short form
+    compound-surname suffixes (``Matthew Santos Carneiro da Cash`` reaches
+    ``matt cash``).  Symmetric: a player listed under the short form
     (``Nico González``) is reachable by the formal one (``Nicolas Gonzalez``).
 
     Both arguments must already be normalized.  The player's own first name
