@@ -53,7 +53,9 @@ bank and per-player selling prices (``bank`` / ``sell_prices``).
 
 Free transfers are not exposed either and nothing in this repo derives them
 from transfer history, so they are taken from the caller or reported as
-unknown -- never guessed. With them unknown, "only free transfers" is not
+unknown -- never guessed. "The caller" includes the turn's own text: when the
+user says it («tengo 3 cambios disponibles», «2 FTs») ``free_transfers_text``
+reads it and it wins over a number the model passed (or left out). With them unknown, "only free transfers" is not
 offered, and the hit estimate says it assumes one free transfer.
 """
 from __future__ import annotations
@@ -363,6 +365,18 @@ def plan_to_sign(
             return _error("bad_free_transfers", "free_transfers must be a whole number from 0 up.")
         ft = _safe_int(free_transfers)
 
+    # What the user said in this turn's text wins over what the model passed (or
+    # forgot to): the text is the user's own words. When the two disagree the card
+    # says which number it used.
+    ft_source = "model" if ft is not None else None
+    stated = bootstrap.get("_free_transfers_stated")
+    if isinstance(stated, int) and not isinstance(stated, bool) and 0 <= stated <= 5:
+        if ft is None:
+            ft_source = "text"
+        elif ft != stated:
+            ft_source = "text_over_model"
+        ft = stated
+
     resolved = tool_resolve_player(target, bootstrap)
     if resolved.get("status") != "ok":
         return resolved
@@ -427,6 +441,7 @@ def plan_to_sign(
         "shortfall": round(max(0, target_cost - bank_tenths) / 10, 1),
         "free_transfers": ft,
         "free_transfers_basis": "given" if ft is not None else "unknown",
+        "free_transfers_source": ft_source,
         "horizon_gws": HORIZON_GWS,
         "max_moves": MAX_MOVES,
     }

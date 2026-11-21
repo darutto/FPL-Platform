@@ -2028,6 +2028,8 @@ def _render_plan_to_sign(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
         t("plan_to_sign.free_transfers_known", locale, n=ft) if ft is not None
         else t("plan_to_sign.free_transfers_unknown", locale)
     )
+    if output.get("free_transfers_source") == "text_over_model" and ft is not None:
+        lines.append(t("plan_to_sign.free_transfers_text_wins", locale, n=ft))
     if stage == "choose_moves":
         lines.append(t("plan_to_sign.choose_moves", locale, n=output.get("one_move_options", 0)))
         return "\n".join(lines)

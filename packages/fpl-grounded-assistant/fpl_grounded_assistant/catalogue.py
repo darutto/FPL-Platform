@@ -1009,6 +1009,9 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "Free transfers: unknown — tell me how many you have and I will count the hits exactly.",
         "es": "Traspasos gratis: sin dato — dime cuántos tienes y cuento los hits con exactitud.",
     },
+    "plan_to_sign.free_transfers_text_wins": {
+        "en": "Using the {n} free transfers you told me.", "es": "Uso los {n} traspasos gratis que me dijiste.",
+    },
     "plan_to_sign.choose_moves": {
         "en": "How many moves do you want to use? A single swap already works in {n} way(s).",
         "es": "¿Cuántos movimientos quieres usar? Con un solo cambio ya hay {n} opción(es).",
