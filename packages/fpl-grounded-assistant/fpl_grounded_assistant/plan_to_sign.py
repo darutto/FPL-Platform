@@ -26,7 +26,16 @@ each returned option is re-proved with ``squad_solver.validate_squad``.
 
 Ranking
 -------
-Least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
+One scale, in points: ``score = loss * HORIZON_GWS + hit_cost``, lowest first.
+``loss`` is a per-gameweek value, so ``loss * HORIZON_GWS`` is the estimated
+points the squad gives up over the window and ``hit_cost`` is what the extra
+moves cost outright (-4 each beyond the free transfers). A 3-move plan that
+loses a little less than a 1-move plan therefore still ranks behind it once its
+-8 is counted, and a 2-move plan wins only when what it saves clearly exceeds
+its -4. Ties go to fewer moves, then to the player ids. The hit is shown on
+every option as well as being inside the score.
+
+``loss`` is the least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
 player's value is ``(form + XGI_WEIGHT * xGI/90) * availability * games / N``:
 the same ``form`` and ``xgi_per_90`` the transfer tools score with (reused via
 ``scoring_shared._derive_scoring_inputs``, not re-derived), scaled by the
@@ -233,18 +242,21 @@ def _search(
 
     for out1 in out_candidates:
         need = target_cost - bank - sell_price[out1]
-        if need <= 0:
+        base_squad = [p for p in squad if p != out1] + [target]
+        if need <= 0 and _clubs_ok(base_squad, ctx):
             add([(out1, target)])
             continue
         if max_moves < 2:
             continue
-        base_squad = [p for p in squad if p != out1] + [target]
-        if not _clubs_ok(base_squad, ctx):
-            continue
+        # Reached when the money is short, or when it is not but the target's
+        # club would end up with four: a downgrade that sells a player of that
+        # club can make the plan legal, so the club check is left to ``add``.
         others = [p for p in squad if p != out1 and p not in exclude_out]
         # Two moves: one downgrade covers the whole shortfall.
         for p in others:
             cap = sell_price[p] - need
+            if need <= 0:
+                cap = min(cap, sell_price[p])  # surplus money: a downgrade, never an upgrade
             if cap <= 0:
                 continue
             after_sell = [q for q in base_squad if q != p]
@@ -259,8 +271,6 @@ def _search(
                     continue
                 saved = sell_price[p1] - ctx.cost(r1)
                 after1 = [q for q in base_squad if q != p1] + [r1]
-                if not _clubs_ok(after1, ctx):
-                    continue
                 need2 = need - saved
                 if need2 <= 0:
                     continue  # one downgrade is enough: already a two-move plan
@@ -294,6 +304,7 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
     # what the squad gives up: value out minus value of the downgrades in.
     loss = sum(ctx.value(o) for o, _ in pairs) - sum(ctx.value(i) for idx, (_, i) in enumerate(pairs) if idx > 0)
     hit, basis = _hit_cost(len(pairs), free_transfers)
+    rank_score = round(loss * HORIZON_GWS + hit, 4)
     return {
         "moves": len(pairs),
         "transfers": transfers,
@@ -303,7 +314,9 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
         "bank_after_tenths": plan["bank_after"],
         "bank_after": round(plan["bank_after"] / 10, 1),
         "unavailable_sold": [tr["out"]["web_name"] for tr in transfers if tr["out"]["status_code"] != "a"],
-        "_sort": (round(loss, 6), hit, tuple(sorted(o for o, _ in pairs))),
+        "points_given_up": round(loss * HORIZON_GWS, 2),
+        "score": rank_score,
+        "_sort": (rank_score, len(pairs), tuple(sorted(o for o, _ in pairs))),
     }
 
 
