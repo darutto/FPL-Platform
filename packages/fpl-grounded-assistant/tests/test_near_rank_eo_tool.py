@@ -54,6 +54,8 @@ class FakeService:
 @pytest.fixture(autouse=True)
 def _reset(monkeypatch):
     monkeypatch.delenv(NEAR_RANK_EO_ENABLED_ENV, raising=False)
+    # the ready path loads the user's squad from the FPL API: no test may reach the network for it
+    monkeypatch.setattr(tool, "load_linked_squad", lambda bootstrap, gw: None)
     tool.set_service(None)
     yield
     tool.set_service(None)

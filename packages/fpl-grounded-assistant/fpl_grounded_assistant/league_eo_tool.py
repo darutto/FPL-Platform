@@ -31,7 +31,18 @@ from fpl_tool_runner.specs import ToolSpec
 
 from . import league_eo as _core
 from .get_my_squad import load_linked_squad
-from .near_rank_eo_tool import MAX_NAMED, TOP_N, _name_index, _row, _season, gw_and_valid_until
+from .near_rank_eo_tool import (  # noqa: F401  (the comparison and its thresholds live there, shared with near-rank)
+    DIFFERENTIAL_MAX_OWNED_PCT,
+    GROUP_SIZE,
+    MAX_NAMED,
+    RISK_MIN_OWNED_PCT,
+    TOP_N,
+    _name_index,
+    _row,
+    _season,
+    gw_and_valid_until,
+    squad_comparison,
+)
 from .orch_config import is_league_eo_enabled
 from fpl_player_registry import normalize_player_name
 
@@ -50,36 +61,6 @@ def set_service(service: _core.LeagueEOService | None) -> None:
     """Replace the process-wide service (tests)."""
     global _SERVICE
     _SERVICE = service
-
-
-#: "Most of the league has him": the share of the league that owns a player the user does not.
-RISK_MIN_OWNED_PCT = 50.0
-#: "The league mostly does not have him": the share at or under which the user's own player is a differential.
-DIFFERENTIAL_MAX_OWNED_PCT = 20.0
-GROUP_SIZE = 5
-
-
-def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any] | None,
-                     by_id: dict[str, dict[str, Any]], teams: dict[int, str]) -> dict[str, Any]:
-    """The league's EO against the user's own 15, as two short opportunity lists.
-
-    ``risks``: players most of the league owns that the user does not (the ones to cover), highest EO
-    first. ``differentials``: the user's own players the league mostly does not own, rarest first.
-    Both at most ``GROUP_SIZE``. Without a squad the comparison is simply absent.
-    """
-    if not squad or not squad.get("players"):
-        return {"squad_compared": False}
-    own = {str(p["id"]) for p in squad["players"] if p.get("id") is not None}
-    risk_ids = sorted((i for i, s in players.items() if i not in own and s["owned_pct"] >= RISK_MIN_OWNED_PCT),
-                      key=lambda i: (-players[i]["eo"], int(i)))[:GROUP_SIZE]
-    zero = {"eo": 0.0, "owned_pct": 0.0, "captain_pct": 0.0}
-    diff_ids = sorted((i for i in own if players.get(i, zero)["owned_pct"] <= DIFFERENTIAL_MAX_OWNED_PCT),
-                      key=lambda i: (players.get(i, zero)["owned_pct"], int(i)))[:GROUP_SIZE]
-    return {
-        "squad_compared": True,
-        "risks": [_row(i, players[i], by_id, teams) for i in risk_ids],
-        "differentials": [_row(i, players.get(i, zero), by_id, teams) for i in diff_ids],
-    }
 
 
 def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: list[str],

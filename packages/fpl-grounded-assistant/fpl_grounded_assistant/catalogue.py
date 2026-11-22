@@ -269,6 +269,12 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "league_eo.group.diff": {"en": "Your differential", "es": "Tu diferencial"},
     "league_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
     "league_eo.footer": {"en": "EO counts captains double.", "es": "La EO cuenta al capit\u00e1n doble."},
+    # -- near-rank EO card (get_near_rank_eo): same shape as the league card.
+    "near_eo.title": {"en": "EO near your rank", "es": "EO cerca de tu puesto"},
+    "near_eo.label": {"en": "approx., n={n}", "es": "aprox., n={n}"},
+    "near_eo.col.eo": {"en": "EO %", "es": "EO %"},
+    "near_eo.group.risk": {"en": "Near you has him", "es": "Cerca de ti lo tienen"},
+    "near_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
     "league_eo.chip_question": {"en": "EO in {league}", "es": "EO en {league}"},
     "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
     "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
