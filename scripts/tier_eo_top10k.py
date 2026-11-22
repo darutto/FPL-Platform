@@ -217,6 +217,8 @@ class Storage(Protocol):
 
 
 class LocalStorage:
+    local = True  # the run log says "dry run, local only" for this storage
+
     def __init__(self, root: Path):
         self.root = Path(root)
 
@@ -238,6 +240,8 @@ class LocalStorage:
 
 class R2Storage:
     """R2 via boto3, confined to ``{prefix}eo/``. No listing, no deleting elsewhere."""
+
+    local = False
 
     ENV = ("OWNED_STORE_R2_ENDPOINT", "OWNED_STORE_R2_BUCKET",
            "OWNED_STORE_R2_ACCESS_KEY_ID", "OWNED_STORE_R2_SECRET_ACCESS_KEY")
@@ -374,13 +378,37 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client, tier: 
     }
     storage.put(output_key(season, gw, tier), out)
     storage.delete(ckpt_key)
-    log(f"published {output_key(season, gw, tier)} ({len(out['players'])} players)")
+    key = output_key(season, gw, tier)
+    if getattr(storage, "local", False):
+        log(f"wrote {storage.root / key} (dry run, local only; nothing was sent to R2) ({len(out['players'])} players)")
+    else:
+        log(f"published {key} to R2 ({len(out['players'])} players)")
     return 0
+
+
+REGISTRY = Path(__file__).resolve().parents[1] / "packages" / "fpl-data-core" / "season_registry.yaml"
+
+
+def resolve_current_season(path: Path = REGISTRY) -> str:
+    """``current_season`` read straight from the registry YAML (no package import).
+
+    ``import fpl_data_core`` pulls in pandas, and its CURRENT_SEASON constant is
+    empty until the YAML is loaded, so the workflow reads the file itself. A
+    missing or empty value is an error, never an empty season.
+    """
+    import yaml  # noqa: PLC0415  (lazy: only the season lookup needs it)
+
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    season = str(data.get("current_season") or "").strip()
+    if not season:
+        raise SystemExit(f"current_season is empty or missing in {path}")
+    return season
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Tier EO sampler (top10k, top100k)")
-    ap.add_argument("--season", required=True)
+    ap.add_argument("--season", default=None, help="default: the registry's current_season")
+    ap.add_argument("--print-season", action="store_true", help="print the resolved season and exit")
     ap.add_argument("--tier", choices=TIERS, default=TIER)
     ap.add_argument("--gw", type=int, default=None, help="default: latest GW whose deadline has passed")
     ap.add_argument("--publish", choices=["none", "r2"], default="none",
@@ -388,8 +416,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-dir", default="eo_out")
     ap.add_argument("--max-seconds", type=float, default=2400.0)
     args = ap.parse_args(argv)
+    season = (args.season or "").strip() or resolve_current_season()
+    if args.print_season:
+        print(season)
+        return 0
     storage: Storage = R2Storage() if args.publish == "r2" else LocalStorage(Path(args.out_dir))
-    return run(season=args.season, gw=args.gw, storage=storage, client=Client(), tier=args.tier,
+    return run(season=season, gw=args.gw, storage=storage, client=Client(), tier=args.tier,
                max_seconds=args.max_seconds)
 
 

@@ -238,3 +238,39 @@ def test_top100k_checkpoints_while_running_and_resumes(tmp_path):
     api = FakeApi()
     assert eo.run(season="s", gw=12, storage=storage, client=client(api), tier="top100k", now=NOW, log=QUIET) == 0
     assert sum("/picks/" in u for u in api.urls) == 2000 - len(saved["samples"])
+
+
+# -- season resolution and the dry-run log ------------------------------------------------
+
+def test_resolve_current_season_reads_the_yaml_and_the_real_registry_is_non_empty(tmp_path):
+    f = tmp_path / "r.yaml"
+    f.write_text('current_season: "2030-2031"\nseasons: []\n', encoding="utf-8")
+    assert eo.resolve_current_season(f) == "2030-2031"
+    assert eo.resolve_current_season().count("-") == 1  # the repo's own registry: e.g. 2026-2027
+
+
+@pytest.mark.parametrize("body", ['current_season: ""\n', "seasons: []\n", ""])
+def test_empty_or_missing_season_fails_loudly(tmp_path, body):
+    f = tmp_path / "r.yaml"
+    f.write_text(body, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        eo.resolve_current_season(f)
+
+
+def test_dry_run_log_says_local_only_and_never_published(tmp_path):
+    lines: list[str] = []
+    assert eo.run(season="s", gw=12, storage=eo.LocalStorage(tmp_path), client=client(FakeApi()), now=NOW,
+                  log=lines.append) == 0
+    last = lines[-1]
+    assert "dry run, local only" in last and "published" not in last
+
+
+def test_r2_run_log_says_published():
+    class S3(FakeS3):
+        def get_object(self, Bucket, Key):
+            raise KeyError("NoSuchKey")
+
+    lines: list[str] = []
+    assert eo.run(season="s", gw=12, storage=eo.R2Storage(client=S3(), bucket="b", prefix=""),
+                  client=client(FakeApi()), now=NOW, log=lines.append) == 0
+    assert lines[-1].startswith("published eo/s/gw12/top10k.json to R2")

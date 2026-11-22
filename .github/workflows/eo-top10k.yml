@@ -57,8 +57,11 @@ jobs:
         run: |
           KEY="${{ github.event.inputs.season }}"
           if [ -z "$KEY" ]; then
-            KEY=$(PYTHONPATH=packages/fpl-data-core python -c \
-              "from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")
+            KEY=$(python scripts/tier_eo_top10k.py --print-season)
+          fi
+          if [ -z "$KEY" ]; then
+            echo "season is empty" >&2
+            exit 1
           fi
           echo "season=$KEY" >> "$GITHUB_OUTPUT"
 
