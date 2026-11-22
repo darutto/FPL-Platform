@@ -1,0 +1,74 @@
+name: EO Top-10K Sample
+
+# Step 2 of the tier effective-ownership (EO) track. Samples 2,000 entries from
+# the top 10,000 (every 5th rank), reads their picks for a gameweek whose deadline
+# has passed, and computes per-player ownership / captaincy / bench / EO %.
+# Manual only: `gh workflow run eo-top10k.yml` (a schedule comes after Leo has
+# seen one real run). Free public FPL API only, sequential, <= 4 requests/s.
+#
+# `publish` defaults to false: a dry run that fetches, checks (split-half) and
+# logs, but writes only to the runner's disk. publish=true writes
+# eo/{season}/gw{N}/top10k.json to R2; the writer refuses any key outside
+# {OWNED_STORE_R2_PREFIX}eo/. The secret NAMES below are the existing R2 ones.
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season key; blank = the registry's current_season"
+        required: false
+      gw:
+        description: "Gameweek; blank = latest with a passed deadline"
+        required: false
+      publish:
+        description: "Write the result to R2 (false = dry run)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: eo-top10k
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install boto3 pyyaml
+
+      - name: Resolve season
+        id: season
+        run: |
+          KEY="${{ github.event.inputs.season }}"
+          if [ -z "$KEY" ]; then
+            KEY=$(PYTHONPATH=packages/fpl-data-core python -c \
+              "from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")
+          fi
+          echo "season=$KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Sample the top 10K
+        env:
+          SEASON: ${{ steps.season.outputs.season }}
+          GW: ${{ github.event.inputs.gw }}
+          PUBLISH: ${{ github.event.inputs.publish }}
+          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+        run: |
+          ARGS="--season $SEASON"
+          if [ -n "$GW" ]; then ARGS="$ARGS --gw $GW"; fi
+          if [ "$PUBLISH" = "true" ]; then ARGS="$ARGS --publish r2"; else ARGS="$ARGS --out-dir eo_out"; fi
+          python scripts/tier_eo_top10k.py $ARGS
