@@ -226,7 +226,7 @@ def test_the_three_lines_that_opened_the_track(chat, locale):
     follow = post(line3, locale, plan_state=state)
     assert len(script.calls) == asked_before, "the follow-up must not reach the model"
     assert follow["outcome"] == "ok"
-    assert "Jackson" in follow["final_text"]            # it is the plan, not a player snapshot
+    assert "Jackson" in follow["generic_card"]["title"]  # it is the plan card (the text is one line), not a snapshot
     assert follow["player_snapshot"] is None
     new_state = follow["plan_state"]
     assert new_state["target_id"] == 100
@@ -396,3 +396,52 @@ def test_an_ambiguous_plan_target_re_asks_the_users_own_question():
     assert [c["send_text"] for c in chips] == [
         "who else can i sell to sign Nico Jackson?", "who else can i sell to sign Mark Jackson?",
     ]
+
+
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_a_deterministic_plan_turn_with_a_card_answers_in_one_line(chat, locale):
+    post, _script = chat
+    chips = post(LINES[locale][0], locale)["suggestions"]
+    plan = post(chips[-1]["send_text"], locale)  # use hits
+    text = plan["final_text"]
+    assert plan["generic_card"] is not None
+    assert "\n" not in text and len(text) < 120, text
+    option = plan["generic_card"]["rows"][0][0].split(" · ")[0]  # the hero option's first player out
+    assert option in text
+    start = "Sell " if locale == "en" else "Vende a "
+    assert text.startswith(start) and (" left in the bank" in text or " te sobran " in text)
+    # everything else lives on the card only
+    assert "Option 1" not in text and "Opción 1" not in text
+    assert "current prices" not in text.lower() and "precios actuales" not in text.lower()
+    assert "Free transfers" not in text and "Traspasos gratis" not in text
+
+
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_the_one_line_does_not_repeat_the_conclusions(chat, locale):
+    from fpl_grounded_assistant.plan_card import plan_conclusions
+
+    post, _script = chat
+    chips = post(LINES[locale][0], locale)["suggestions"]
+    plan = post(chips[-1]["send_text"], locale)
+    for conclusion in plan["generic_card"]["footer"].split("\n"):
+        assert conclusion not in plan["final_text"]
+
+
+def test_the_choose_moves_step_keeps_its_text(chat):
+    post, _script = chat
+    first = post(LINES["en"][0], "en")
+    assert first["generic_card"] is None
+    assert "How many moves" in first["final_text"] and "in the bank" in first["final_text"]
+
+
+def test_one_line_wording_and_hit_suffix():
+    from fpl_grounded_assistant.plan_card import plan_one_line
+
+    def option(outs, bank_after, hit):
+        return {"transfers": [{"out": {"web_name": n}} for n in outs], "bank_after": bank_after, "hit_cost": hit}
+
+    raw = lambda o: {"status": "ok", "stage": "plan", "options": [o]}
+    assert plan_one_line(raw(option(["Alpha"], 1.6, 0)), "es") == "Vende a Alpha: te sobran 1.6m."
+    assert plan_one_line(raw(option(["Alpha", "Bravo"], 0.4, 4)), "es") == "Vende a Alpha y Bravo: te sobran 0.4m (hit −4)."
+    assert plan_one_line(raw(option(["A", "B", "C"], 0.4, 8)), "en") == "Sell A, B and C: 0.4m left in the bank (hit −8)."
+    assert plan_one_line({"status": "ok", "stage": "choose_moves"}, "en") is None
