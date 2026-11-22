@@ -1556,6 +1556,44 @@ NEAR_RANK_EO_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# League EO — opt-in tool (kept OUT of _ALL_SCHEMAS), offered only when
+# FPL_LEAGUE_EO_ENABLED is on (default OFF). Same separation as search_web.
+# ---------------------------------------------------------------------------
+
+LEAGUE_EO_SCHEMA = ToolSchema(
+    name="get_league_eo",
+    description=(
+        "Effective ownership (EO) inside the connected user's own private mini-league: the top-EO "
+        "players plus any you name, with ownership and captaincy %. Use for 'what does my league own', "
+        "'who hurts me in my league if he hauls', 'EO of X in my mini-league'. Small leagues are read "
+        "in full (label 'exact'); big ones are sampled (label 'approx.'): quote the label. "
+        "If the user has several leagues and has not said which, the result is status='needs_league' "
+        "with their names and sizes: ask which one, then call again with league_name. "
+        "status='computing' means the job just started: tell the user plainly it is not ready and to "
+        "ask again in about 30 seconds; never invent numbers. status='no_team_connected' when no team "
+        "is linked; 'league_too_large' / 'league_too_small' leagues cannot be read."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "league_name": {
+                "type": "string",
+                "description": "Name of one of the user's own leagues, as the user said it (optional).",
+            },
+            "player_names": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 10,
+                "description": "Web names of players whose EO the user asked about (optional).",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # T-zonal atomic tools — tactical zonal-weakness intelligence (owned
 # Understat store). Orchestrator-callable only: deliberately NOT in
 # _TOOL_TO_INTENT / SUPPORTED_INTENTS / the classifier (narrated as text).
@@ -2044,6 +2082,7 @@ _REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {
     **_REGISTRY,
     SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA,
     NEAR_RANK_EO_SCHEMA.name: NEAR_RANK_EO_SCHEMA,  # opt-in like search_web; offered only behind its flag
+    LEAGUE_EO_SCHEMA.name: LEAGUE_EO_SCHEMA,        # likewise (FPL_LEAGUE_EO_ENABLED)
 }
 TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
 
@@ -2062,6 +2101,7 @@ def get_offered_tool_names(
     *,
     web_search_enabled: bool = False,
     near_rank_eo_enabled: bool = False,
+    league_eo_enabled: bool = False,
 ) -> frozenset[str]:
     """Return names reachable through LLM tool dispatch for one request."""
     names = frozenset(
@@ -2072,6 +2112,8 @@ def get_offered_tool_names(
         names = names | {SEARCH_WEB_SCHEMA.name}
     if near_rank_eo_enabled:
         names = names | {NEAR_RANK_EO_SCHEMA.name}
+    if league_eo_enabled:
+        names = names | {LEAGUE_EO_SCHEMA.name}
     return names
 
 

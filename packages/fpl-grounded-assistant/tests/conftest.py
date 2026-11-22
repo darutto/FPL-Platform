@@ -92,3 +92,14 @@ def _no_network_fixture_state(monkeypatch):
     _pz.reset_caches()
     yield
     _pz.reset_caches()
+
+
+@pytest.fixture(autouse=True)
+def _reset_shared_eo_plumbing():
+    """The EO services share one module-global limiter and circuit breaker; a test that trips the
+    breaker must not leak into the next one, so every test starts from a clean slate."""
+    from fpl_grounded_assistant import near_rank_eo
+
+    near_rank_eo._SHARED.clear()
+    yield
+    near_rank_eo._SHARED.clear()
