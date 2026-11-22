@@ -105,6 +105,7 @@ from .orch_config import (
     get_orch_max_rounds,
     get_orch_timeout,
     is_football_intelligence_enabled,
+    is_near_rank_eo_enabled,
     is_orch_eval_verdict_only,
     is_orch_experiment_output_enabled,
     is_orch_loop_enabled,
@@ -126,6 +127,7 @@ from .locale_types import DEFAULT_LOCALE, Locale
 from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
+    NEAR_RANK_EO_SCHEMA,
     SEARCH_WEB_SCHEMA,
     get_offered_tool_names,
     get_offered_tool_schemas,
@@ -1079,6 +1081,8 @@ def _build_tools(
     )
     offered = get_offered_tool_schemas(fi_enabled)
     schemas = (*offered, SEARCH_WEB_SCHEMA) if web_search_enabled else offered
+    if is_near_rank_eo_enabled():
+        schemas = (*schemas, NEAR_RANK_EO_SCHEMA)
     if provider == PROVIDER_OPENAI:
         return [s.to_openai() for s in schemas]
     if provider == PROVIDER_GEMINI:
@@ -2838,6 +2842,7 @@ def _ask_orchestrated_impl(
     _valid_tool_names = get_offered_tool_names(
         _fi_enabled,
         web_search_enabled=web_search_enabled,
+        near_rank_eo_enabled=is_near_rank_eo_enabled(),
     )
     _provider_for_cache = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     if _provider_for_cache == PROVIDER_ANTHROPIC:

@@ -65,6 +65,9 @@ ORCH_MODEL_ENV: str = "FPL_ORCH_MODEL"
 #: Environment variable that offers FI-7b tools when set to a truthy value.
 FOOTBALL_INTELLIGENCE_ENABLED_ENV: str = "FOOTBALL_INTELLIGENCE_ENABLED"
 
+#: Offers the get_near_rank_eo tool (EO around the user's rank) when truthy. Default OFF.
+NEAR_RANK_EO_ENABLED_ENV: str = "FPL_NEAR_RANK_EO_ENABLED"
+
 #: Experiment-only: retain evaluator verdicts but skip the context-losing retry.
 ORCH_EVAL_VERDICT_ONLY_ENV: str = "FPL_ORCH_EVAL_VERDICT_ONLY"
 
@@ -145,6 +148,11 @@ def is_football_intelligence_enabled() -> bool:
         .lower()
         in _TRUTHY
     )
+
+
+def is_near_rank_eo_enabled() -> bool:
+    """Whether the get_near_rank_eo tool is offered (env FPL_NEAR_RANK_EO_ENABLED, default OFF)."""
+    return os.environ.get(NEAR_RANK_EO_ENABLED_ENV, "").strip().lower() in _TRUTHY
 
 
 def is_orch_eval_verdict_only() -> bool:
