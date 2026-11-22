@@ -17,7 +17,8 @@
  * generic_card shape) so other card components can adopt this primitive
  * later instead of hand-rolling their own table markup.
  */
-import { PILL_BASE, STATUS_TONE_CLASSES, type StatusTone } from '@/lib/theme';
+import { GENERIC_TONE_CLASSES, PILL_BASE, STATUS_TONE_CLASSES, type StatusTone } from '@/lib/theme';
+import type { Tone } from '@/lib/types';
 
 export interface CardTableColumn {
   header: string;
@@ -30,9 +31,11 @@ interface Props {
   rows: string[][];
   /** Clamp text-kind cells to 2 lines instead of a single-line truncate. */
   clampText?: boolean;
+  /** Badge text -> tone, when the card says so; otherwise the tone is inferred from the text. */
+  badgeTones?: Record<string, Tone> | null;
 }
 
-export default function CardTable({ columns, rows, clampText = false }: Props) {
+export default function CardTable({ columns, rows, clampText = false, badgeTones = null }: Props) {
   if (columns.length === 0 || rows.length === 0) return null;
 
   return (
@@ -63,7 +66,7 @@ export default function CardTable({ columns, rows, clampText = false }: Props) {
                     col.align === 'right' ? 'text-right' : 'text-left'
                   }`}
                 >
-                  <CardTableCell col={col} value={row[colIdx] ?? ''} clampText={clampText} />
+                  <CardTableCell col={col} value={row[colIdx] ?? ''} clampText={clampText} badgeTones={badgeTones} />
                 </td>
               ))}
             </tr>
@@ -78,12 +81,18 @@ function CardTableCell({
   col,
   value,
   clampText,
+  badgeTones,
 }: {
   col: CardTableColumn;
   value: string;
   clampText: boolean;
+  badgeTones: Record<string, Tone> | null;
 }) {
   if (col.kind === 'badge') {
+    const given = badgeTones?.[value];
+    if (given != null && given in GENERIC_TONE_CLASSES) {
+      return <span className={`${PILL_BASE} ${GENERIC_TONE_CLASSES[given]}`}>{value}</span>;
+    }
     const tone = inferBadgeTone(value);
     return <span className={`${PILL_BASE} ${STATUS_TONE_CLASSES[tone]}`}>{value}</span>;
   }

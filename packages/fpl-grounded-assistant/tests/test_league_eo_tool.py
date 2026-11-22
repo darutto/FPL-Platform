@@ -207,7 +207,8 @@ def test_ready_result_has_the_label_and_the_named_players(monkeypatch):
     out = tool.get_league_eo(boot(league=42), player_names=["beta", "Nobody"], now=NOW)
     assert out["status"] == "ok" and out["label"] == "exact, n=12" and out["league_name"] == "Friends"
     assert [r["player"] for r in out["top_players"]] == ["Alpha", "Beta"]
-    assert out["top_players"][0] == {"player": "Alpha", "team": "AAA", "eo": 140.0, "owned_pct": 90.0, "captain_pct": 50.0}
+    assert out["top_players"][0] == {"player": "Alpha", "team": "AAA", "eo": 140.0, "owned_pct": 90.0, "captain_pct": 50.0,
+                                     "user_owns": None}  # no squad in this test
     assert [r["player"] for r in out["named_players"]] == ["Beta"]
 
 

@@ -1252,6 +1252,8 @@ export interface GenericCardMeta {
   involvement_compare?: InvolvementCompareMeta | null;
   /** Position changes: the mini-pitch (old -> new starting role, or FPL listing -> played role); null elsewhere. */
   position_pitch?: PositionPitchMeta | null;
+  /** Optional badge text -> tone: a badge cell whose text is a key is drawn in that tone (EO cards); absent elsewhere. */
+  badge_tones?: Record<string, Tone> | null;
 }
 
 export type InvolvementSide = 'a' | 'b';

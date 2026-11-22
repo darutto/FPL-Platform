@@ -41,6 +41,7 @@ from .near_rank_eo_tool import (  # noqa: F401  (the comparison and its threshol
     _row,
     _season,
     gw_and_valid_until,
+    owned_ids,
     squad_comparison,
     wording_note,
 )
@@ -79,12 +80,13 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
             if element_id in players and wanted in (normalize_player_name(element.get("web_name")),
                                                     normalize_player_name(element.get("second_name"))):
                 named_ids.append(element_id)
+    own = owned_ids(squad)
     return {
         "status": "ok", "tier": "league", "gw": data["gw"],
         "league_id": data["league_id"], "league_name": data["league_name"], "league_size": data["league_size"],
         "exact": data["exact"], "approx": data["approx"], "n_sampled": data["n_sampled"], "label": data["label"],
-        "top_players": [_row(i, players[i], by_id, teams) for i in top_ids],
-        "named_players": [_row(i, players[i], by_id, teams) for i in dict.fromkeys(named_ids)],
+        "top_players": [_row(i, players[i], by_id, teams, own) for i in top_ids],
+        "named_players": [_row(i, players[i], by_id, teams, own) for i in dict.fromkeys(named_ids)],
         **squad_comparison(players, squad, by_id, teams),
         "note": ("EO = how many copies of the player the managers of this league hold, counting captains "
                  "double. Quote the label: 'exact' means every member was read, 'approx.' a sample. "
