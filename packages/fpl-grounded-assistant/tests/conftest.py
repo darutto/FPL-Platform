@@ -103,3 +103,20 @@ def _reset_shared_eo_plumbing():
     near_rank_eo._SHARED.clear()
     yield
     near_rank_eo._SHARED.clear()
+
+
+@pytest.fixture(autouse=True)
+def _no_network_element_summary(monkeypatch):
+    """plan_to_sign's trend check fetches element-summary history. No test may reach the network (or the
+    owned store) for it: a bootstrap that injects ``_element_summaries`` is served, every other fetch fails."""
+    try:
+        from fpl_grounded_assistant import plan_trend
+    except ImportError:
+        yield
+        return
+
+    def _injected_only(element_id, bootstrap):
+        return (bootstrap.get("_element_summaries") or {}).get(str(element_id))
+
+    monkeypatch.setattr(plan_trend, "_fetch_summary", _injected_only)
+    yield
