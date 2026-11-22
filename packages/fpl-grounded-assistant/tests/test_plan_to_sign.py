@@ -303,3 +303,19 @@ def test_every_player_in_the_plan_carries_season_minutes(monkeypatch):
         for tr in option["transfers"]:
             assert tr["out"]["minutes"] == 1000 + tr["out"]["id"]
             assert tr["in"]["minutes"] == 1000 + tr["in"]["id"]
+
+
+def test_the_same_players_out_and_in_are_one_option_however_the_pairs_are_matched(monkeypatch):
+    plans = [
+        [(13, 100), (8, 200), (9, 201)],
+        [(13, 100), (8, 201), (9, 200)],  # same outs, same ins, swapped pairing: the same squad
+        [(13, 100), (8, 200), (9, 202)],  # same outs, a different player in: a real alternative
+    ]
+    _outs, options = _rank_with(monkeypatch, plans, {})
+    squads = [
+        (frozenset(tr["out"]["id"] for tr in o["transfers"]), frozenset(tr["in"]["id"] for tr in o["transfers"]))
+        for o in options
+    ]
+    assert len(squads) == len(set(squads)), "no two options may be the same squad"
+    assert (frozenset({13, 8, 9}), frozenset({100, 200, 201})) in squads
+    assert (frozenset({13, 8, 9}), frozenset({100, 200, 202})) in squads

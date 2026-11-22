@@ -44,28 +44,28 @@ def _raw(*options, moves="one", price_basis="current", **extra):
 
 def test_only_way_names_the_top_and_the_target():
     raw = _raw(_option("Isak", tops=[{"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}]))
-    assert plan_conclusions(raw, "en") == ["Isak is a top player: selling him is the only way to fund N.Jackson."]
-    assert plan_conclusions(raw, "es") == ["Isak es top: su venta es la única forma de pagar a N.Jackson."]
+    assert plan_conclusions(raw, "en") == ["Isak is a premium: selling him is the only way to fund N.Jackson."]
+    assert plan_conclusions(raw, "es") == ["Isak es premium: su venta es la única forma de pagar a N.Jackson."]
 
 
 def test_only_way_is_said_per_player_only_when_every_option_sells_that_player():
     isak = {"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}
     other = {**_option("Haaland"), "tops_sold": [{"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}]}
     raw = _raw(_option("Isak", tops=[isak]), other)
-    assert plan_conclusions(raw, "en") == ["Isak is a top player: selling him is the only way to fund N.Jackson."]
+    assert plan_conclusions(raw, "en") == ["Isak is a premium: selling him is the only way to fund N.Jackson."]
 
 
 def test_when_every_option_sells_some_top_but_not_the_same_one_there_is_one_general_line():
     isak = {"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}
     haaland = {"id": 14, "web_name": "Haaland", "reasons": ["price"], "why": "only_way"}
     raw = _raw(_option("Isak", tops=[isak]), _option("Haaland", tops=[haaland]))
-    assert plan_conclusions(raw, "en") == ["Every way to fund N.Jackson sells a top player."]
-    assert plan_conclusions(raw, "es") == ["Toda forma de pagar a N.Jackson pasa por vender a un top."]
+    assert plan_conclusions(raw, "en") == ["Every way to fund N.Jackson sells a premium."]
+    assert plan_conclusions(raw, "es") == ["Toda forma de pagar a N.Jackson pasa por vender a un premium."]
     both = _option("Isak", tops=[isak, haaland], moves=2)
     # Haaland is in every option, so he really is the only way; Isak is not. One general line, one per-player line.
     assert plan_conclusions(_raw(both, _option("Haaland", tops=[haaland])), "en") == [
-        "Every way to fund N.Jackson sells a top player.",
-        "Haaland is a top player: selling him is the only way to fund N.Jackson.",
+        "Every way to fund N.Jackson sells a premium.",
+        "Haaland is a premium: selling him is the only way to fund N.Jackson.",
     ]
 
 
@@ -128,7 +128,7 @@ def test_at_most_three_lines_in_priority_order():
             {"id": 11, "web_name": "C", "hard_fixtures": 5, "availability": "doubt", "set_pieces": 0}]
     lines = plan_conclusions(_raw(_option("A", tops=tops, sold=sold, moves=2), moves="hits"), "en")
     assert len(lines) == MAX_CONCLUSIONS == 3
-    assert lines[0].startswith("A is a top") and lines[1].startswith("B is a top")
+    assert lines[0].startswith("A is a premium") and lines[1].startswith("B is a premium")
 
 
 def test_a_plan_with_nothing_to_say_has_no_lines():
@@ -151,7 +151,7 @@ def test_the_card_carries_the_swaps_the_leftover_money_and_the_conclusions():
     assert card.rows == (("Isak · C2", "N.Jackson · C3", "8.0 → 7.0"),)
     assert all(len(row) == len(card.columns) for row in card.rows)
     lines = card.footer.split("\n")
-    assert lines[0].startswith("Isak is a top player") and lines[-1].startswith("Current prices")  # one option: his alone
+    assert lines[0].startswith("Isak is a premium") and lines[-1].startswith("Current prices")  # one option: his alone
 
 
 def test_spanish_card_uses_te_sobran_and_dot_decimals():
@@ -189,7 +189,7 @@ def test_focus_makes_another_option_the_hero():
 def test_the_text_answer_repeats_the_conclusions_under_the_hero_option():
     top = [{"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}]
     text = render("plan_to_sign", _raw(_option("Isak", tops=top)), locale="en")
-    assert "  → Isak is a top player: selling him is the only way to fund N.Jackson." in text
+    assert "  → Isak is a premium: selling him is the only way to fund N.Jackson." in text
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ def test_options_other_than_the_hero_are_chips_with_their_own_names():
     chips = option_chips(_raw(a, b, c), "en")
     assert chips == [
         {"label": "Sell Haaland", "send_text": "Show option 2"},
-        {"label": "Sell Evan + Cherki", "send_text": "Show option 3"},
+        {"label": "Sell Cherki + Evan", "send_text": "Show option 3"},
     ]
     assert option_chips(_raw(a, b, c, focus=3), "es") == [
         {"label": "Vender a Isak", "send_text": "Muéstrame la opción 1"},
@@ -256,3 +256,31 @@ def test_a_plan_turn_carries_a_card_and_option_chips_and_a_tap_answers_without_t
     tapped_chips = tapped["suggestions"]
     assert len(tapped_chips) == len(chips) and tapped_chips[0]["label"] != chips[0]["label"]
     assert not re.search(r"\d,\d", tapped["final_text"])  # dot decimals in both languages
+
+
+def _two_move(outs, ins, out_prices=(9.0, 6.0)):
+    """A two-move option: ``outs`` and ``ins`` as (id, name) pairs; the first pair is the target purchase."""
+    transfers = []
+    for k, ((oid, oname), (iid, iname), price) in enumerate(zip(outs, ins, out_prices)):
+        tr = _transfer(oid, oname, iname, out_price=price)
+        tr["in"]["id"] = iid
+        tr["role"] = "target" if k == 0 else "downgrade"
+        transfers.append(tr)
+    return {**_option(), "moves": 2, "transfers": transfers}
+
+
+def test_outs_in_a_label_are_listed_dearest_first_whatever_the_search_order():
+    a = _option("Isak")
+    b = _two_move([(1, "Cheap"), (2, "Dear")], [(51, "T"), (52, "R")], out_prices=(5.0, 9.0))
+    assert option_chips(_raw(a, b), "en")[0]["label"] == "Sell Dear + Cheap"
+
+
+def test_options_with_the_same_outs_are_told_apart_by_who_comes_in():
+    outs_a = [(1, "Palmer"), (2, "Ndiaye")]
+    outs_b = [(2, "Ndiaye"), (1, "Palmer")]
+    hero = _two_move(outs_a, [(50, "Target"), (61, "McGinn")])
+    other = _two_move(outs_b, [(50, "Target"), (62, "Rudoni")], out_prices=(6.0, 9.0))
+    third = _option("Isak")
+    chips = option_chips(_raw(hero, other, third), "en")
+    assert [c["label"] for c in chips] == ["Buy Rudoni", "Sell Isak"]
+    assert option_chips(_raw(hero, other, third, focus=2), "es")[0]["label"] == "Entran McGinn"

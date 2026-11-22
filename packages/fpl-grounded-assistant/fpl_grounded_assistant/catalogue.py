@@ -1089,12 +1089,12 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Precios actuales: dime tus precios de venta y lo recalculo.",
     },
     "plan_to_sign.concl_only_way": {
-        "en": "{name} is a top player: selling him is the only way to fund {target}.",
-        "es": "{name} es top: su venta es la única forma de pagar a {target}.",
+        "en": "{name} is a premium: selling him is the only way to fund {target}.",
+        "es": "{name} es premium: su venta es la única forma de pagar a {target}.",
     },
     "plan_to_sign.concl_every_way": {
-        "en": "Every way to fund {target} sells a top player.",
-        "es": "Toda forma de pagar a {target} pasa por vender a un top.",
+        "en": "Every way to fund {target} sells a premium.",
+        "es": "Toda forma de pagar a {target} pasa por vender a un premium.",
     },
     "plan_to_sign.concl_out": {
         "en": "{name}: FPL lists him as out.", "es": "{name}: FPL lo da como baja.",
@@ -1130,6 +1130,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "plan_to_sign.one_line_hit": {"en": " (hit −{hit})", "es": " (hit −{hit})"},
     "plan_to_sign.one_line_and": {"en": " and ", "es": " y "},
     "plan_to_sign.chip_option_label": {"en": "Sell {outs}", "es": "Vender a {outs}"},
+    "plan_to_sign.chip_option_ins_label": {"en": "Buy {ins}", "es": "Entran {ins}"},
     "plan_to_sign.chip_option_send": {"en": "Show option {n}", "es": "Muéstrame la opción {n}"},
     "plan_to_sign.error_fallback": {"en": "Unexpected error.", "es": "Error inesperado."},
 
