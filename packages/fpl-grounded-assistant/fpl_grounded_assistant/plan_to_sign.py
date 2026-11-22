@@ -216,6 +216,7 @@ class _Context:
             "status_code": code,
             "chance_of_playing": el.get("chance_of_playing_next_round"),
             "news": str(el.get("news") or ""),
+            "minutes": _safe_int(el.get("minutes")),  # season minutes (FPL): what the prose may ground on
             "value": round(self.value(pid), 2),
         }
 
@@ -435,6 +436,17 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
         "bank_after": round(plan["bank_after"] / 10, 1),
         "unavailable_sold": [tr["out"]["web_name"] for tr in transfers if tr["out"]["status_code"] != "a"],
         "tops_sold": tops,
+        # What the card says about each player sold (all from plan_signals).
+        "sold": [
+            {
+                "id": o,
+                "web_name": str(ctx.elements[o].get("web_name", "")),
+                "hard_fixtures": sig.fixtures(o)["hard"],
+                "availability": sig.availability(o)["reason"],
+                "set_pieces": set_piece_count(ctx.elements[o]),
+            }
+            for o in outs
+        ],
         "signals": {
             "avail_net": avail_net,
             "fixture_gain": fixture_gain,

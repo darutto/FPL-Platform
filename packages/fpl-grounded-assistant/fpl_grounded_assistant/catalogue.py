@@ -1069,6 +1069,68 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "plan_to_sign.already_owned": {
         "en": "{name} is already in your squad.", "es": "{name} ya está en tu equipo.",
     },
+    "plan_to_sign.card_title": {"en": "Sign {name}", "es": "Fichar a {name}"},
+    "plan_to_sign.card_subtitle": {
+        "en": "{position} · {team} · {price}m · bank {bank}m{shortfall_part}",
+        "es": "{position} · {team} · {price}m · banco {bank}m{shortfall_part}",
+    },
+    "plan_to_sign.card_shortfall": {"en": " · {shortfall}m to find", "es": " · faltan {shortfall}m"},
+    "plan_to_sign.card_hero_label": {"en": "left in the bank", "es": "te sobran"},
+    "plan_to_sign.card_moves_one": {"en": "1 move", "es": "1 traspaso"},
+    "plan_to_sign.card_moves_many": {"en": "{n} moves", "es": "{n} traspasos"},
+    "plan_to_sign.card_no_hit": {"en": "no hit", "es": "sin hit"},
+    "plan_to_sign.card_hit": {"en": "hit −{n}", "es": "hit −{n}"},
+    "plan_to_sign.card_hit_assumed": {"en": "hit −{n} (1 free assumed)", "es": "hit −{n} (suponiendo 1 gratis)"},
+    "plan_to_sign.card_col_out": {"en": "Out", "es": "Sale"},
+    "plan_to_sign.card_col_in": {"en": "In", "es": "Entra"},
+    "plan_to_sign.card_col_price": {"en": "Price", "es": "Precio"},
+    "plan_to_sign.card_price_note": {
+        "en": "Current prices: tell me your selling prices and I will recompute.",
+        "es": "Precios actuales: dime tus precios de venta y lo recalculo.",
+    },
+    "plan_to_sign.concl_only_way": {
+        "en": "{name} is a top player: selling him is the only way to fund {target}.",
+        "es": "{name} es top: su venta es la única forma de pagar a {target}.",
+    },
+    "plan_to_sign.concl_every_way": {
+        "en": "Every way to fund {target} sells a top player.",
+        "es": "Toda forma de pagar a {target} pasa por vender a un top.",
+    },
+    "plan_to_sign.concl_out": {
+        "en": "{name}: FPL lists him as out.", "es": "{name}: FPL lo da como baja.",
+    },
+    "plan_to_sign.concl_doubt": {
+        "en": "{name}: FPL gives him a {chance}% chance of playing.",
+        "es": "{name}: FPL le da un {chance}% de jugar.",
+    },
+    "plan_to_sign.concl_decline": {
+        "en": "{name} is slipping: {recent} pts a game in his last 3 against {season} this season, with {hard} hard fixtures ahead.",
+        "es": "{name} va a menos: {recent} pts por partido en sus últimos 3 frente a {season} en la temporada, con {hard} partidos difíciles por delante.",
+    },
+    "plan_to_sign.concl_hard_run": {
+        "en": "{name} has {hard} hard fixtures in the next 5.",
+        "es": "{name} tiene {hard} partidos difíciles en los próximos 5.",
+    },
+    "plan_to_sign.concl_few_starts": {
+        "en": "{name} has had few starts this season.",
+        "es": "{name}: pocos minutos de titular esta temporada.",
+    },
+    "plan_to_sign.concl_hits_no_better": {
+        "en": "Hits don't give a better plan.", "es": "Con hits no hay un plan mejor.",
+    },
+    "plan_to_sign.concl_free_no_better": {
+        "en": "Your free transfers don't give a better plan.", "es": "Con tus traspasos gratis no hay un plan mejor.",
+    },
+    "plan_to_sign.pick_send": {
+        "en": "How do I get {name} with my current team?", "es": "¿Cómo ficho a {name} con mi equipo actual?",
+    },
+    "plan_to_sign.one_line": {
+        "en": "Sell {names}: {bank}m left in the bank{hit_part}.", "es": "Vende a {names}: te sobran {bank}m{hit_part}.",
+    },
+    "plan_to_sign.one_line_hit": {"en": " (hit −{hit})", "es": " (hit −{hit})"},
+    "plan_to_sign.one_line_and": {"en": " and ", "es": " y "},
+    "plan_to_sign.chip_option_label": {"en": "Sell {outs}", "es": "Vender a {outs}"},
+    "plan_to_sign.chip_option_send": {"en": "Show option {n}", "es": "Muéstrame la opción {n}"},
     "plan_to_sign.error_fallback": {"en": "Unexpected error.", "es": "Error inesperado."},
 
     # -- status_label: shared by resolve_player and get_player_summary ------

@@ -609,6 +609,67 @@ def compose_involvement_compare_card(raw_output: dict[str, Any], locale: Locale 
         return None
 
 
+def compose_plan_to_sign_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """The card for a ``plan_to_sign`` plan: the hero option's swaps, its leftover money and 1-3 conclusions.
+
+    Only the ``plan`` stage has one (the choose-moves stage is chips, an infeasible plan has no option). Options
+    other than the hero are chips (``plan_card.option_chips``), not part of the card. Never raises.
+    """
+    try:
+        options = raw_output.get("options") or []
+        if raw_output.get("status") != "ok" or raw_output.get("stage") != "plan" or not options:
+            return None
+        from .plan_card import hero_index, plan_conclusions
+
+        option = options[hero_index(raw_output)]
+        target = raw_output.get("target") or {}
+        shortfall = raw_output.get("shortfall_tenths", 0) or 0
+        subtitle = t(
+            "plan_to_sign.card_subtitle", locale, position=target.get("position", ""), team=target.get("team_short", ""),
+            price=target.get("price"), bank=raw_output.get("bank"),
+            shortfall_part=t("plan_to_sign.card_shortfall", locale, shortfall=raw_output.get("shortfall")) if shortfall > 0 else "",
+        )
+        n = option.get("moves") or len(option.get("transfers") or [])
+        hit = option.get("hit_cost") or 0
+        if not hit:
+            hit_pill = Pill(label=t("plan_to_sign.card_no_hit", locale), tone="good")
+        else:
+            key = "plan_to_sign.card_hit_assumed" if option.get("hit_basis") == "assumed_one_free" else "plan_to_sign.card_hit"
+            hit_pill = Pill(label=t(key, locale, n=hit), tone="warn")
+        columns = (
+            Column(header=t("plan_to_sign.card_col_out", locale), align="left", kind="text"),
+            Column(header=t("plan_to_sign.card_col_in", locale), align="left", kind="text"),
+            Column(header=t("plan_to_sign.card_col_price", locale), align="right", kind="mono"),
+        )
+        rows = tuple(
+            (
+                f"{tr['out']['web_name']} · {tr['out']['team_short']}",
+                f"{tr['in']['web_name']} · {tr['in']['team_short']}",
+                f"{tr['out']['price']:.1f} → {tr['in']['price']:.1f}",
+            )
+            for tr in option["transfers"]
+        )
+        lines = plan_conclusions(raw_output, locale)
+        if raw_output.get("price_basis") != "user":
+            lines.append(t("plan_to_sign.card_price_note", locale))
+        return GenericCardMeta(
+            accent="turquoise",
+            title=t("plan_to_sign.card_title", locale, name=target.get("web_name", "?")),
+            subtitle=subtitle,
+            hero=HeroStat(value=f"{option['bank_after']:.1f}m", label=t("plan_to_sign.card_hero_label", locale), tone=None),
+            pills=(
+                Pill(label=t("plan_to_sign.card_moves_one" if n == 1 else "plan_to_sign.card_moves_many", locale, n=n), tone="neutral"),
+                hit_pill,
+            ),
+            columns=columns,
+            rows=rows,
+            footer="\n".join(lines) if lines else None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("atomic_tool_cards: failed to compose the plan_to_sign card (%s); falling back to prose", type(exc).__name__)
+        return None
+
+
 #: Composers whose wording follows the request language (they take ``locale``).
 def _pct(value: Any) -> str:
     """One decimal with a dot, in every language."""
@@ -690,6 +751,7 @@ _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
     "get_gw_report": compose_gw_report_card,
     "get_position_changes": compose_position_changes_card,
     "get_player_involvement": compose_player_involvement_card,
+    "plan_to_sign": compose_plan_to_sign_card,
 }
 
 

@@ -53,6 +53,59 @@ _FOLLOWUP_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
 )
 
 
+_OPTION_PICK = re.compile(r"\b(?:option|opcion) ([1-3])\b")
+
+
+def option_pick(question: Any) -> int | None:
+    """The 1-based option a chip tap asks for ("Show option 2" / "Muéstrame la opción 2"), or ``None``."""
+    text = normalize_player_name(question)
+    if not text or len(text) > 60:
+        return None
+    match = _OPTION_PICK.search(text)
+    return int(match.group(1)) if match else None
+
+
+_MOVE_CHIPS = (("plan_to_sign.chip_one", "one"), ("plan_to_sign.chip_free", "free"), ("plan_to_sign.chip_hits", "hits"))
+_MOVE_TAP_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] | None = None
+
+
+def _move_tap_patterns() -> tuple[tuple[re.Pattern[str], str], ...]:
+    """One pattern per move chip and language, built from the same catalogue templates the tool sends."""
+    from .catalogue import t  # noqa: PLC0415
+
+    out: list[tuple[re.Pattern[str], str]] = []
+    for locale in ("en", "es"):
+        for key, moves in _MOVE_CHIPS:
+            choice = t(key, locale, n="QQNUMQQ", cost="QQCOSTQQ")
+            text = t("plan_to_sign.chip_send", locale, name="QQNAMEQQ", choice=choice)
+            source = re.escape(text).replace("QQNAMEQQ", "(?P<name>.+?)").replace("QQNUMQQ", "(?P<n>[0-9]+)").replace("QQCOSTQQ", "[0-9]+")
+            out.append((re.compile("^" + source + "$", re.IGNORECASE), moves))
+    return tuple(out)
+
+
+def move_tap(question: Any) -> dict[str, Any] | None:
+    """The ``plan_to_sign`` arguments a move-count chip tap asks for, or ``None``.
+
+    The chip text is the tool's own template (``plan_to_sign.chip_send``): "How do I get N.Jackson with my current
+    team? Plan: Use hits (-4 each)". Matching it is exact, not fuzzy: a user's own phrasing does not match and keeps
+    going to the model. The tap is the same deterministic tool with ``moves`` set, so it makes no model call.
+    """
+    global _MOVE_TAP_PATTERNS
+    if not isinstance(question, str) or not question.strip() or len(question) > 200:
+        return None
+    if _MOVE_TAP_PATTERNS is None:
+        _MOVE_TAP_PATTERNS = _move_tap_patterns()
+    text = question.strip()
+    for pattern, moves in _MOVE_TAP_PATTERNS:
+        match = pattern.match(text)
+        if match:
+            args: dict[str, Any] = {"target": match.group("name").strip(), "moves": moves}
+            if moves == "free":
+                args["free_transfers"] = int(match.group("n"))
+            return args
+    return None
+
+
 def is_plan_followup(question: Any) -> bool:
     """True when *question* asks for other players to sell for the same target."""
     text = normalize_player_name(question)
@@ -109,10 +162,11 @@ def sanitize_plan_state(raw: Any) -> dict[str, Any] | None:
     return state
 
 
-def followup_args(state: dict[str, Any]) -> dict[str, Any]:
+def followup_args(state: dict[str, Any], *, keep_shown: bool = False) -> dict[str, Any]:
     """``plan_to_sign`` arguments that ask for NEW sales on the same plan.
 
-    Everyone already offered stays excluded, so each "who else?" moves on. The
+    Everyone already offered stays excluded, so each "who else?" moves on. With ``keep_shown`` (a tap on one of
+    the options already shown) only the user's own exclusions stay, so the same options come back. The
     target is passed as its numeric id, which the resolver treats as
     authoritative. The user's own bank and selling prices carry over; the
     squad's bank is re-read, not remembered.
@@ -121,7 +175,9 @@ def followup_args(state: dict[str, Any]) -> dict[str, Any]:
         "target": str(state["target_id"]),
         "moves": state["moves"],
         "exclude_out_ids": sorted(
-            set(state["shown_out_ids"]) | set(state["planned_out_ids"]) | set(state["excluded_out_ids"])
+            set(state["excluded_out_ids"])
+            if keep_shown
+            else set(state["shown_out_ids"]) | set(state["planned_out_ids"]) | set(state["excluded_out_ids"])
         ),
     }
     if "bank_tenths" in state:

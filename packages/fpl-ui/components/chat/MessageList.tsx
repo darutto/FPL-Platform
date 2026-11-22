@@ -15,7 +15,12 @@
  */
 import { useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
-import { WIZARD_ARMING_INTENTS, isRewriteSuggestion } from '@/lib/wizard-arming';
+import {
+  WIZARD_ARMING_INTENTS,
+  isLeaguePickSuggestion,
+  isPlanOptionSuggestion,
+  isRewriteSuggestion,
+} from '@/lib/wizard-arming';
 import type { WcAskResponse } from '@/lib/wc-types';
 import { selectIntentView, type IntentView } from '@/lib/intent-renderer';
 import { selectWcIntentView } from '@/lib/wc-intent-renderer';
@@ -214,6 +219,10 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   const isPickOneTurn =
     WIZARD_ARMING_INTENTS.has(message.response?.intent ?? '') ||
     (responseSuggestions ?? []).some(isRewriteSuggestion);
+  // A "which league?" turn asks for one of the user's leagues, not a player.
+  const isLeaguePickTurn = (responseSuggestions ?? []).some(isLeaguePickSuggestion);
+  // A plan_to_sign turn offers plan choices (move count, other options), not players.
+  const isPlanTurn = (responseSuggestions ?? []).some(isPlanOptionSuggestion);
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
@@ -372,7 +381,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           ))}
         {hasSuggestions && !showWizard && !showPlayerPickWizard && (
           <p className="text-sm font-semibold text-bf-text/90">
-            {isPickOneTurn ? t('wizard.pickOne') : t('wizard.compareStep1')}
+            {isLeaguePickTurn ? t('wizard.pickLeague') : isPlanTurn ? t('wizard.pickPlan') : isPickOneTurn ? t('wizard.pickOne') : t('wizard.compareStep1')}
           </p>
         )}
 

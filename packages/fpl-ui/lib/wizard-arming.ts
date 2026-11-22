@@ -16,6 +16,8 @@
 import type { Suggestion } from '@/lib/types';
 import {
   SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE,
+  SUGGESTION_KIND_LEAGUE_PICK,
+  SUGGESTION_KIND_PLAN_OPTION,
   SUGGESTION_KIND_PROMPT_REWRITE,
 } from '@/lib/types';
 
@@ -26,6 +28,7 @@ export const WIZARD_ARMING_INTENTS: ReadonlySet<string> = new Set(['player_snaps
 export const REWRITE_SUGGESTION_KINDS: ReadonlySet<string> = new Set([
   SUGGESTION_KIND_PROMPT_REWRITE,
   SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE,
+  SUGGESTION_KIND_PLAN_OPTION,
 ]);
 
 export function isRewriteSuggestion(suggestion: Suggestion): boolean {
@@ -36,4 +39,16 @@ export function isStableIdSuggestion(
   suggestion: Suggestion,
 ): suggestion is Suggestion & { player_id: number } {
   return suggestion.player_id != null && !isRewriteSuggestion(suggestion);
+}
+
+/** A plan_to_sign chip (move count or another option): sent verbatim, titled "Plan", not a player pick. */
+export function isPlanOptionSuggestion(suggestion: Suggestion): boolean {
+  return suggestion.kind === SUGGESTION_KIND_PLAN_OPTION;
+}
+
+/** A "which league?" chip: it names a league and carries its id (get_league_eo). */
+export function isLeaguePickSuggestion(
+  suggestion: Suggestion,
+): suggestion is Suggestion & { league_id: number } {
+  return suggestion.kind === SUGGESTION_KIND_LEAGUE_PICK && suggestion.league_id != null;
 }

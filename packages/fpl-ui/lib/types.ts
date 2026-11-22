@@ -399,6 +399,25 @@ export const SUGGESTION_KIND_PROMPT_REWRITE = 'prompt_rewrite';
  */
 export const SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE = 'historical_player_rewrite';
 
+/**
+ * `Suggestion.kind` for a "which league?" chip (get_league_eo): `label` is the league's name,
+ * `send_text` a complete question naming it and `league_id` the id to remember. Tapping it stores
+ * the id as the user's main league (lib/main-league.ts) and sends `send_text`, with that league on
+ * the request. Carries no `player_id`.
+ *
+ * Source: fpl_grounded_assistant/suggestions.py -> KIND_LEAGUE_PICK.
+ */
+export const SUGGESTION_KIND_LEAGUE_PICK = 'league_pick';
+
+/**
+ * `Suggestion.kind` for a plan_to_sign chip (a move-count choice or another option of the plan). Like a
+ * prompt rewrite, `send_text` is a complete question sent verbatim, but it is not a player pick, so the
+ * chips get their own short title (`wizard.pickPlan`).
+ *
+ * Source: fpl_grounded_assistant/suggestions.py -> KIND_PLAN_OPTION.
+ */
+export const SUGGESTION_KIND_PLAN_OPTION = 'plan_option';
+
 /** A single tappable suggestion chip (Guided Comparison). */
 export interface Suggestion {
   /** Chip label — short player web_name. */
@@ -407,6 +426,8 @@ export interface Suggestion {
   send_text: string;
   /** Stable FPL element id; present only on player-disambiguation options. */
   player_id?: number;
+  /** The league's id; present only on `SUGGESTION_KIND_LEAGUE_PICK` chips. */
+  league_id?: number;
   /**
    * Tap-behavior discriminator. Absent on ordinary name chips (the historical
    * shape). `SUGGESTION_KIND_PROMPT_REWRITE` marks a self-contained command —
