@@ -356,6 +356,14 @@ def _top_sale_reason(ctx: _Context, pid: int) -> str | None:
     return None
 
 
+def _tier(ctx: _Context, pid: int, *, selling: bool) -> int:
+    """Availability tier used for the order. A top sold is never "rotation" on the season-long share alone."""
+    info = ctx.signals.availability(pid)
+    if selling and info["reason"] == "rotation" and ctx.signals.top(pid)["is_top"]:
+        return 2
+    return info["tier"]
+
+
 def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int], free_transfers: int | None) -> dict[str, Any]:
     pairs = plan["pairs"]
     sig = ctx.signals
@@ -374,7 +382,7 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
     loss = sum(ctx.value(o) for o in outs) - sum(ctx.value(i) for i in downgrades_in)
     hit, basis = _hit_cost(len(pairs), free_transfers)
     # Availability sold minus availability bought (lower is better: selling the injured is good).
-    avail_net = sum(sig.availability(o)["tier"] for o in outs) - sum(sig.availability(i)["tier"] for i in downgrades_in)
+    avail_net = sum(_tier(ctx, o, selling=True) for o in outs) - sum(_tier(ctx, i, selling=False) for i in downgrades_in)
     # The sold players' hard run minus the replacements' (higher is better).
     fixture_gain = round(sum(_band(ctx, o) for o in outs) - sum(_band(ctx, i) for i in downgrades_in), 2)
     # What the squad stops producing, plus the set pieces it gives up.

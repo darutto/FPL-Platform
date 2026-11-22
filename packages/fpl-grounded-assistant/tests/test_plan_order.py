@@ -231,3 +231,20 @@ def test_value_games_factor_uses_the_same_first_gameweek(monkeypatch):
     past["elements"] = [{"id": 1, "team": 1, "element_type": 4, "minutes": 900, "now_cost": 50, "form": "3", "status": "a",
                          "expected_goal_involvements": "2.0"}]
     assert pts._Context(past).window_gw == 11
+
+
+def test_a_top_flagged_only_as_rotation_does_not_count_as_an_availability_gain(monkeypatch):
+    """Selling a rotation-tier top must not make an extra move look better on availability."""
+    monkeypatch.setattr(
+        pts.PlanSignals, "availability",
+        lambda self, pid: {"tier": 1, "reason": "rotation"} if pid == 11 else {"tier": 2, "reason": None},
+    )
+    monkeypatch.setattr(pts.PlanSignals, "top", lambda self, pid: {"is_top": pid == 11, "reasons": ["owned"] if pid == 11 else []})
+    monkeypatch.setattr(pts.PlanSignals, "fixtures", lambda self, pid: {"avg_band": 3.0, "hard": 0, "games": 5})
+    monkeypatch.setattr(pts, "get_my_squad", lambda b, gw=None: _squad_payload(30))
+    monkeypatch.setattr(pts, "_search", lambda ctx, **kw: [
+        {"pairs": [(13, 100)], "after": [], "bank_after": 0},
+        {"pairs": [(13, 100), (11, 200)], "after": [], "bank_after": 0},
+    ])
+    res = plan_to_sign(target="N.Jackson", moves="hits", free_transfers=1, bootstrap=_bootstrap())
+    assert [o["moves"] for o in res["options"]] == [1]  # the extra move gains nothing: dropped
