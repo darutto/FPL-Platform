@@ -37,12 +37,16 @@ PAGE_SIZE = 50
 TOP_N = 10_000
 SAMPLE_N = 2_000
 STRIDE = TOP_N // SAMPLE_N  # every 5th rank
+TOP100K_N = 100_000
+TOP100K_PAGE_STEP = 2          # every 2nd standings page ...
+TOP100K_POSITIONS = (13, 38)   # ... two entries per page (positions within the page)
 SCHEMA_VERSION = 1
-TIER = "top10k"
+TIER = "top10k"  # default tier
+TIERS = ("top10k", "top100k")
 
 MIN_INTERVAL_S = 0.25          # <= 4 requests per second
 MAX_ATTEMPTS = 3
-REQUEST_BUDGET = 4_000         # hard cap per run
+REQUEST_BUDGET = 5_000         # hard cap per run
 MIN_SUCCESS_FRACTION = 0.90    # below this the tier is "partial" and not published
 SPLIT_HALF_TOP_PLAYERS = 15
 SPLIT_HALF_TOLERANCE = 10.0    # percentage points of EO between the two halves
@@ -109,9 +113,27 @@ class Client:
 
 # -- Sampling and maths ---------------------------------------------------------------
 
-def sample_ranks() -> list[int]:
-    """Every STRIDE-th rank of the top TOP_N: STRIDE, 2*STRIDE, ... TOP_N."""
-    return list(range(STRIDE, TOP_N + 1, STRIDE))
+def sample_ranks(tier: str = "top10k") -> list[int]:
+    """The ordinal positions (1-based, in standings order) sampled for *tier*.
+
+    top10k: every STRIDE-th position of the top 10,000 (2,000 entries).
+    top100k: on every 2nd standings page of the top 100,000, the entries at
+    positions 13 and 38 of the page (1,000 pages, 2,000 entries).
+    """
+    if tier == "top10k":
+        return list(range(STRIDE, TOP_N + 1, STRIDE))
+    if tier == "top100k":
+        pages = range(1, TOP100K_N // PAGE_SIZE + 1, TOP100K_PAGE_STEP)
+        return [(p - 1) * PAGE_SIZE + pos for p in pages for pos in TOP100K_POSITIONS]
+    raise ValueError(f"unknown tier {tier!r}")
+
+
+def sampling_description(tier: str) -> dict[str, Any]:
+    if tier == "top10k":
+        return {"league": OVERALL_LEAGUE, "ranks": f"every {STRIDE}th of top {TOP_N}"}
+    return {"league": OVERALL_LEAGUE,
+            "ranks": f"positions {TOP100K_POSITIONS[0]} and {TOP100K_POSITIONS[1]} of every "
+                     f"{TOP100K_PAGE_STEP}nd standings page of top {TOP100K_N}"}
 
 
 def standings_page_for_rank(rank: int) -> int:
@@ -195,6 +217,8 @@ class Storage(Protocol):
 
 
 class LocalStorage:
+    local = True  # the run log says "dry run, local only" for this storage
+
     def __init__(self, root: Path):
         self.root = Path(root)
 
@@ -216,6 +240,8 @@ class LocalStorage:
 
 class R2Storage:
     """R2 via boto3, confined to ``{prefix}eo/``. No listing, no deleting elsewhere."""
+
+    local = False
 
     ENV = ("OWNED_STORE_R2_ENDPOINT", "OWNED_STORE_R2_BUCKET",
            "OWNED_STORE_R2_ACCESS_KEY_ID", "OWNED_STORE_R2_SECRET_ACCESS_KEY")
@@ -266,15 +292,15 @@ class R2Storage:
 
 # -- The run -----------------------------------------------------------------------------
 
-def output_key(season: str, gw: int) -> str:
-    return f"eo/{season}/gw{gw}/{TIER}.json"
+def output_key(season: str, gw: int, tier: str = TIER) -> str:
+    return f"eo/{season}/gw{gw}/{tier}.json"
 
 
-def checkpoint_key(season: str, gw: int) -> str:
-    return f"eo/{season}/gw{gw}/_checkpoint_{TIER}.json"
+def checkpoint_key(season: str, gw: int, tier: str = TIER) -> str:
+    return f"eo/{season}/gw{gw}/_checkpoint_{tier}.json"
 
 
-def run(*, season: str, gw: int | None, storage: Storage, client: Client,
+def run(*, season: str, gw: int | None, storage: Storage, client: Client, tier: str = TIER,
         max_seconds: float = 2400.0, clock=time.monotonic, log=print,
         now: datetime | None = None) -> int:
     """0 published, 1 failed (check or too few samples), 2 budget hit (checkpoint saved)."""
@@ -285,9 +311,9 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client,
     if gw is None:
         log("no gameweek with a passed deadline; nothing to do")
         return 1
-    log(f"season={season} gw={gw} tier={TIER}")
+    log(f"season={season} gw={gw} tier={tier}")
 
-    ckpt_key = checkpoint_key(season, gw)
+    ckpt_key = checkpoint_key(season, gw, tier)
     ckpt = storage.get(ckpt_key) or {}
     done: dict[str, Any] = ckpt.get("samples", {})
     failed: set[str] = set(ckpt.get("failed", []))
@@ -296,14 +322,14 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client,
     def save() -> None:
         storage.put(ckpt_key, {"samples": done, "failed": sorted(failed)})
 
-    ranks = sample_ranks()
+    ranks = sample_ranks(tier)
     pages: dict[int, list[int]] = {}
     for rank in ranks:
         if str(rank) not in done and str(rank) not in failed:
             pages.setdefault(standings_page_for_rank(rank), []).append(rank)
 
     try:
-        for page, wanted in sorted(pages.items()):
+        for n_pages, (page, wanted) in enumerate(sorted(pages.items()), 1):
             if clock() - started > max_seconds:
                 save()
                 log(f"time budget reached; checkpoint saved ({len(done)} done)")
@@ -322,7 +348,7 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client,
                     done[str(rank)] = compact
                 else:
                     failed.add(str(rank))
-            if page % 20 == 0:
+            if n_pages % 20 == 0:  # pages processed (not the page number: top100k visits odd pages only)
                 save()
     except BudgetExceeded as exc:
         save()
@@ -344,29 +370,58 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client,
         return 1
 
     out = {
-        "schema_version": SCHEMA_VERSION, "season": season, "gw": gw, "tier": TIER,
+        "schema_version": SCHEMA_VERSION, "season": season, "gw": gw, "tier": tier,
         "basis": "locked", "n_sampled": len(samples), "n_target": len(ranks),
         "sampled_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
-        "sampling": {"league": OVERALL_LEAGUE, "ranks": f"every {STRIDE}th of top {TOP_N}"},
+        "sampling": sampling_description(tier),
         "split_half": check, **compute_eo(samples),
     }
-    storage.put(output_key(season, gw), out)
+    storage.put(output_key(season, gw, tier), out)
     storage.delete(ckpt_key)
-    log(f"published {output_key(season, gw)} ({len(out['players'])} players)")
+    key = output_key(season, gw, tier)
+    if getattr(storage, "local", False):
+        log(f"wrote {storage.root / key} (dry run, local only; nothing was sent to R2) ({len(out['players'])} players)")
+    else:
+        log(f"published {key} to R2 ({len(out['players'])} players)")
     return 0
 
 
+REGISTRY = Path(__file__).resolve().parents[1] / "packages" / "fpl-data-core" / "season_registry.yaml"
+
+
+def resolve_current_season(path: Path = REGISTRY) -> str:
+    """``current_season`` read straight from the registry YAML (no package import).
+
+    ``import fpl_data_core`` pulls in pandas, and its CURRENT_SEASON constant is
+    empty until the YAML is loaded, so the workflow reads the file itself. A
+    missing or empty value is an error, never an empty season.
+    """
+    import yaml  # noqa: PLC0415  (lazy: only the season lookup needs it)
+
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    season = str(data.get("current_season") or "").strip()
+    if not season:
+        raise SystemExit(f"current_season is empty or missing in {path}")
+    return season
+
+
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Top-10K tier EO sampler")
-    ap.add_argument("--season", required=True)
+    ap = argparse.ArgumentParser(description="Tier EO sampler (top10k, top100k)")
+    ap.add_argument("--season", default=None, help="default: the registry's current_season")
+    ap.add_argument("--print-season", action="store_true", help="print the resolved season and exit")
+    ap.add_argument("--tier", choices=TIERS, default=TIER)
     ap.add_argument("--gw", type=int, default=None, help="default: latest GW whose deadline has passed")
     ap.add_argument("--publish", choices=["none", "r2"], default="none",
                     help="none = dry run into --out-dir (default); r2 = write to R2 under eo/")
     ap.add_argument("--out-dir", default="eo_out")
     ap.add_argument("--max-seconds", type=float, default=2400.0)
     args = ap.parse_args(argv)
+    season = (args.season or "").strip() or resolve_current_season()
+    if args.print_season:
+        print(season)
+        return 0
     storage: Storage = R2Storage() if args.publish == "r2" else LocalStorage(Path(args.out_dir))
-    return run(season=args.season, gw=args.gw, storage=storage, client=Client(),
+    return run(season=season, gw=args.gw, storage=storage, client=Client(), tier=args.tier,
                max_seconds=args.max_seconds)
 
 
