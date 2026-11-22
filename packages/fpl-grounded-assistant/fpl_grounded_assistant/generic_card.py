@@ -121,6 +121,10 @@ class GenericCardMeta:
     #: Position changes: the mini-pitch (old -> new starting role, or FPL listing -> played role) and its per-90 table.
     #: ``None`` everywhere else. Built deterministically from tool output (atomic_tool_cards), never from LLM text.
     position_pitch: "dict[str, Any] | None" = field(default=None, compare=False, hash=False)
+    #: Optional badge text -> tone (good|warn|bad|neutral): a badge cell whose text is a key is drawn in that tone
+    #: instead of the tone the UI infers from status words. ``None`` on every card
+    #: that does not need it.
+    badge_tones: "dict[str, str] | None" = field(default=None, compare=False, hash=False)
 
 
 # ---------------------------------------------------------------------------
@@ -600,4 +604,6 @@ def generic_card_to_dict(card: "GenericCardMeta | None") -> "dict[str, Any] | No
         # R6 two-player payload; null on every other card (same key set as the dataclass serializer, _to_dict).
         "involvement_compare": card.involvement_compare,
         "position_pitch": card.position_pitch,
+        # badge text -> tone, set by the EO cards only; null on every other card (same key set as _to_dict)
+        "badge_tones": dict(card.badge_tones) if card.badge_tones else None,
     }

@@ -86,10 +86,20 @@ def _name_index(bootstrap: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], d
     return by_id, teams
 
 
-def _row(element_id: str, stats: dict[str, float], by_id: dict[str, dict[str, Any]], teams: dict[int, str]) -> dict[str, Any]:
+def owned_ids(squad: dict[str, Any] | None) -> set[str] | None:
+    """The ids of the user's own players, or None when the squad is unknown."""
+    if not squad or not squad.get("players"):
+        return None
+    return {str(p["id"]) for p in squad["players"] if p.get("id") is not None}
+
+
+def _row(element_id: str, stats: dict[str, float], by_id: dict[str, dict[str, Any]], teams: dict[int, str],
+         own: set[str] | None = None) -> dict[str, Any]:
+    """One player's row. ``user_owns`` says whether the USER owns him (None when the squad is unknown)."""
     element = by_id.get(element_id) or {}
     return {"player": element.get("web_name") or f"#{element_id}", "team": teams.get(element.get("team"), ""),
-            "eo": stats["eo"], "owned_pct": stats["owned_pct"], "captain_pct": stats["captain_pct"]}
+            "eo": stats["eo"], "owned_pct": stats["owned_pct"], "captain_pct": stats["captain_pct"],
+            "user_owns": None if own is None else element_id in own}
 
 
 #: "Most of the group has him": the share of the group (a league, or the managers near the user's rank)
@@ -111,7 +121,9 @@ def wording_note(has_him_en: str, has_him_es: str) -> str:
         f"\"{has_him_en}\" (ES: «{has_him_es}») and frame each as a chance to cover him (\"Cover Haaland\" / "
         f"«Cubrirte con Haaland»). `differentials` are the user's own players the group mostly does not own: "
         f"name that group \"Your differential\" (ES: «Tu diferencial»). Present both as opportunities, never "
-        f"as orders. NEVER use threat words: {', '.join(THREAT_WORDS)} (nor hurts/daño). "
+        f"as orders. Every row says `user_owns`: `group_has` rows have user_owns=false (the user does NOT own "
+        f"them); `differentials` rows have user_owns=true (the user owns them). "
+        f"NEVER use threat words: {', '.join(THREAT_WORDS)} (nor hurts/daño). "
         f"Never write the field names `group_has` or `differentials` in the answer."
     )
 
@@ -126,16 +138,18 @@ def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any]
     """
     if not squad or not squad.get("players"):
         return {"squad_compared": False}
-    own = {str(p["id"]) for p in squad["players"] if p.get("id") is not None}
+    own = owned_ids(squad) or set()
     risk_ids = sorted((i for i, s in players.items() if i not in own and s["owned_pct"] >= RISK_MIN_OWNED_PCT),
                       key=lambda i: (-players[i]["eo"], int(i)))[:GROUP_SIZE]
     zero = {"eo": 0.0, "owned_pct": 0.0, "captain_pct": 0.0}
+    # the SELECTION is by ownership (the rarest five), the DISPLAY order is by the EO the card shows
     diff_ids = sorted((i for i in own if players.get(i, zero)["owned_pct"] <= DIFFERENTIAL_MAX_OWNED_PCT),
                       key=lambda i: (players.get(i, zero)["owned_pct"], int(i)))[:GROUP_SIZE]
+    diff_ids.sort(key=lambda i: (players.get(i, zero)["eo"], int(i)))
     return {
         "squad_compared": True,
-        "group_has": [_row(i, players[i], by_id, teams) for i in risk_ids],
-        "differentials": [_row(i, players.get(i, zero), by_id, teams) for i in diff_ids],
+        "group_has": [_row(i, players[i], by_id, teams, own) for i in risk_ids],
+        "differentials": [_row(i, players.get(i, zero), by_id, teams, own) for i in diff_ids],
     }
 
 
@@ -154,8 +168,9 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
             if element_id in players and wanted in (normalize_player_name(element.get("web_name")),
                                                     normalize_player_name(element.get("second_name"))):
                 named_ids.append(element_id)
-    rows = [_row(i, players[i], by_id, teams) for i in top_ids]
-    named = [_row(i, players[i], by_id, teams) for i in dict.fromkeys(named_ids)]
+    own = owned_ids(squad)
+    rows = [_row(i, players[i], by_id, teams, own) for i in top_ids]
+    named = [_row(i, players[i], by_id, teams, own) for i in dict.fromkeys(named_ids)]
     return {
         "status": "ok", "tier": "near", "gw": data["gw"], "approx": True,
         "user_rank": data["user_rank"], "n_sampled": data["n_sampled"],

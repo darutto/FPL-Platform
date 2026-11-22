@@ -111,6 +111,32 @@ describe('CardTable', () => {
     expect(screen.getByText('Duda')).toBeInTheDocument();
   });
 
+  test('a card-level badge_tones map decides the tone; unmapped badges keep the inferred one', () => {
+    const columns: GenericCardMeta['columns'] = [{ header: '', align: 'left', kind: 'badge' }];
+    render(
+      <CardTable
+        columns={columns}
+        rows={[['Your differential'], ['League has him'], ['Duda']]}
+        badgeTones={{ 'Your differential': 'good', 'League has him': 'neutral' }}
+      />,
+    );
+    expect(screen.getByText('Your differential').className).toContain('text-bf-turquoise');
+    expect(screen.getByText('League has him').className).toContain('text-bf-gray');
+    expect(screen.getByText('Duda').className).toContain('text-bf-gold'); // inferred 'warn', as before
+    expect(screen.getByText('Your differential').className).not.toBe(screen.getByText('League has him').className);
+  });
+
+  test('GenericCard passes badge_tones to its table', () => {
+    const card: GenericCardMeta = {
+      accent: 'turquoise', title: 'EO', subtitle: null, hero: null, pills: [], footer: null,
+      columns: [{ header: '', align: 'left', kind: 'badge' }],
+      rows: [['Tu diferencial']],
+      badge_tones: { 'Tu diferencial': 'good' },
+    };
+    render(<GenericCard data={card} />);
+    expect(screen.getByText('Tu diferencial').className).toContain('text-bf-turquoise');
+  });
+
   test('inferBadgeTone reads status vocabulary (EN + ES)', () => {
     expect(inferBadgeTone('Injured')).toBe('bad');
     expect(inferBadgeTone('Lesionado')).toBe('bad');

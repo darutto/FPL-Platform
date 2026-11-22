@@ -37,7 +37,7 @@ interface Props {
 export default function GenericCard({ data }: Props) {
   // R6 two players side by side: the backend sends its own payload; the plain table stays for other clients.
   if (data.involvement_compare != null) return <InvolvementCompareCard data={data.involvement_compare} />;
-  const { accent, title, subtitle, hero, pills, columns, rows, footer, position_pitch } = data;
+  const { accent, title, subtitle, hero, pills, columns, rows, footer, position_pitch, badge_tones } = data;
   const accentClasses = CARD_ACCENT[accent] ?? CARD_ACCENT.gray;
   const accentHex = ACCENT_HEX[accent] ?? ACCENT_HEX.gray;
 
@@ -85,7 +85,7 @@ export default function GenericCard({ data }: Props) {
         {position_pitch != null && <PositionPitch data={position_pitch} />}
 
         {/* Table body */}
-        {rows.length > 0 && columns.length > 0 && <CardTable columns={columns} rows={rows} />}
+        {rows.length > 0 && columns.length > 0 && <CardTable columns={columns} rows={rows} badgeTones={badge_tones ?? null} />}
 
         {/* Footer */}
         {footer != null && (

@@ -45,7 +45,8 @@ def test_risks_are_the_leagues_high_owned_players_the_user_lacks_highest_eo_firs
     out = tool.squad_comparison(PLAYERS, squad([1, 4, 7, 11]), by_id, teams)
     assert out["squad_compared"] is True
     assert [r["player"] for r in out["group_has"]] == ["P2", "P3"]  # 1 is owned by the user; 4.. are under 50 %
-    assert out["group_has"][0] == {"player": "P2", "team": "T3", "eo": 140.0, "owned_pct": 80.0, "captain_pct": 50.0}
+    assert out["group_has"][0] == {"player": "P2", "team": "T3", "eo": 140.0, "owned_pct": 80.0, "captain_pct": 50.0,
+                                    "user_owns": False}
 
 
 def test_differentials_are_the_users_own_players_the_league_mostly_lacks_rarest_first():

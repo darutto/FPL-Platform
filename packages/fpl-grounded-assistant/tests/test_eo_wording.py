@@ -48,3 +48,63 @@ def test_the_internal_key_risks_never_reaches_the_model_and_no_tool_text_threate
     for text in (LEAGUE_EO_SCHEMA.description, NEAR_RANK_EO_SCHEMA.description,
                  near_rank_eo_tool.NEAR_RANK_EO_SPEC.description, league_eo_tool.LEAGUE_EO_SPEC.description):
         assert not any(w in text.lower() for w in ("hurts", "threat", "danger", "amenaza", "peligro"))
+
+
+# -- user_owns on every row, the shown order, the badge tones ---------------------------------------------
+
+def _rows(out):
+    return [("top_players", r) for r in out["top_players"]] + [("group_has", r) for r in out["group_has"]] + \
+        [("differentials", r) for r in out["differentials"]]
+
+
+@pytest.mark.parametrize("shape", [
+    lambda squad: near_rank_eo_tool.shape_result(DATA, BOOT, ["P1"], squad),
+    lambda squad: league_eo_tool.shape_result(LEAGUE_DATA, BOOT, ["P1"], squad),
+])
+def test_every_row_says_whether_the_user_owns_the_player(shape):
+    out = shape({"status": "ok", "players": [{"id": 2}]})
+    rows = _rows(out) + [("named", r) for r in out["named_players"]]
+    assert rows and all(isinstance(r["user_owns"], bool) for _, r in rows)
+    assert all(r["user_owns"] is False for k, r in rows if k == "group_has")
+    assert all(r["user_owns"] is True for k, r in rows if k == "differentials")
+    assert {r["player"]: r["user_owns"] for k, r in rows if k == "top_players"} == {"P1": False, "P2": True}
+    unknown = shape(None)
+    assert all(r["user_owns"] is None for r in unknown["top_players"] + unknown["named_players"])
+
+
+def test_the_note_states_what_user_owns_means_for_each_group():
+    for note in notes().values():
+        assert "`group_has` rows have user_owns=false (the user does NOT own them)" in note
+        assert "`differentials` rows have user_owns=true" in note
+
+
+def test_differentials_display_by_the_eo_the_card_shows_and_selection_stays_on_ownership():
+    # six own players under 20 % owned: the five rarest are chosen by owned_pct, then shown by ascending EO
+    players = {str(i): {"owned_pct": o, "captain_pct": 0.0, "bench_pct": 0.0, "eo": e}
+               for i, (o, e) in enumerate([(3.2, 9.0), (4.8, 4.0), (0.8, 7.0), (0.8, 1.0), (12.8, 20.0), (19.0, 2.0)], 1)}
+    boot = {"teams": [], "elements": [{"id": i, "web_name": f"P{i}", "second_name": f"S{i}", "team": 1} for i in range(1, 7)]}
+    squad = {"status": "ok", "players": [{"id": i} for i in range(1, 7)]}
+    got = near_rank_eo_tool.squad_comparison(players, squad, *near_rank_eo_tool._name_index(boot))["differentials"]
+    assert [r["player"] for r in got] == ["P4", "P2", "P3", "P1", "P5"]   # P6 (19.0 % owned) is the sixth rarest: out
+    assert [r["eo"] for r in got] == sorted(r["eo"] for r in got)
+
+
+def test_the_cards_give_the_two_groups_different_tones():
+    from fpl_grounded_assistant.atomic_tool_cards import compose_league_eo_card, compose_near_rank_eo_card
+    from fpl_grounded_assistant.generic_card import generic_card_to_dict
+
+    for compose, raw in ((compose_near_rank_eo_card, near_rank_eo_tool.shape_result(DATA, BOOT, [], SQUAD)),
+                         (compose_league_eo_card, league_eo_tool.shape_result(LEAGUE_DATA, BOOT, [], SQUAD))):
+        for locale in ("en", "es"):
+            card = compose(raw, locale)
+            tones = generic_card_to_dict(card)["badge_tones"]
+            labels = {r[0] for r in card.rows}
+            assert labels <= set(tones) and len(labels) == 2
+            assert {tones[label] for label in labels} == {"neutral", "good"}
+
+
+def test_other_cards_do_not_carry_badge_tones():
+    from fpl_grounded_assistant.generic_card import GenericCardMeta, generic_card_to_dict
+
+    plain = GenericCardMeta(accent="gray", title="x", subtitle=None, hero=None, pills=(), columns=(), rows=())
+    assert generic_card_to_dict(plain)["badge_tones"] is None

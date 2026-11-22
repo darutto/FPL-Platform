@@ -719,6 +719,9 @@ def _eo_card(raw_output: dict[str, Any], locale: Locale, *, title: str, label: s
         ),
         rows=tuple(rows),
         footer=t("league_eo.footer", locale),
+        # the groups must tell apart at a glance: the high-EO groups neutral, the user's own differential good
+        badge_tones={t(risk_key, locale): "neutral", t(top_key, locale): "neutral",
+                     t("league_eo.group.diff", locale): "good"},
     )
 
 
