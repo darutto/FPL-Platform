@@ -1533,7 +1533,7 @@ NEAR_RANK_EO_SCHEMA = ToolSchema(
     description=(
         "Effective ownership (EO) among the managers around the connected user's own overall rank "
         "(about 125 sampled): top-EO players plus any you name, with ownership and captaincy %. "
-        "Use for 'what do managers near me own', 'who hurts me if he hauls', 'EO of X near my rank'. "
+        "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank'. "
         "The numbers are approximate (a sample): say so. If status is 'computing' the job has just "
         "started: tell the user plainly it is not ready and to ask again in about 30 seconds, and "
         "never invent numbers. status='no_team_connected' when no team is linked: ask the user to "
@@ -1565,7 +1565,7 @@ LEAGUE_EO_SCHEMA = ToolSchema(
     description=(
         "Effective ownership (EO) inside the connected user's own private mini-league: the top-EO "
         "players plus any you name, with ownership and captaincy %. Use for 'what does my league own', "
-        "'who hurts me in my league if he hauls', 'EO of X in my mini-league'. Small leagues are read "
+        "'who should I cover in my league if he hauls', 'EO of X in my mini-league'. Small leagues are read "
         "in full (label 'exact'); big ones are sampled (label 'approx.'): quote the label. "
         "If the user has several leagues and has not said which, the result is status='needs_league' "
         "with their names and sizes: ask which one, then call again with league_name. "

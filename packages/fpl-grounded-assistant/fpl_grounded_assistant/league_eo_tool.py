@@ -42,6 +42,7 @@ from .near_rank_eo_tool import (  # noqa: F401  (the comparison and its threshol
     _season,
     gw_and_valid_until,
     squad_comparison,
+    wording_note,
 )
 from .orch_config import is_league_eo_enabled
 from fpl_player_registry import normalize_player_name
@@ -87,8 +88,7 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
         **squad_comparison(players, squad, by_id, teams),
         "note": ("EO = how many copies of the player the managers of this league hold, counting captains "
                  "double. Quote the label: 'exact' means every member was read, 'approx.' a sample. "
-                 "`risks` are players most of the league owns that the user does not; `differentials` are the "
-                 "user's own players the league mostly does not own: present both as opportunities, never as orders."),
+                 + wording_note("League has him", "La liga lo tiene")),
     }
 
 

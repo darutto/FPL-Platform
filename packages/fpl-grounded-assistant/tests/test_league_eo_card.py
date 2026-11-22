@@ -44,8 +44,8 @@ def test_risks_are_the_leagues_high_owned_players_the_user_lacks_highest_eo_firs
     by_id, teams = by_teams()
     out = tool.squad_comparison(PLAYERS, squad([1, 4, 7, 11]), by_id, teams)
     assert out["squad_compared"] is True
-    assert [r["player"] for r in out["risks"]] == ["P2", "P3"]  # 1 is owned by the user; 4.. are under 50 %
-    assert out["risks"][0] == {"player": "P2", "team": "T3", "eo": 140.0, "owned_pct": 80.0, "captain_pct": 50.0}
+    assert [r["player"] for r in out["group_has"]] == ["P2", "P3"]  # 1 is owned by the user; 4.. are under 50 %
+    assert out["group_has"][0] == {"player": "P2", "team": "T3", "eo": 140.0, "owned_pct": 80.0, "captain_pct": 50.0}
 
 
 def test_differentials_are_the_users_own_players_the_league_mostly_lacks_rarest_first():
@@ -59,8 +59,8 @@ def test_differentials_are_the_users_own_players_the_league_mostly_lacks_rarest_
 def test_each_group_is_capped_at_five():
     many = {str(i): stats(90.0, 100.0 + i) for i in range(1, 15)}
     by_id, teams = by_teams()
-    risks = tool.squad_comparison(many, squad([15, 16]), by_id, teams)["risks"]
-    assert len(risks) == tool.GROUP_SIZE and risks[0]["player"] == "P14"
+    group_has = tool.squad_comparison(many, squad([15, 16]), by_id, teams)["group_has"]
+    assert len(group_has) == tool.GROUP_SIZE and group_has[0]["player"] == "P14"
     diffs = tool.squad_comparison({}, squad(range(1, 16)), by_id, teams)["differentials"]
     assert len(diffs) == tool.GROUP_SIZE
 
@@ -86,7 +86,7 @@ def test_the_tool_loads_the_users_squad_when_the_league_is_ready(monkeypatch):
     out = tool.get_league_eo(boot, now=datetime(2026, 11, 22, tzinfo=timezone.utc))
     tool.set_service(None)
     assert seen == [11] and out["squad_compared"] is True
-    assert [r["player"] for r in out["risks"]] == ["P2", "P3"] and [r["player"] for r in out["differentials"]] == ["P7"]
+    assert [r["player"] for r in out["group_has"]] == ["P2", "P3"] and [r["player"] for r in out["differentials"]] == ["P7"]
 
 
 def test_a_failing_squad_fetch_still_answers_without_the_comparison(monkeypatch):
