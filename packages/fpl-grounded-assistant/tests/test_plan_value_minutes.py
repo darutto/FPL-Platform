@@ -80,8 +80,8 @@ def test_the_floor_is_the_repos_existing_one_and_only_applies_with_season_data()
     assert pts._Context(_with_cameos(finished_gameweeks=0)).minutes_floor == 0
 
 
-def test_a_normal_squad_still_ranks_the_injured_sale_first_then_by_score(run):
+def test_a_normal_squad_still_ranks_the_injured_sale_first_then_by_rank_key(run):
     res = run(_with_cameos(finished_gameweeks=10), squad_bank=30, moves="one")
     options = res["options"]
     assert options[0]["transfers"][0]["out"]["web_name"] == "Bravo" and options[0]["loss"] == 0
-    assert [o["score"] for o in options] == sorted(o["score"] for o in options)
+    assert [o["rank_key"] for o in options] == sorted(o["rank_key"] for o in options)
