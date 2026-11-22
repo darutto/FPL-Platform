@@ -216,6 +216,7 @@ class _Context:
             "status_code": code,
             "chance_of_playing": el.get("chance_of_playing_next_round"),
             "news": str(el.get("news") or ""),
+            "minutes": _safe_int(el.get("minutes")),  # season minutes (FPL): what the prose may ground on
             "value": round(self.value(pid), 2),
         }
 

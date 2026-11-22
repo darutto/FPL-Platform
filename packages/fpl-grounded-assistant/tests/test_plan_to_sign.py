@@ -288,3 +288,18 @@ def test_plan_state_lists_everyone_offered_and_keeps_the_users_prices(run):
     offered = {tr["out"]["id"] for o in res["options"] for tr in o["transfers"]}
     assert state["shown_out_ids"] == sorted(offered)
     assert state["user_sell_prices"] == [{"player": "13", "price": 8.0}]
+
+
+def test_every_player_in_the_plan_carries_season_minutes(monkeypatch):
+    """The prose is grounded on minutes: the target, each player sold and each player bought carry FPL's `minutes`."""
+    bootstrap = _bootstrap()
+    for el in bootstrap["elements"]:
+        el["minutes"] = 1000 + el["id"]  # synthetic, distinct per player
+    monkeypatch.setattr(pts, "get_my_squad", lambda bs, gw=None: _squad_payload(30))
+    res = plan_to_sign(target="N.Jackson", moves="hits", bootstrap=bootstrap)
+    assert res["target"]["minutes"] == 1100
+    assert res["options"]
+    for option in res["options"]:
+        for tr in option["transfers"]:
+            assert tr["out"]["minutes"] == 1000 + tr["out"]["id"]
+            assert tr["in"]["minutes"] == 1000 + tr["in"]["id"]
