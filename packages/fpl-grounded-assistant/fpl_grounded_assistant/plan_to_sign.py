@@ -95,6 +95,7 @@ from .find_players import _STATUS_MAP, _safe_float, _safe_int
 from .get_my_squad import get_my_squad
 from .locale_types import bootstrap_locale
 from .plan_signals import PlanSignals, set_piece_count
+from .plan_trend import MAX_FETCHES, assess_trend, fetch_summaries
 from .rank_players_by_metric import finished_gameweeks, per_90_minutes_floor
 from .scoring_shared import _derive_scoring_inputs
 from .squad_solver import CLUB_CAP, POSITION_LABELS, SQUAD_QUOTAS, validate_squad
@@ -177,6 +178,8 @@ class _Context:
         self.window_gw = self.signals.window_gw
         # Tops the trend data says are in decline (filled by the trend fetch; empty means "not known").
         self.declining: set[int] = set()
+        # What the trend check found, by player id (see ``_check_trends``).
+        self.trend: dict[int, dict[str, Any]] = {}
         # Minutes a replacement needs before its rate means anything (see module docstring).
         self.minutes_floor = per_90_minutes_floor(bootstrap) if finished_gameweeks(bootstrap) > 0 else 0
         self._value: dict[int, float] = {}
@@ -460,16 +463,45 @@ def _rank_key(option: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _check_trends(ctx: _Context, options: list[dict[str, Any]]) -> None:
+    """Fetch the element-summary trend for the tops the best plans would sell; fill ``ctx.declining``.
+
+    At most :data:`~plan_trend.MAX_FETCHES` free calls, in parallel. Not run early in the season (a trend
+    over so few gameweeks says nothing), for a top who is already unavailable (nothing to decide), or when no
+    plan sells a top. Any failure leaves the player out of ``declining``: he is then sold only as the only way.
+    """
+    if ctx.signals.early_season or not options:
+        return
+    _assign_tiers(options)
+    ids: list[int] = []
+    for option in sorted(options, key=_rank_key):
+        for top in option["tops_sold"]:
+            if top["id"] not in ids and ctx.signals.availability(top["id"])["tier"] > 0:
+                ids.append(top["id"])
+    ids = ids[:MAX_FETCHES]
+    if not ids:
+        return
+    summaries = fetch_summaries(ctx.bootstrap, ids)
+    for pid in ids:
+        info = assess_trend(summaries.get(pid), hard_fixtures=ctx.signals.fixtures(pid)["hard"])
+        info["id"], info["web_name"] = pid, str(ctx.elements[pid].get("web_name", ""))
+        ctx.trend[pid] = info
+        if info["declining"]:
+            ctx.declining.add(pid)
+
+
 def _gate_tops(ctx: _Context, options: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A top is not sold unless the football says so, or there is no other way to fund the target.
 
-    A top sale is justified when he is unavailable or in decline. A plan that sells an unjustified top is
+    A top sale is justified when he is unavailable or in decline (``ctx.declining``, from :func:`_check_trends`). A plan that sells an unjustified top is
     dropped while any plan without one exists; when none does, they all stay and each such top is marked
     ``only_way`` so the card can say it.
     """
     for option in options:
         for top in option["tops_sold"]:
             top["why"] = _top_sale_reason(ctx, top["id"])
+            if top["why"] == "decline":
+                top["trend"] = ctx.trend[top["id"]]
         option["_unjustified"] = any(top["why"] is None for top in option["tops_sold"])
     clean = [o for o in options if not o["_unjustified"]]
     if clean:
@@ -655,7 +687,9 @@ def plan_to_sign(
 
     plans = _search(ctx, target=target_id, squad=squad, bank=bank_tenths, sell_price=sell_price,
                     max_moves=max_moves, exclude_out=exclude)
-    scored = _drop_oversells(_drop_dominated(_gate_tops(ctx, [_score_plan(ctx, p, sell_price, ft) for p in plans])))
+    candidates = [_score_plan(ctx, p, sell_price, ft) for p in plans]
+    _check_trends(ctx, candidates)
+    scored = _drop_oversells(_drop_dominated(_gate_tops(ctx, candidates)))
     _assign_tiers(scored)
     scored.sort(key=_rank_key)
     options: list[dict[str, Any]] = []
@@ -694,6 +728,7 @@ def plan_to_sign(
         "stage": "plan" if options else "infeasible",
         "moves": moves,
         "options": options,
+        "trend_checks": sorted(ctx.trend.values(), key=lambda info: info["id"]),
         "plan_state": plan_state,
         "needs_user_numbers": True,
     }
