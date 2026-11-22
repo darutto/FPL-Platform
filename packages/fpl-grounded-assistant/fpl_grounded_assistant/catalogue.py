@@ -1119,7 +1119,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "How do I get {name} with my current team?", "es": "¿Cómo ficho a {name} con mi equipo actual?",
     },
     "plan_to_sign.one_line": {
-        "en": "Sell {names}: {bank}m left in the bank{hit_part}.", "es": "Vende a {names} y te sobran {bank}m{hit_part}.",
+        "en": "Sell {names}: {bank}m left in the bank{hit_part}.", "es": "Vende a {names}: te sobran {bank}m{hit_part}.",
     },
     "plan_to_sign.one_line_hit": {"en": " (hit −{hit})", "es": " (hit −{hit})"},
     "plan_to_sign.one_line_and": {"en": " and ", "es": " y "},

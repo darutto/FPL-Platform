@@ -441,7 +441,7 @@ def test_one_line_wording_and_hit_suffix():
         return {"transfers": [{"out": {"web_name": n}} for n in outs], "bank_after": bank_after, "hit_cost": hit}
 
     raw = lambda o: {"status": "ok", "stage": "plan", "options": [o]}
-    assert plan_one_line(raw(option(["Alpha"], 1.6, 0)), "es") == "Vende a Alpha y te sobran 1.6m."
-    assert plan_one_line(raw(option(["Alpha", "Bravo"], 0.4, 4)), "es") == "Vende a Alpha y Bravo y te sobran 0.4m (hit −4)."
+    assert plan_one_line(raw(option(["Alpha"], 1.6, 0)), "es") == "Vende a Alpha: te sobran 1.6m."
+    assert plan_one_line(raw(option(["Alpha", "Bravo"], 0.4, 4)), "es") == "Vende a Alpha y Bravo: te sobran 0.4m (hit −4)."
     assert plan_one_line(raw(option(["A", "B", "C"], 0.4, 8)), "en") == "Sell A, B and C: 0.4m left in the bank (hit −8)."
     assert plan_one_line({"status": "ok", "stage": "choose_moves"}, "en") is None
