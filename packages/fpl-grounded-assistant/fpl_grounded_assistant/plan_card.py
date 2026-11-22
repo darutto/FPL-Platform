@@ -107,6 +107,24 @@ def plan_conclusions(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
     return lines[:MAX_CONCLUSIONS]
 
 
+def target_pick_suggestions(candidates: Any, locale: Locale = DEFAULT_LOCALE) -> "tuple[Any, ...] | None":
+    """Pick-one chips for an ambiguous plan target: each asks "How do I get {name} ..." about one candidate."""
+    from .suggestions import KIND_PROMPT_REWRITE, Suggestion  # noqa: PLC0415
+
+    items = []
+    for candidate in candidates or []:
+        name = str(candidate.get("web_name") or "").strip()
+        if not name:
+            continue
+        team = str(candidate.get("team_short") or "").strip()
+        items.append(Suggestion(
+            label=f"{name} ({team})" if team else name,
+            send_text=t("plan_to_sign.pick_send", locale, name=f"{name} {team}".strip()),
+            kind=KIND_PROMPT_REWRITE,
+        ))
+    return tuple(items) or None
+
+
 def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[dict[str, str]]:
     """``{label, send_text}`` for every option except the hero, in rank order. The tap asks for that option."""
     options = raw_output.get("options") or []

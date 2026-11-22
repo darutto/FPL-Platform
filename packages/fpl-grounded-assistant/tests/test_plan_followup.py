@@ -25,6 +25,7 @@ from fpl_grounded_assistant.orchestrator import OrchestratorResult
 from fpl_grounded_assistant.plan_followup import (
     followup_args,
     is_plan_followup,
+    move_tap,
     sanitize_plan_state,
 )
 from fpl_grounded_assistant.renderer import render
@@ -253,3 +254,145 @@ def test_a_forged_state_is_dropped_not_trusted(chat):
     post, script = chat
     res = post(LINES["en"][2].replace("jackson", "someone"), "en", plan_state={"target_id": "100", "moves": "hits"})
     assert len(script.calls) == 1 and res["plan_state"] is None
+
+
+# ---------------------------------------------------------------------------
+# move chip taps are deterministic; the plan call owns the slot; ambiguous targets arm a picker
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("question, expected", [
+    ("How do I get B.Fernandes with my current team? Plan: Use hits (−4 each)", {"target": "B.Fernandes", "moves": "hits"}),
+    ("¿Cómo ficho a B.Fernandes con mi equipo actual? Plan: Usar hits (−4 cada uno)", {"target": "B.Fernandes", "moves": "hits"}),
+    ("How do I get N.Jackson with my current team? Plan: 1 transfer", {"target": "N.Jackson", "moves": "one"}),
+    ("¿Cómo ficho a N.Jackson con mi equipo actual? Plan: 1 traspaso", {"target": "N.Jackson", "moves": "one"}),
+    ("How do I get N.Jackson with my current team? Plan: Only free transfers (2)", {"target": "N.Jackson", "moves": "free", "free_transfers": 2}),
+    ("¿Cómo ficho a N.Jackson con mi equipo actual? Plan: Solo traspasos gratis (3)", {"target": "N.Jackson", "moves": "free", "free_transfers": 3}),
+])
+def test_move_chip_text_is_recognised(question, expected):
+    assert move_tap(question) == expected
+
+
+@pytest.mark.parametrize("question", [
+    "how do i get nico jackson with my current team?",
+    "how do i get nico jackson with my current team? use hits",
+    "Plan: Use hits (−4 each)",
+    "who else can i sell?",
+    "",
+    None,
+])
+def test_a_users_own_wording_is_not_a_move_tap(question):
+    assert move_tap(question) is None
+
+
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_a_move_chip_tap_makes_no_model_call(chat, locale):
+    post, script = chat
+    chips = post(LINES[locale][0], locale)["suggestions"]
+    asked = len(script.calls)
+    for chip in chips:  # every move chip: "1 transfer" and "use hits"
+        plan = post(chip["send_text"], locale)
+        assert len(script.calls) == asked, "a move chip tap must not reach the model"
+        assert plan["outcome"] == "ok"
+        assert plan["generic_card"] is not None and plan["plan_state"]
+    hits = post(chips[-1]["send_text"], locale)
+    assert hits["plan_state"]["moves"] == "hits"
+
+
+def test_a_move_tap_for_an_unknown_target_goes_the_normal_route(chat):
+    post, script = chat
+    before = len(script.calls)
+    post("How do I get Nobodyatall with my current team? Plan: Use hits (−4 each)", "en")
+    assert len(script.calls) == before + 1
+
+
+def _orch_script(monkeypatch, calls, *, chosen=0):
+    """A scripted run: executes ``calls`` (name, args) for real (plan_to_sign) or as a stub (get_my_squad)."""
+    from fpl_tool_runner import run_tool
+
+    def fake(question, bootstrap, *args, **kwargs):
+        trace, outputs = [], []
+        for number, (name, call) in enumerate(calls, start=1):
+            out = run_tool(name, call, bootstrap) if name == "plan_to_sign" else {"status": "ok", "players": []}
+            outputs.append(out)
+            trace.append({"round": 1, "tool_call_id": f"c{number}", "name": name, "args": call, "output": out, "success": True})
+        return OrchestratorResult(
+            question=question, tool_chosen=calls[chosen][0], tool_args=calls[chosen][1], tool_output=outputs[chosen],
+            answer_text="prose", llm_used=True, model="fake", outcome="ok", tool_call_count=len(calls),
+            tool_calls_trace=tuple(trace),
+        )
+
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.ask_orchestrated", fake)
+
+
+HITS = {"target": "n.jackson", "moves": "hits"}
+
+
+@pytest.mark.parametrize("sequence", [
+    [("get_my_squad", {}), ("plan_to_sign", HITS)],
+    [("plan_to_sign", HITS), ("get_my_squad", {})],
+    [("get_my_squad", {}), ("plan_to_sign", HITS), ("get_my_squad", {})],
+])
+def test_the_plan_call_owns_the_slot_when_get_my_squad_opens_or_closes_the_turn(chat, monkeypatch, sequence):
+    post, _script = chat
+    _orch_script(monkeypatch, sequence)
+    res = post("how do i get nico jackson with my current team? use hits", "en")
+    assert res["generic_card"] is not None, "the plan card must not be lost"
+    assert res["plan_state"] and res["plan_state"]["moves"] == "hits"
+    assert [c["send_text"] for c in res["suggestions"]], "the other options come back as chips"
+
+
+def test_a_retry_without_moves_does_not_replace_the_plan_the_user_chose(chat, monkeypatch):
+    post, _script = chat
+    # primary: plan with the chosen moves; the retry (the retained payload) asked again without moves
+    from fpl_tool_runner import run_tool
+
+    def fake(question, bootstrap, *args, **kwargs):
+        plan = run_tool("plan_to_sign", HITS, bootstrap)
+        choose = run_tool("plan_to_sign", {"target": "n.jackson"}, bootstrap)
+        assert plan["stage"] == "plan" and choose["stage"] == "choose_moves"
+        return OrchestratorResult(
+            question=question, tool_chosen="plan_to_sign", tool_args={"target": "n.jackson"}, tool_output=choose,
+            answer_text="prose", llm_used=True, model="fake", outcome="ok", tool_call_count=1,
+            retry_attempted=True,
+            tool_calls_trace=({"round": 1, "tool_call_id": "c1", "name": "plan_to_sign", "args": HITS, "output": plan, "success": True},),
+        )
+
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.ask_orchestrated", fake)
+    res = post("how do i get nico jackson with my current team? use hits", "en")
+    assert res["generic_card"] is not None and res["plan_state"]["moves"] == "hits"
+
+
+def test_a_plan_call_that_only_reached_the_move_step_keeps_the_move_chips(chat, monkeypatch):
+    post, _script = chat
+    _orch_script(monkeypatch, [("get_my_squad", {}), ("plan_to_sign", {"target": "n.jackson"})])
+    res = post("how do i get nico jackson with my current team?", "en")
+    assert res["plan_state"] is None and res["generic_card"] is None
+    assert res["suggestions"] and all("Plan:" in c["send_text"] for c in res["suggestions"])
+
+
+CANDIDATES = [
+    {"id": 100, "web_name": "N.Jackson", "team_short": "T1", "name": "Nico Jackson"},
+    {"id": 101, "web_name": "M.Jackson", "team_short": "T2", "name": "Mark Jackson"},
+]
+
+
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_an_ambiguous_plan_target_arms_a_picker_with_candidates(locale):
+    from fpl_grounded_assistant.harness import _ambiguity_suggestions
+
+    raw = {"status": "ambiguous", "query": "jackson", "candidates": CANDIDATES}
+    # the user's wording cannot be re-asked (the mention is not in it): the plain question per candidate
+    chips = _ambiguity_suggestions("plan_to_sign", raw, "who can i sell to sign him?", None, locale)
+    assert chips and [c["label"] for c in chips] == ["N.Jackson (T1)", "M.Jackson (T2)"]
+    assert all(c["kind"] == "prompt_rewrite" for c in chips)
+    assert "N.Jackson T1" in chips[0]["send_text"] and len({c["send_text"] for c in chips}) == 2
+
+
+def test_an_ambiguous_plan_target_re_asks_the_users_own_question():
+    from fpl_grounded_assistant.harness import _ambiguity_suggestions
+
+    raw = {"status": "ambiguous", "query": "jackson", "candidates": CANDIDATES}
+    chips = _ambiguity_suggestions("plan_to_sign", raw, "who else can i sell to sign jackson?", None, "en")
+    assert [c["send_text"] for c in chips] == [
+        "who else can i sell to sign Nico Jackson?", "who else can i sell to sign Mark Jackson?",
+    ]
