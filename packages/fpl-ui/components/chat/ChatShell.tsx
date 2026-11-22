@@ -32,7 +32,12 @@ import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import { planStateForNextTurn } from '@/lib/plan-state';
 import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
-import { WIZARD_ARMING_INTENTS, isRewriteSuggestion, isStableIdSuggestion } from '@/lib/wizard-arming';
+import {
+  WIZARD_ARMING_INTENTS,
+  isLeaguePickSuggestion,
+  isRewriteSuggestion,
+  isStableIdSuggestion,
+} from '@/lib/wizard-arming';
 import { QUOTA_BUCKETS, type QuotaBucket } from '@/lib/tiers';
 import { readDevTier } from '@/lib/dev-tier';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
@@ -146,6 +151,8 @@ export default function ChatShell() {
     rawInput: string,
     selectedPlayerId?: number,
     selectedPlayerSessionId?: string | null,
+    // A league the user has just picked: it goes on THIS request, before the state update lands.
+    leagueIdOverride?: number | null,
   ) => {
     const trimmed = rawInput.trim();
     if (!trimmed || loading) return;
@@ -223,7 +230,7 @@ export default function ChatShell() {
         // team_id enables get_my_squad server-side (i39); null when no team connected
         team_id: teamId ?? null,
         // main_league_id enables get_league_eo server-side; only meaningful with a team, so null without one
-        main_league_id: teamId != null ? (mainLeagueId ?? null) : null,
+        main_league_id: teamId != null ? (leagueIdOverride ?? mainLeagueId ?? null) : null,
         // plan_to_sign follow-up: the previous answer's plan state, this turn only (lib/plan-state.ts).
         ...(planState ? { plan_state: planState } : {}),
         // Explicit opt-in only — never silent. Gated by tier eligibility so
@@ -304,6 +311,11 @@ export default function ChatShell() {
       // phrase as one name would be nonsensical.
       const promptRewriteOptions = (response.suggestions ?? []).filter(isRewriteSuggestion);
       const hasPromptRewrite = promptRewriteOptions.length > 0;
+      // 0. "Which league?" chips (get_league_eo): pick-one, the tap stores the league and re-asks.
+      const leaguePickOptions = (response.suggestions ?? []).filter(isLeaguePickSuggestion);
+      if (!hasPromptRewrite && leaguePickOptions.length > 0) {
+        setPlayerPickWizard({ options: leaguePickOptions, sessionId: responseSessionId });
+      }
       if (hasPromptRewrite) {
         setPlayerPickWizard({ options: promptRewriteOptions, sessionId: responseSessionId });
       }
@@ -377,6 +389,13 @@ export default function ChatShell() {
   //   FPL element id as authoritative data. If the ambiguity came from a
   //   session turn, keep the selection in that session.
   const handlePlayerPick = useCallback((suggestion: Suggestion) => {
+    if (isLeaguePickSuggestion(suggestion)) {
+      // "Make this my league": remember it (per browser, next to the team id) and answer for it now.
+      writeMainLeagueId(suggestion.league_id);
+      setMainLeagueId(suggestion.league_id);
+      sendMessage(suggestion.send_text, undefined, null, suggestion.league_id);
+      return;
+    }
     if (isRewriteSuggestion(suggestion)) {
       sendMessage(suggestion.send_text);
       return;
