@@ -705,7 +705,16 @@ def plan_to_sign(
     _assign_tiers(scored)
     scored.sort(key=_rank_key)
     options: list[dict[str, Any]] = []
+    seen_squads: set[tuple[frozenset[int], frozenset[int]]] = set()
     for option in scored:
+        # The same players out and the same players in is one plan, however the pairs are matched.
+        squad_key = (
+            frozenset(tr["out"]["id"] for tr in option["transfers"]),
+            frozenset(tr["in"]["id"] for tr in option["transfers"]),
+        )
+        if squad_key in seen_squads:
+            continue
+        seen_squads.add(squad_key)
         outs = {tr["out"]["id"] for tr in option["transfers"]}
         ins = [tr["in"]["id"] for tr in option["transfers"]]
         after = [p for p in squad if p not in outs] + ins

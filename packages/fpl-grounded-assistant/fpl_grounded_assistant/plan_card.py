@@ -142,6 +142,22 @@ def plan_one_line(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -
     )
 
 
+def _joined(players: Any) -> str:
+    """Names in a stable order: dearest first, then by name (never the search order)."""
+    def cost(p: dict[str, Any]) -> float:
+        return p.get("price_tenths") or round((p.get("price") or 0) * 10)
+
+    ordered = sorted(players, key=lambda p: (-cost(p), str(p.get("web_name"))))
+    return " + ".join(p["web_name"] for p in ordered)
+
+
+def _same_outs(option: dict[str, Any], options: list[dict[str, Any]], index: int) -> bool:
+    mine = {tr["out"]["id"] for tr in option["transfers"]}
+    return any(
+        i != index and {tr["out"]["id"] for tr in other["transfers"]} == mine for i, other in enumerate(options)
+    )
+
+
 def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[dict[str, str]]:
     """``{label, send_text}`` for every option except the hero, in rank order. The tap asks for that option."""
     options = raw_output.get("options") or []
@@ -150,9 +166,13 @@ def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) ->
     for index, option in enumerate(options):
         if index == hero:
             continue
-        outs = " + ".join(tr["out"]["web_name"] for tr in option["transfers"])
+        ins = _joined(tr["in"] for tr in option["transfers"] if tr.get("role") != "target")
+        if ins and _same_outs(option, options, index):  # the sales alone would read the same: show what differs
+            label = t("plan_to_sign.chip_option_ins_label", locale, ins=ins)
+        else:
+            label = t("plan_to_sign.chip_option_label", locale, outs=_joined(tr["out"] for tr in option["transfers"]))
         chips.append({
-            "label": t("plan_to_sign.chip_option_label", locale, outs=outs),
+            "label": label,
             "send_text": t("plan_to_sign.chip_option_send", locale, n=index + 1),
         })
     return chips
