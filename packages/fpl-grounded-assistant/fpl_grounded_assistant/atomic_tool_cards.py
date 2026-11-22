@@ -610,7 +610,63 @@ def compose_involvement_compare_card(raw_output: dict[str, Any], locale: Locale 
 
 
 #: Composers whose wording follows the request language (they take ``locale``).
+def _pct(value: Any) -> str:
+    """One decimal with a dot, in every language."""
+    try:
+        return f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def compose_league_eo_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """The mini-league EO card: the league's EO against the user's own squad, as opportunities.
+
+    Two short groups when the squad was compared: the high-EO players the user does not own (the
+    league has him) and the user's own differentials. Without the squad, the league's top EO players.
+    Every cell comes from the tool output (FPL data); nothing from LLM text.
+    """
+    if raw_output.get("status") != "ok" or raw_output.get("tier") != "league" or raw_output.get("stage"):
+        return None
+
+    def rows_for(group_key: str, items: Any, with_captain: bool) -> list[tuple[str, ...]]:
+        out = []
+        for it in items or []:
+            if not it.get("player"):
+                continue
+            who = f"{it['player']} ({it['team']})" if it.get("team") else str(it["player"])
+            captain = _pct(it.get("captain_pct")) if with_captain and (it.get("captain_pct") or 0) > 0 else ""
+            out.append((t(group_key, locale), who, _pct(it.get("eo")), captain))
+        return out
+
+    if raw_output.get("squad_compared"):
+        rows = rows_for("league_eo.group.risk", raw_output.get("risks"), True) + \
+            rows_for("league_eo.group.diff", raw_output.get("differentials"), False)
+    else:
+        rows = rows_for("league_eo.group.top", (raw_output.get("top_players") or [])[:5], True)
+    if not rows:
+        return None
+    n, size = raw_output.get("n_sampled"), raw_output.get("league_size")
+    label = (t("league_eo.label.exact", locale, n=n) if raw_output.get("exact")
+             else t("league_eo.label.approx", locale, n=n, size=size))
+    return GenericCardMeta(
+        accent="turquoise",
+        title=t("league_eo.title", locale, league=raw_output.get("league_name") or ""),
+        subtitle=label,
+        hero=None,
+        pills=(),
+        columns=(
+            Column(header="", align="left", kind="badge"),
+            Column(header=t("league_eo.col.player", locale), align="left", kind="text"),
+            Column(header=t("league_eo.col.eo", locale), align="right", kind="mono"),
+            Column(header=t("league_eo.col.captain", locale), align="right", kind="mono"),
+        ),
+        rows=tuple(rows),
+        footer=t("league_eo.footer", locale),
+    )
+
+
 _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
+    "get_league_eo": compose_league_eo_card,
     "rank_players_by_metric": compose_rank_players_card,
     "get_gw_report": compose_gw_report_card,
     "get_position_changes": compose_position_changes_card,

@@ -58,6 +58,11 @@ KIND_PROMPT_REWRITE: str = "prompt_rewrite"
 #: The UI sends ``send_text`` verbatim, exactly like ``KIND_PROMPT_REWRITE``.
 KIND_HISTORICAL_PLAYER_REWRITE: str = "historical_player_rewrite"
 
+#: ``Suggestion.kind`` for a "which league?" chip (get_league_eo): ``label`` is the league name,
+#: ``send_text`` a complete question naming it, and ``league_id`` the id the UI stores as the
+#: user's main league when the chip is tapped. Carries no ``player_id``.
+KIND_LEAGUE_PICK: str = "league_pick"
+
 
 @dataclass(frozen=True)
 class Suggestion:
@@ -75,6 +80,7 @@ class Suggestion:
     send_text: str
     player_id: int | None = None
     kind: str | None = None
+    league_id: int | None = None
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -366,6 +372,7 @@ def suggestions_to_list(
             "send_text": s.send_text,
             **({"player_id": s.player_id} if s.player_id is not None else {}),
             **({"kind": s.kind} if s.kind is not None else {}),
+            **({"league_id": s.league_id} if s.league_id is not None else {}),
         }
         for s in suggestions
     ]

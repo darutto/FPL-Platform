@@ -35,7 +35,7 @@ BOOT = {
 }
 DATA = {
     "gw": 11, "league_id": 42, "league_name": "Friends", "league_size": 12, "exact": True, "approx": False,
-    "n_sampled": 12, "label": "exact, n=12 of 12",
+    "n_sampled": 12, "label": "exact, n=12",
     "players": {
         "1": {"owned_pct": 90.0, "captain_pct": 50.0, "bench_pct": 0.0, "eo": 140.0},
         "2": {"owned_pct": 20.0, "captain_pct": 0.0, "bench_pct": 5.0, "eo": 20.0},
@@ -65,6 +65,8 @@ class FakeService:
 @pytest.fixture(autouse=True)
 def _reset(monkeypatch):
     monkeypatch.delenv(LEAGUE_EO_ENABLED_ENV, raising=False)
+    # the ready path loads the user's squad from the FPL API: no test may reach the network for it
+    monkeypatch.setattr(tool, "load_linked_squad", lambda bootstrap, gw: None)
     tool.set_service(None)
     yield
     tool.set_service(None)
@@ -148,7 +150,7 @@ def test_several_leagues_and_no_choice_asks_which(monkeypatch):
     on(monkeypatch)
     tool.set_service(FakeService([L1, L2]))
     out = tool.get_league_eo(boot(), now=NOW)
-    assert out["status"] == "needs_league"
+    assert out["status"] == "ok" and out["stage"] == "needs_league"
     assert out["leagues"] == [{"league_id": 42, "name": "Friends", "size": 12},
                               {"league_id": 77, "name": "Work Mates", "size": 48}]
 
@@ -171,7 +173,7 @@ def test_no_private_league_says_so(monkeypatch):
 def test_a_stale_stored_league_falls_back_to_the_picker(monkeypatch):
     on(monkeypatch)
     tool.set_service(FakeService([L1, L2]))
-    assert tool.get_league_eo(boot(league=999), now=NOW)["status"] == "needs_league"
+    assert tool.get_league_eo(boot(league=999), now=NOW)["stage"] == "needs_league"
 
 
 def test_an_unknown_or_ambiguous_name_is_reported_not_guessed(monkeypatch):
@@ -203,7 +205,7 @@ def test_ready_result_has_the_label_and_the_named_players(monkeypatch):
     on(monkeypatch)
     tool.set_service(FakeService([L1], {42: {"status": "ready", "data": DATA}}))
     out = tool.get_league_eo(boot(league=42), player_names=["beta", "Nobody"], now=NOW)
-    assert out["status"] == "ok" and out["label"] == "exact, n=12 of 12" and out["league_name"] == "Friends"
+    assert out["status"] == "ok" and out["label"] == "exact, n=12" and out["league_name"] == "Friends"
     assert [r["player"] for r in out["top_players"]] == ["Alpha", "Beta"]
     assert out["top_players"][0] == {"player": "Alpha", "team": "AAA", "eo": 140.0, "owned_pct": 90.0, "captain_pct": 50.0}
     assert [r["player"] for r in out["named_players"]] == ["Beta"]

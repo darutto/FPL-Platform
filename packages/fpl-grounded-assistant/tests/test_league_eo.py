@@ -101,7 +101,7 @@ def test_small_league_is_read_in_full_and_labelled_exact():
     lg = {"id": LEAGUE, "name": "Friends", "size": 12}
     out = le.compute_league_eo(lg, "s", 11, make_api(fake), workers=1)
     assert out["exact"] is True and out["approx"] is False and out["n_sampled"] == 12
-    assert out["label"] == "exact, n=12 of 12" and out["tier"] == "league"
+    assert out["label"] == "exact, n=12" and out["tier"] == "league"
     assert fake.count("/standings/") == 1 and fake.count("/picks/") == 12  # 14 with the league list
     assert out["players"]["1"] == {"owned_pct": 100.0, "captain_pct": 100.0, "bench_pct": 0.0, "eo": 200.0}
 
@@ -116,7 +116,7 @@ def test_large_league_is_sampled_with_only_the_pages_needed():
 def test_members_without_picks_are_left_out_and_counted():
     fake = FakeApi(size=12, no_picks={1_000_001, 1_000_002})
     out = le.compute_league_eo({"id": LEAGUE, "name": "F", "size": 12}, "s", 11, make_api(fake), workers=1)
-    assert out["n_sampled"] == 10 and out["n_target"] == 12 and out["label"] == "exact, n=10 of 12"
+    assert out["n_sampled"] == 10 and out["n_target"] == 12 and out["label"] == "exact, n=10"
 
 
 def test_output_holds_aggregates_only():
