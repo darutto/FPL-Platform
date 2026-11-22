@@ -40,8 +40,10 @@ Football first, money and hits as tie-breaks (Leo, 2026-11-21). The signals are 
 5. Money left unspent (lower is better, buckets of 0.5m): the plan should not over-sell.
 6. Hits, then moves, then player ids.
 
-A plan with more moves than another survives only when it is better on 2 or 3 than the best plan with
-fewer moves, so a -4 is never paid for a gain in production or money alone. The hit is shown on every
+A plan with more moves than another survives only when it is better on 2, or on 3 by at least 1.0 of
+fixture gain per extra move, than the best plan with fewer moves, so a -4 is never paid for a gain in
+production, money or a marginal fixture edge. A multi-move plan leaving more than 2.0m unspent is dropped
+when one that does not exists (one-move options are never dropped for it). The hit is shown on every
 option. ``rank_key`` carries the first four tiers.
 
 ``loss`` (tier 4) is the least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
@@ -115,6 +117,10 @@ _REPLACEMENT_POOL: int = 12
 FIXTURE_BUCKET: float = 0.5  # summed FDR bands
 LOSS_BUCKET: float = 0.5  # per-gameweek value
 BANK_BUCKET_TENTHS: int = 5  # leftover money, 0.5m
+#: An extra move must improve the summed fixture gain by this much per extra move (Leo, 2026-11-22).
+FIXTURE_GAIN_PER_EXTRA_MOVE: float = 1.0
+#: A multi-move plan leaving more than this unspent (tenths, 2.0m) is an avoidable over-sell.
+OVERSELL_TENTHS: int = 20
 #: Value a set-piece taker is worth beyond his rate, per piece, per gameweek.
 SET_PIECE_PENALTY: float = 0.5
 #: A club with no fixture data counts as a neutral band.
@@ -453,10 +459,25 @@ def _gate_tops(ctx: _Context, options: list[dict[str, Any]]) -> list[dict[str, A
     return options
 
 
-def _drop_dominated(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """A plan with more moves than another survives only if it is better on availability or fixtures.
+def _drop_oversells(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Multi-move plans must not leave more than :data:`OVERSELL_TENTHS` unspent, when one that does not exists.
 
-    Without that, the extra move (and its -4) would be bought for a gain in performance or money alone.
+    In a multi-move plan the surplus comes from a downgrade nobody needed to make. One-move options are left
+    alone: selling the expensive player for the target is a real choice and the card can say what is left over.
+    """
+    multi = [o for o in options if o["moves"] > 1]
+    within = [o for o in multi if o["bank_after_tenths"] <= OVERSELL_TENTHS]
+    if not within:
+        return options
+    return [o for o in options if o["moves"] == 1 or o in within]
+
+
+def _drop_dominated(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A plan with more moves than another survives only if it is clearly better on availability or fixtures.
+
+    Availability: strictly better. Fixtures: at least :data:`FIXTURE_GAIN_PER_EXTRA_MOVE` more summed gain for
+    each extra move. Without that, the extra move (and its -4) would be bought for a gain in performance,
+    money or a marginal fixture edge.
     """
     kept = []
     for option in options:
@@ -464,10 +485,9 @@ def _drop_dominated(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if fewer:
             best = min(fewer, key=_rank_key)
             better_avail = option["signals"]["avail_net"] < best["signals"]["avail_net"]
-            better_fixtures = _bucket(option["signals"]["fixture_gain"], FIXTURE_BUCKET) > _bucket(
-                best["signals"]["fixture_gain"], FIXTURE_BUCKET
-            )
-            if not (better_avail or better_fixtures):
+            extra = option["moves"] - best["moves"]
+            fixture_edge = option["signals"]["fixture_gain"] - best["signals"]["fixture_gain"]
+            if not (better_avail or fixture_edge >= FIXTURE_GAIN_PER_EXTRA_MOVE * extra):
                 continue
         kept.append(option)
     return kept
@@ -613,7 +633,7 @@ def plan_to_sign(
 
     plans = _search(ctx, target=target_id, squad=squad, bank=bank_tenths, sell_price=sell_price,
                     max_moves=max_moves, exclude_out=exclude)
-    scored = _drop_dominated(_gate_tops(ctx, [_score_plan(ctx, p, sell_price, ft) for p in plans]))
+    scored = _drop_oversells(_drop_dominated(_gate_tops(ctx, [_score_plan(ctx, p, sell_price, ft) for p in plans])))
     scored.sort(key=_rank_key)
     options: list[dict[str, Any]] = []
     for option in scored:

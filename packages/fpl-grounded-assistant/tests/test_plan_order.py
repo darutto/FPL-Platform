@@ -248,3 +248,41 @@ def test_a_top_flagged_only_as_rotation_does_not_count_as_an_availability_gain(m
     ])
     res = plan_to_sign(target="N.Jackson", moves="hits", free_transfers=1, bootstrap=_bootstrap())
     assert [o["moves"] for o in res["options"]] == [1]  # the extra move gains nothing: dropped
+
+
+def test_an_extra_move_needs_a_full_point_of_fixture_gain(monkeypatch):
+    one, two = [(13, 100)], [(13, 100), (11, 200)]
+    # gain: one-move 3.0; two-move 3.0 + 3.0 (band 11) - 2.2 (band 200) = 3.8 -> +0.8: not enough
+    order, _ = _rank(monkeypatch, [one, two], bands={11: 3.0, 200: 2.2})
+    assert order == [[13]]
+    # +1.0 exactly: enough
+    order, _ = _rank(monkeypatch, [one, two], bands={11: 3.0, 200: 2.0})
+    assert order[0] == [13, 11]
+
+
+def test_a_three_move_plan_needs_two_points_over_the_one_move_plan(monkeypatch):
+    one, three = [(13, 100)], [(13, 100), (11, 200), (10, 201)]
+    order, _ = _rank(monkeypatch, [one, three], bands={11: 3.0, 200: 2.0, 10: 3.0, 201: 2.5})  # +1.5 over 2 extra
+    assert order == [[13]]
+    order, _ = _rank(monkeypatch, [one, three], bands={11: 4.0, 200: 2.0, 10: 3.0, 201: 2.0})  # +3.0 over 2 extra
+    assert order[0] == [13, 11, 10]
+
+
+def test_an_avoidable_oversell_is_dropped_from_multi_move_plans(monkeypatch):
+    lean, fat = [(13, 100), (11, 200)], [(13, 100), (10, 201)]
+    order, options = _rank(
+        monkeypatch, [lean, fat], tiers={11: 0, 10: 0}, bank_after={tuple(lean): 3, tuple(fat): 100},
+    )
+    assert order == [[13, 11]]
+
+
+def test_the_oversell_guard_keeps_everything_when_no_multi_move_plan_is_lean(monkeypatch):
+    a, b = [(13, 100), (11, 200)], [(13, 100), (10, 201)]
+    order, _ = _rank(monkeypatch, [a, b], tiers={11: 0, 10: 0}, bank_after={tuple(a): 40, tuple(b): 90})
+    assert len(order) == 2
+
+
+def test_one_move_plans_are_never_dropped_for_leaving_money(monkeypatch):
+    big, lean = [(13, 100)], [(15, 100)]
+    order, _ = _rank(monkeypatch, [big, lean], bank_after={tuple(big): 91, tuple(lean): 26})
+    assert sorted(order) == [[13], [15]]
