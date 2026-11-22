@@ -196,23 +196,60 @@ def test_the_text_answer_repeats_the_conclusions_under_the_hero_option():
 # chips
 # ---------------------------------------------------------------------------
 
-def test_options_other_than_the_hero_are_chips_with_their_own_names():
-    a, b, c = _option("Isak"), _option("Haaland"), {**_option("Evan"), "moves": 2}
-    c["transfers"].append(_transfer(12, "Cherki", "LeFee"))
-    chips = option_chips(_raw(a, b, c), "en")
+def _opt(*pairs):
+    """An option of (out id, out name, in id, in name) moves; the first move buys the target."""
+    transfers = []
+    for k, (oid, oname, iid, iname) in enumerate(pairs):
+        tr = _transfer(oid, oname, iname)
+        tr["in"]["id"] = iid
+        tr["role"] = "target" if k == 0 else "downgrade"
+        transfers.append(tr)
+    return {**_option(), "moves": len(pairs), "transfers": transfers}
+
+
+BEST = _opt((1, "Palmer", 50, "Target"), (2, "Manzambi", 61, "Rudoni"))
+SECOND = _opt((3, "Rogers", 50, "Target"), (2, "Manzambi", 61, "Rudoni"))
+THIRD = _opt((1, "Palmer", 50, "Target"), (4, "Ndiaye", 62, "Wirtz"))
+
+
+def test_options_other_than_the_hero_are_chips_that_say_what_they_change_from_the_best_plan():
+    chips = option_chips(_raw(BEST, SECOND, THIRD), "en")
     assert chips == [
-        {"label": "Sell Haaland", "send_text": "Show option 2"},
-        {"label": "Sell Cherki + Evan", "send_text": "Show option 3"},
+        {"label": "Option 2: Rogers \u2192 Target", "send_text": "Option 2: Rogers \u2192 Target"},
+        {"label": "Option 3: Ndiaye \u2192 Wirtz", "send_text": "Option 3: Ndiaye \u2192 Wirtz"},
     ]
-    assert option_chips(_raw(a, b, c, focus=3), "es") == [
-        {"label": "Vender a Isak", "send_text": "Muéstrame la opción 1"},
-        {"label": "Vender a Haaland", "send_text": "Muéstrame la opción 2"},
+    assert [c["label"] for c in option_chips(_raw(BEST, SECOND, THIRD, focus=3), "es")] == [
+        "Opci\u00f3n 1", "Opci\u00f3n 2: Rogers \u2192 Target",
     ]
-    assert option_chips(_raw(a), "en") == []
+    assert option_chips(_raw(BEST), "en") == []
+
+
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_a_label_is_the_same_in_every_view_and_never_repeats(locale):
+    raw = _raw(BEST, SECOND, THIRD)
+    seen = {}
+    for focus in (None, 1, 2, 3):
+        view = {**raw, "focus": focus} if focus else raw
+        for index, chip in enumerate(option_chips(view, locale)):
+            n = option_pick(chip["send_text"])
+            assert seen.setdefault(n, chip["label"]) == chip["label"], "a label must not move between views"
+            assert chip["send_text"] == chip["label"] and n is not None
+    assert sorted(seen) == [1, 2, 3] and len(set(seen.values())) == 3
+
+
+def test_a_second_move_is_added_only_when_the_first_does_not_tell_options_apart():
+    same_first = _opt((3, "Rogers", 50, "Target"), (2, "Manzambi", 63, "Cheap"))
+    other = _opt((3, "Rogers", 50, "Target"), (4, "Ndiaye", 62, "Wirtz"))
+    labels = [c["label"] for c in option_chips(_raw(BEST, same_first, other), "en")]
+    assert labels == [
+        "Option 2: Rogers \u2192 Target + Manzambi \u2192 Cheap",
+        "Option 3: Rogers \u2192 Target + Ndiaye \u2192 Wirtz",
+    ]
 
 
 @pytest.mark.parametrize("text,n", [
     ("Show option 2", 2), ("Muéstrame la opción 3", 3), ("show me option 1 please", 1), ("opcion 2", 2),
+    ("Option 2: Rogers \u2192 Target + Manzambi \u2192 Cheap", 2), ("Opción 3: Ndiaye \u2192 Wirtz", 3),
 ])
 def test_an_option_tap_is_recognised(text, n):
     assert option_pick(text) == n
@@ -267,20 +304,3 @@ def _two_move(outs, ins, out_prices=(9.0, 6.0)):
         tr["role"] = "target" if k == 0 else "downgrade"
         transfers.append(tr)
     return {**_option(), "moves": 2, "transfers": transfers}
-
-
-def test_outs_in_a_label_are_listed_dearest_first_whatever_the_search_order():
-    a = _option("Isak")
-    b = _two_move([(1, "Cheap"), (2, "Dear")], [(51, "T"), (52, "R")], out_prices=(5.0, 9.0))
-    assert option_chips(_raw(a, b), "en")[0]["label"] == "Sell Dear + Cheap"
-
-
-def test_options_with_the_same_outs_are_told_apart_by_who_comes_in():
-    outs_a = [(1, "Palmer"), (2, "Ndiaye")]
-    outs_b = [(2, "Ndiaye"), (1, "Palmer")]
-    hero = _two_move(outs_a, [(50, "Target"), (61, "McGinn")])
-    other = _two_move(outs_b, [(50, "Target"), (62, "Rudoni")], out_prices=(6.0, 9.0))
-    third = _option("Isak")
-    chips = option_chips(_raw(hero, other, third), "en")
-    assert [c["label"] for c in chips] == ["Buy Rudoni", "Sell Isak"]
-    assert option_chips(_raw(hero, other, third, focus=2), "es")[0]["label"] == "Entran McGinn"

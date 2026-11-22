@@ -54,12 +54,14 @@ _FOLLOWUP_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
 
 
 _OPTION_PICK = re.compile(r"\b(?:option|opcion) ([1-3])\b")
+#: A chip's own text ("Option 2: Rogers -> Wirtz") can be long; only that prefix form is accepted past 60 characters.
+_OPTION_PREFIX = re.compile(r"^(?:option|opcion) [1-3]\b")
 
 
 def option_pick(question: Any) -> int | None:
     """The 1-based option a chip tap asks for ("Show option 2" / "Muéstrame la opción 2"), or ``None``."""
     text = normalize_player_name(question)
-    if not text or len(text) > 60:
+    if not text or len(text) > 160 or (len(text) > 60 and _OPTION_PREFIX.match(text) is None):
         return None
     match = _OPTION_PICK.search(text)
     return int(match.group(1)) if match else None
