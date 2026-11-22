@@ -948,6 +948,11 @@ def ask_v2(
                 _plan_card = maybe_atomic_tool_card("plan_to_sign", _plan_raw, None, locale)
                 if _plan_card is not None:
                     result["generic_card"] = _plan_card
+            if result.get("generic_card") is not None:
+                from .plan_card import plan_one_line  # noqa: PLC0415
+
+                # no model wrote this text, and the card shows the rest: one line for the option on the card
+                result["answer_text"] = plan_one_line(_plan_raw, locale) or result["answer_text"]
             _plan_chips = _plan_to_sign_chips("plan_to_sign", _plan_raw, locale)
             if _plan_chips is not None:
                 result["player_suggestions"] = _plan_chips

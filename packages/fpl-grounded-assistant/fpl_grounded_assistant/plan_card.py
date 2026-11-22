@@ -125,6 +125,23 @@ def target_pick_suggestions(candidates: Any, locale: Locale = DEFAULT_LOCALE) ->
     return tuple(items) or None
 
 
+def plan_one_line(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str | None:
+    """The one-line answer for a plan turn that carries a card (the card shows the rest), or ``None``."""
+    options = raw_output.get("options") or []
+    if raw_output.get("status") != "ok" or raw_output.get("stage") != "plan" or not options:
+        return None
+    option = options[hero_index(raw_output)]
+    names = [tr["out"]["web_name"] for tr in option["transfers"]]
+    if not names:
+        return None
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + t("plan_to_sign.one_line_and", locale) + names[-1]
+    hit = option.get("hit_cost") or 0
+    return t(
+        "plan_to_sign.one_line", locale, names=joined, bank=_num(option["bank_after"]),
+        hit_part=t("plan_to_sign.one_line_hit", locale, hit=hit) if hit else "",
+    )
+
+
 def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[dict[str, str]]:
     """``{label, send_text}`` for every option except the hero, in rank order. The tap asks for that option."""
     options = raw_output.get("options") or []
