@@ -35,8 +35,9 @@ on:
         type: boolean
         default: false
 
+# One group for manual and scheduled runs: they queue, never overlap, and a running job is never cancelled.
 concurrency:
-  group: eo-top10k
+  group: eo-tier-sampler
   cancel-in-progress: false
 
 permissions:
