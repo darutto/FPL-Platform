@@ -274,52 +274,112 @@ def compute_near_rank_eo(entry_id: int, season: str, gw: int, api: _Api, *, work
 
 # -- the background-job service --------------------------------------------------------------
 
-class NearRankEOService:
-    """``status(season, gw, entry_id)`` -> ready | computing | unavailable, starting a job when needed."""
+_SHARED: dict[str, Any] = {}
+_SHARED_LOCK = threading.Lock()
+
+
+def shared_limiter() -> RateLimiter:
+    """The one process-wide limiter: every service shares it, so 8 req/s holds for ALL jobs."""
+    with _SHARED_LOCK:
+        return _SHARED.setdefault("limiter", RateLimiter())
+
+
+def shared_breaker() -> CircuitBreaker:
+    with _SHARED_LOCK:
+        return _SHARED.setdefault("breaker", CircuitBreaker())
+
+
+class JobService:
+    """Background-job plumbing shared by the EO services: a result cache, single-flight,
+    a bounded queue, negative caching, and the limiter / breaker / budget guards.
+
+    A subclass decides what a key means and what work a key needs; this class only
+    runs ``work(api)`` in the pool and caches ``{"status": "ready", "data": ...}``
+    (until ``valid_until``) or ``{"status": "unavailable", "reason": ...}`` (for
+    NEGATIVE_TTL_S). Nothing here ever waits for a job.
+    """
+
+    thread_prefix = "eo-job"
 
     def __init__(self, fetch: Fetch = http_get, *, limiter: RateLimiter | None = None,
                  breaker: CircuitBreaker | None = None, max_jobs: int = 2, max_queued: int = 20,
                  workers: int = WORKERS, job_budget: int = JOB_BUDGET, executor=None,
                  clock=time.time, sleep=time.sleep):
         self._fetch = fetch
-        self._limiter = limiter or RateLimiter()
-        self._breaker = breaker or CircuitBreaker()
+        self._limiter = limiter or shared_limiter()
+        self._breaker = breaker or shared_breaker()
         self._workers, self._job_budget, self._max_queued = workers, job_budget, max_queued
         self._clock, self._sleep = clock, sleep
-        self._executor = executor or ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix="near-eo")
+        self._executor = executor or ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix=self.thread_prefix)
         self._lock = threading.Lock()
         self._cache: dict[Any, tuple[float, dict[str, Any]]] = {}
         self._inflight: set[Any] = set()
 
-    def status(self, season: str, gw: int, entry_id: int, *, valid_until: float | None = None) -> dict[str, Any]:
-        key = (season, gw, entry_id)
+    def _peek(self, key: Any) -> dict[str, Any] | None:
+        """A cached, unexpired result for *key*, or None."""
         with self._lock:
             hit = self._cache.get(key)
             if hit and hit[0] > self._clock():
                 return hit[1]
             if hit:
                 del self._cache[key]
+            return None
+
+    def _claim(self, key: Any) -> bool:
+        """Mark *key* in flight; False if it already is (single-flight)."""
+        with self._lock:
+            if key in self._inflight:
+                return False
+            self._inflight.add(key)
+            return True
+
+    def _store(self, key: Any, result: dict[str, Any], expires: float) -> None:
+        with self._lock:
+            self._cache[key] = (expires, result)
+
+    def _release(self, key: Any) -> None:
+        with self._lock:
+            self._inflight.discard(key)
+
+    def _outcome(self, work, valid_until: float | None, ttl: float = DEFAULT_TTL_S) -> tuple[dict[str, Any], float]:
+        """Run *work(api)*; the cache entry and its expiry. Never raises."""
+        api = _Api(self._fetch, self._limiter, self._breaker, self._job_budget, self._sleep)
+        try:
+            data = work(api)
+            return {"status": "ready", "data": data}, (valid_until if valid_until is not None else self._clock() + ttl)
+        except Unavailable as exc:
+            return {"status": "unavailable", "reason": exc.reason}, self._clock() + NEGATIVE_TTL_S
+        except Exception:  # noqa: BLE001  (a bug must not kill the worker or leave the key stuck)
+            return {"status": "unavailable", "reason": "error"}, self._clock() + NEGATIVE_TTL_S
+
+    def _lookup_or_start(self, key: Any, work, valid_until: float | None, *, ttl: float = DEFAULT_TTL_S) -> dict[str, Any]:
+        """The cached result, ``computing`` (job running or just started), or ``busy``."""
+        hit = self._peek(key)
+        if hit is not None:
+            return hit
+        with self._lock:
             if key in self._inflight:
                 return {"status": "computing", "eta_s": ETA_S}
             if len(self._inflight) >= self._max_queued:
                 return {"status": "unavailable", "reason": "busy"}
             self._inflight.add(key)
-        self._executor.submit(self._run, key, valid_until)
+        self._executor.submit(self._run, key, work, valid_until, ttl)
         return {"status": "computing", "eta_s": ETA_S}
 
-    def _run(self, key: Any, valid_until: float | None) -> None:
-        season, gw, entry_id = key
-        api = _Api(self._fetch, self._limiter, self._breaker, self._job_budget, self._sleep)
-        try:
-            data = compute_near_rank_eo(entry_id, season, gw, api, workers=self._workers)
-            result = {"status": "ready", "data": data}
-            expires = valid_until if valid_until is not None else self._clock() + DEFAULT_TTL_S
-        except Unavailable as exc:
-            result = {"status": "unavailable", "reason": exc.reason}
-            expires = self._clock() + NEGATIVE_TTL_S
-        except Exception:  # noqa: BLE001  (a bug must not kill the worker or leave the key stuck)
-            result = {"status": "unavailable", "reason": "error"}
-            expires = self._clock() + NEGATIVE_TTL_S
+    def _run(self, key: Any, work, valid_until: float | None, ttl: float) -> None:
+        result, expires = self._outcome(work, valid_until, ttl)
         with self._lock:
             self._cache[key] = (expires, result)
             self._inflight.discard(key)
+
+
+class NearRankEOService(JobService):
+    """``status(season, gw, entry_id)`` -> ready | computing | unavailable, starting a job when needed."""
+
+    thread_prefix = "near-eo"
+
+    def status(self, season: str, gw: int, entry_id: int, *, valid_until: float | None = None) -> dict[str, Any]:
+        def work(api: _Api) -> dict[str, Any]:
+            return compute_near_rank_eo(entry_id, season, gw, api, workers=self._workers)
+
+        return self._lookup_or_start((season, gw, entry_id), work, valid_until)
