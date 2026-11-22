@@ -197,3 +197,44 @@ def test_tied_ranks_on_a_page_do_not_break_the_stride(tmp_path):
     picks = [u for u in api.urls if "/picks/" in u]
     entries = sorted(int(u.split("/entry/")[1].split("/")[0]) for u in picks)
     assert entries == [1000 + r for r in eo.sample_ranks()]  # exactly every 5th position
+
+
+# -- top100k ---------------------------------------------------------------------------
+
+def test_top100k_sample_is_two_entries_on_every_second_page():
+    ranks = eo.sample_ranks("top100k")
+    assert len(ranks) == 2000 and len(set(ranks)) == 2000
+    pages = sorted({eo.standings_page_for_rank(r) for r in ranks})
+    assert pages == list(range(1, 2000, 2)) and len(pages) == 1000
+    assert ranks[:4] == [13, 38, 113, 138] and ranks[-1] == 1999 * 50 - 50 + 38
+    assert max(ranks) <= 100_000
+    assert eo.sample_ranks("top10k")[0] == 5  # the default tier is unchanged
+    with pytest.raises(ValueError):
+        eo.sample_ranks("top1m")
+
+
+def test_top100k_run_publishes_to_its_own_key_in_3000_requests(tmp_path):
+    api = FakeApi()
+    storage = eo.LocalStorage(tmp_path)
+    c = client(api)
+    assert eo.run(season="s", gw=12, storage=storage, client=c, tier="top100k", now=NOW, log=QUIET) == 0
+    out = storage.get("eo/s/gw12/top100k.json")
+    assert out["tier"] == "top100k" and out["n_sampled"] == 2000 and out["split_half"]["ok"] is True
+    assert "2nd standings page" in out["sampling"]["ranks"]
+    assert storage.get("eo/s/gw12/top10k.json") is None
+    assert sum("standings" in u for u in api.urls) == 1000 and sum("/picks/" in u for u in api.urls) == 2000
+    assert c.requests == 3000 < eo.REQUEST_BUDGET
+    entries = sorted(int(u.split("/entry/")[1].split("/")[0]) for u in api.urls if "/picks/" in u)
+    assert entries == [1000 + r for r in eo.sample_ranks("top100k")]
+
+
+def test_top100k_checkpoints_while_running_and_resumes(tmp_path):
+    storage = eo.LocalStorage(tmp_path)
+    assert eo.run(season="s", gw=12, storage=storage, client=client(FakeApi(), budget=900), tier="top100k",
+                  now=NOW, log=QUIET) == 2
+    saved = storage.get("eo/s/gw12/_checkpoint_top100k.json")
+    assert 0 < len(saved["samples"]) < 2000
+    assert storage.get("eo/s/gw12/_checkpoint_top10k.json") is None  # tiers never share a checkpoint
+    api = FakeApi()
+    assert eo.run(season="s", gw=12, storage=storage, client=client(api), tier="top100k", now=NOW, log=QUIET) == 0
+    assert sum("/picks/" in u for u in api.urls) == 2000 - len(saved["samples"])
