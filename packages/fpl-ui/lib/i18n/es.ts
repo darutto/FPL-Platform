@@ -200,6 +200,7 @@ export const es = {
   'wizard.compareStep2': '¿Contra quién lo comparamos?',
   'wizard.pickOne': '¿Cuál de estos jugadores buscabas?',
   'wizard.pickLeague': '¿De cuál de tus ligas?',
+  'wizard.pickPlan': 'Plan',
   'wizard.firstPlayer': 'Primer jugador:',
   'wizard.notFound': '¿No está tu jugador? Escríbelo abajo.',
 

@@ -1606,19 +1606,19 @@ def _plan_to_sign_chips(
     """
     if tool_name != "plan_to_sign":
         return None
-    from .suggestions import KIND_PROMPT_REWRITE, Suggestion, suggestions_to_list  # noqa: PLC0415
+    from .suggestions import KIND_PLAN_OPTION, Suggestion, suggestions_to_list  # noqa: PLC0415
 
     if raw_output.get("stage") == "plan":
         from .plan_card import option_chips  # noqa: PLC0415
 
         return suggestions_to_list(tuple(
-            Suggestion(label=c["label"], send_text=c["send_text"], kind=KIND_PROMPT_REWRITE)
+            Suggestion(label=c["label"], send_text=c["send_text"], kind=KIND_PLAN_OPTION)
             for c in option_chips(raw_output, locale)
         ) or None)
     if raw_output.get("stage") != "choose_moves":
         return None
     return suggestions_to_list(tuple(
-        Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PROMPT_REWRITE)
+        Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PLAN_OPTION)
         for o in raw_output.get("move_options") or []
         if o.get("label") and o.get("send_text")
     ) or None)

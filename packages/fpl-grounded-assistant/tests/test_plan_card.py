@@ -244,7 +244,7 @@ def test_a_plan_turn_carries_a_card_and_option_chips_and_a_tap_answers_without_t
     plan = post(hits_chip["send_text"], locale)
     assert plan["generic_card"] is not None and plan["generic_card"]["rows"]
     chips = plan["suggestions"]
-    assert chips and all(c["kind"] == "prompt_rewrite" for c in chips)
+    assert chips and all(c["kind"] == "plan_option" for c in chips)
     asked = len(script.calls)
 
     tapped = post(chips[0]["send_text"], locale, plan_state=plan["plan_state"])

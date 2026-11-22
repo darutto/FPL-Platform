@@ -225,13 +225,13 @@ def test_the_card_says_prices_are_current_unless_the_user_gave_numbers(run):
     assert "current prices" not in mine and "numbers you gave" in mine
 
 
-def test_chip_step_chips_are_prompt_rewrites():
+def test_chip_step_chips_are_plan_options():
     from fpl_grounded_assistant.harness import _plan_to_sign_chips
 
     raw = {"stage": "choose_moves", "move_options": [{"label": "1 transfer", "send_text": "q 1"}, {"label": "Use hits", "send_text": "q h"}]}
     chips = _plan_to_sign_chips("plan_to_sign", raw)
     assert [c["label"] for c in chips] == ["1 transfer", "Use hits"]
-    assert all(c["kind"] == "prompt_rewrite" for c in chips)
+    assert all(c["kind"] == "plan_option" for c in chips)
     assert _plan_to_sign_chips("plan_to_sign", {"stage": "plan"}) is None
     assert _plan_to_sign_chips("get_my_squad", raw) is None
 

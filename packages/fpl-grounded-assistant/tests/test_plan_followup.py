@@ -207,7 +207,7 @@ def test_the_three_lines_that_opened_the_track(chat, locale):
     assert first["outcome"] == "ok" and "N.Jackson" in first["final_text"]
     assert first["plan_state"] is None  # still choosing: nothing to follow up on
     chips = first["suggestions"]
-    assert [c["kind"] for c in chips] == ["prompt_rewrite", "prompt_rewrite"]  # free count unknown: 1 transfer, hits
+    assert [c["kind"] for c in chips] == ["plan_option", "plan_option"]  # free count unknown: 1 transfer, hits
 
     # 2. "n. jackson" is the same player and the same step.
     second = post(line2, locale)
