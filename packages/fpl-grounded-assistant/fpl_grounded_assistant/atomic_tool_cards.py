@@ -699,7 +699,7 @@ def _eo_card(raw_output: dict[str, Any], locale: Locale, *, title: str, label: s
         return out
 
     if raw_output.get("squad_compared"):
-        rows = rows_for(risk_key, raw_output.get("risks"), True) + \
+        rows = rows_for(risk_key, raw_output.get("group_has"), True) + \
             rows_for("league_eo.group.diff", raw_output.get("differentials"), False)
     else:
         rows = rows_for(top_key, (raw_output.get("top_players") or [])[:5], True)

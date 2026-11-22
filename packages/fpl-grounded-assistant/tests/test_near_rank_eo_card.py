@@ -54,10 +54,10 @@ def test_the_comparison_is_the_one_the_league_tool_uses():
     assert (tool.RISK_MIN_OWNED_PCT, tool.DIFFERENTIAL_MAX_OWNED_PCT) == (50.0, 20.0)
 
 
-def test_the_near_result_carries_risks_and_differentials_against_the_squad():
+def test_the_near_result_carries_group_has_and_differentials_against_the_squad():
     out = shaped()
     assert out["squad_compared"] is True and out["tier"] == "near" and out["label"] == "approx., n=125"
-    assert [r["player"] for r in out["risks"]] == ["P2", "P3"]       # owned by >= 50 % of those near, not by the user
+    assert [r["player"] for r in out["group_has"]] == ["P2", "P3"]       # owned by >= 50 % of those near, not by the user
     assert [r["player"] for r in out["differentials"]] == ["P11", "P7"]  # the user's own, rare among them
 
 

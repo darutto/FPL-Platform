@@ -100,11 +100,27 @@ DIFFERENTIAL_MAX_OWNED_PCT = 20.0
 GROUP_SIZE = 5
 
 
+#: Words the answer must never use for these two groups (the product frames everything as opportunity).
+THREAT_WORDS = ("amenaza", "peligro", "riesgo", "threat", "danger", "risk")
+
+
+def wording_note(has_him_en: str, has_him_es: str) -> str:
+    """The model's wording rules for the two groups, shared by the league and near-rank tools."""
+    return (
+        f"`group_has` lists the players most of the group owns that the user does not: name that group "
+        f"\"{has_him_en}\" (ES: «{has_him_es}») and frame each as a chance to cover him (\"Cover Haaland\" / "
+        f"«Cubrirte con Haaland»). `differentials` are the user's own players the group mostly does not own: "
+        f"name that group \"Your differential\" (ES: «Tu diferencial»). Present both as opportunities, never "
+        f"as orders. NEVER use threat words: {', '.join(THREAT_WORDS)} (nor hurts/daño). "
+        f"Never write the field names `group_has` or `differentials` in the answer."
+    )
+
+
 def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any] | None,
                      by_id: dict[str, dict[str, Any]], teams: dict[int, str]) -> dict[str, Any]:
     """A group's EO (a league's, or the managers near the user's rank) against the user's own 15, as two short opportunity lists.
 
-    ``risks``: players most of the group owns that the user does not (the ones to cover), highest EO
+    ``group_has``: players most of the group owns that the user does not (the ones to cover), highest EO
     first. ``differentials``: the user's own players the group mostly does not own, rarest first.
     Both at most ``GROUP_SIZE``. Without a squad the comparison is simply absent.
     """
@@ -118,7 +134,7 @@ def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any]
                       key=lambda i: (players.get(i, zero)["owned_pct"], int(i)))[:GROUP_SIZE]
     return {
         "squad_compared": True,
-        "risks": [_row(i, players[i], by_id, teams) for i in risk_ids],
+        "group_has": [_row(i, players[i], by_id, teams) for i in risk_ids],
         "differentials": [_row(i, players.get(i, zero), by_id, teams) for i in diff_ids],
     }
 
@@ -148,8 +164,7 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
         **squad_comparison(players, squad, by_id, teams),
         "note": ("EO = how many copies of the player the managers around the user's rank hold, "
                  "counting captains double; a sample, so read it as approximate. "
-                 "`risks` are players most of those managers own that the user does not; `differentials` are the "
-                 "user's own players they mostly do not own: present both as opportunities, never as orders."),
+                 + wording_note("Near you has him", "Cerca de ti lo tienen")),
     }
 
 
@@ -187,7 +202,7 @@ NEAR_RANK_EO_SPEC = ToolSpec(
     description=(
         "Effective ownership (EO) among the managers around the connected user's own overall rank "
         "(about 125 sampled): top-EO players plus any named players, with ownership and captaincy %. "
-        "Use for 'what do managers near me own', 'who hurts me if he hauls', 'EO of X near my rank'. "
+        "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank'. "
         "It is approximate (a sample). status='computing' means the job just started: tell the user "
         "plainly it is not ready and to ask again in about 30 seconds; never invent numbers. "
         "status='no_team_connected' when no team is linked."
