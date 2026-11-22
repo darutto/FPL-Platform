@@ -274,3 +274,106 @@ def test_r2_run_log_says_published():
     assert eo.run(season="s", gw=12, storage=eo.R2Storage(client=S3(), bucket="b", prefix=""),
                   client=client(FakeApi()), now=NOW, log=lines.append) == 0
     assert lines[-1].startswith("published eo/s/gw12/top10k.json to R2")
+
+
+# -- the schedule gate ---------------------------------------------------------------------------------
+
+SEASON = "2026-2027"
+EV = BOOT["events"]  # deadlines: gw11 Nov 1, gw12 Nov 20, gw13 Dec 1 (all 2026)
+
+
+def keys(*tiers, gw=12):
+    return {eo.output_key(SEASON, gw, t) for t in tiers}
+
+
+def test_gate_picks_the_latest_settled_gw_and_every_missing_tier_in_order():
+    g = eo.gate(EV, SEASON, set(), NOW)
+    assert g == {"gw": 12, "reason": "ok", "tiers": ["top10k", "top100k"]}
+
+
+def test_gate_skips_published_tiers_and_does_nothing_when_all_exist():
+    assert eo.gate(EV, SEASON, keys("top10k"), NOW)["tiers"] == ["top100k"]
+    assert eo.gate(EV, SEASON, keys("top100k"), NOW)["tiers"] == ["top10k"]
+    assert eo.gate(EV, SEASON, keys("top10k", "top100k"), NOW)["tiers"] == []
+
+
+def test_gate_ignores_other_gameweeks_and_checkpoints():
+    other = keys("top10k", "top100k", gw=11) | {eo.checkpoint_key(SEASON, 12, "top10k")}
+    assert eo.gate(EV, SEASON, other, NOW)["tiers"] == ["top10k", "top100k"]
+
+
+def test_gate_waits_thirty_minutes_after_the_deadline():
+    deadline = datetime(2026, 11, 20, 10, 0, tzinfo=timezone.utc)
+    just_after = deadline.replace(minute=29)
+    assert eo.latest_settled_gw(EV, SEASON, just_after) == (11, "ok")
+    assert eo.latest_settled_gw(EV, SEASON, deadline.replace(minute=30)) == (12, "ok")
+
+
+def test_gate_has_nothing_before_the_first_deadline_or_without_events():
+    early = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    assert eo.gate(EV, SEASON, set(), early) == {"gw": None, "reason": "no_settled_gw", "tiers": []}
+    assert eo.gate([], SEASON, set(), NOW)["tiers"] == []
+    assert eo.gate([{"id": 1}], SEASON, set(), NOW)["reason"] == "no_events"
+
+
+def test_gate_refuses_last_seasons_events_under_a_new_season_key():
+    old = [{"id": 38, "deadline_time": "2026-05-10T10:00:00Z"}, {"id": 1, "deadline_time": "2025-08-15T17:30:00Z"}]
+    assert eo.gate(old, SEASON, set(), NOW) == {"gw": None, "reason": "season_mismatch", "tiers": []}
+    assert eo.gate(EV, "", set(), NOW)["reason"] == "season_mismatch"
+
+
+def test_scheduled_run_publishes_both_tiers_in_order_then_does_nothing(tmp_path):
+    lines: list[str] = []
+    storage = eo.LocalStorage(tmp_path)
+    api = FakeApi()
+    assert eo.run_scheduled(season=SEASON, gw=12, storage=storage, make_client=lambda: client(api), now=NOW,
+                            log=lines.append) == 0
+    assert storage.get(eo.output_key(SEASON, 12, "top10k")) and storage.get(eo.output_key(SEASON, 12, "top100k"))
+    assert [l for l in lines if l.startswith("tier ")] == ["tier top10k: exit 0", "tier top100k: exit 0"]
+    n = len(api.urls)
+    lines.clear()
+    assert eo.run_scheduled(season=SEASON, gw=12, storage=storage, make_client=lambda: client(api), now=NOW,
+                            log=lines.append) == 0
+    assert len(api.urls) == n and "nothing to do" in lines[-1]
+
+
+def test_scheduled_run_only_runs_the_missing_tier(tmp_path):
+    storage = eo.LocalStorage(tmp_path)
+    storage.put(eo.output_key(SEASON, 12, "top10k"), {"done": True})
+    api = FakeApi()
+    assert eo.run_scheduled(season=SEASON, gw=12, storage=storage, make_client=lambda: client(api), now=NOW,
+                            log=QUIET) == 0
+    assert storage.get(eo.output_key(SEASON, 12, "top10k")) == {"done": True}
+    assert storage.get(eo.output_key(SEASON, 12, "top100k"))
+
+
+def test_a_failing_tier_fails_the_job_publishes_nothing_for_it_and_does_not_stop_the_next(tmp_path):
+    class MissingPicks(FakeApi):  # 404 at once (a 500 would be retried and spend the budget)
+        def __call__(self, url):
+            if "/picks/" in url and int(url.split("/entry/")[1].split("/")[0]) - 1000 in set(eo.sample_ranks("top10k")):
+                self.urls.append(url)
+                return 404, None, {}
+            return super().__call__(url)
+
+    storage = eo.LocalStorage(tmp_path)
+    api = MissingPicks()
+    code = eo.run_scheduled(season=SEASON, gw=12, storage=storage, make_client=lambda: client(api), now=NOW,
+                            log=QUIET)
+    assert code == 1
+    assert storage.get(eo.output_key(SEASON, 12, "top10k")) is None
+    assert storage.get(eo.output_key(SEASON, 12, "top100k")) is not None
+
+
+def test_a_cancelled_scheduled_run_resumes_from_its_checkpoint(tmp_path):
+    storage = eo.LocalStorage(tmp_path)
+    api = FakeApi()
+    first = eo.run_scheduled(season=SEASON, gw=12, storage=storage,
+                             make_client=lambda: client(api, budget=300), now=NOW, log=QUIET)
+    assert first == 2 and storage.get(eo.checkpoint_key(SEASON, 12, "top10k"))
+    resumed = FakeApi()
+    assert eo.run_scheduled(season=SEASON, gw=12, storage=storage, make_client=lambda: client(resumed), now=NOW,
+                            log=QUIET) == 0
+    fresh = FakeApi()
+    eo.run_scheduled(season=SEASON, gw=12, storage=eo.LocalStorage(tmp_path / "fresh"),
+                     make_client=lambda: client(fresh), now=NOW, log=QUIET)
+    assert len(resumed.urls) < len(fresh.urls)  # the requests of the cancelled run were not repeated

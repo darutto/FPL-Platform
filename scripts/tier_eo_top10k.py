@@ -25,7 +25,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -51,6 +51,7 @@ MIN_SUCCESS_FRACTION = 0.90    # below this the tier is "partial" and not publis
 SPLIT_HALF_TOP_PLAYERS = 15
 SPLIT_HALF_TOLERANCE = 10.0    # percentage points of EO between the two halves
 SPLIT_HALF_SEED = 20260101
+SETTLE = timedelta(minutes=30)  # scheduled runs wait this long after a deadline before reading picks
 
 Fetch = Callable[[str], tuple[int | None, Any, dict[str, str]]]
 
@@ -386,6 +387,75 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client, tier: 
     return 0
 
 
+# -- The schedule gate ---------------------------------------------------------------------
+
+def season_start_year(season: str) -> int | None:
+    """2026 for the registry key "2026-2027"."""
+    head = (season or "").strip()[:4]
+    return int(head) if head.isdigit() else None
+
+
+def latest_settled_gw(events: list[dict[str, Any]], season: str, now: datetime) -> tuple[int | None, str]:
+    """(gw, reason): the latest gameweek whose deadline passed at least SETTLE ago, or (None, why not).
+
+    Picks are fixed at the deadline (multipliers, captain, chip), and the picks endpoint serves them from
+    then on, so the deadline is the flag that matters. ``data_checked`` / ``finished`` describe the POINTS
+    (they flip days later) and would make the EO arrive after the gameweek is over. SETTLE only absorbs the
+    minutes FPL needs to start serving picks; if it is not enough the run fails on coverage and the next
+    cron retries. The season guard keeps last season's final gameweek from being filed under a new season
+    key while the API has not rolled over yet.
+    """
+    dated = []
+    for event in events or []:
+        raw = event.get("deadline_time")
+        if raw:
+            dated.append((event["id"], datetime.fromisoformat(raw.replace("Z", "+00:00"))))
+    if not dated:
+        return None, "no_events"
+    start = season_start_year(season)
+    first_deadline = min(d for _, d in dated)
+    if start is None or first_deadline.year != start:
+        return None, "season_mismatch"
+    settled = [gw for gw, d in dated if d + SETTLE <= now]
+    return (max(settled), "ok") if settled else (None, "no_settled_gw")
+
+
+def tiers_to_run(gw: int | None, season: str, existing: set[str]) -> list[str]:
+    """The tiers (in run order: top10k, then top100k) whose output is not in *existing* yet."""
+    if gw is None:
+        return []
+    return [t for t in TIERS if output_key(season, gw, t) not in existing]
+
+
+def gate(events: list[dict[str, Any]], season: str, existing: set[str], now: datetime) -> dict[str, Any]:
+    """Bootstrap events + the output keys already published -> what a scheduled run should do."""
+    gw, reason = latest_settled_gw(events, season, now)
+    return {"gw": gw, "reason": reason, "tiers": tiers_to_run(gw, season, existing)}
+
+
+def run_scheduled(*, season: str, gw: int, storage: Storage, make_client: Callable[[], Client],
+                  max_seconds: float = 2400.0, log=print, now: datetime | None = None) -> int:
+    """Run the tiers missing for *gw*, top10k first and top100k after, one at a time.
+
+    0 when nothing was missing or every missing tier published; otherwise the worst code of the tiers
+    that did not (1 failed, 2 out of budget with a checkpoint saved), so the job fails visibly and the
+    next cron resumes. A failing tier does not stop the next one.
+    """
+    existing = {output_key(season, gw, t) for t in TIERS if storage.get(output_key(season, gw, t))}
+    todo = tiers_to_run(gw, season, existing)
+    if not todo:
+        log(f"season={season} gw={gw}: every tier already published; nothing to do")
+        return 0
+    log(f"season={season} gw={gw}: running {', '.join(todo)}")
+    worst = 0
+    for tier in todo:
+        code = run(season=season, gw=gw, storage=storage, client=make_client(), tier=tier,
+                   max_seconds=max_seconds, log=log, now=now)
+        log(f"tier {tier}: exit {code}")
+        worst = max(worst, code)
+    return worst
+
+
 REGISTRY = Path(__file__).resolve().parents[1] / "packages" / "fpl-data-core" / "season_registry.yaml"
 
 
@@ -414,13 +484,32 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--publish", choices=["none", "r2"], default="none",
                     help="none = dry run into --out-dir (default); r2 = write to R2 under eo/")
     ap.add_argument("--out-dir", default="eo_out")
+    ap.add_argument("--gate-gw", action="store_true",
+                    help="print the latest settled gameweek (empty when none) and exit; no storage, no secrets")
+    ap.add_argument("--scheduled", action="store_true",
+                    help="run every tier still missing for --gw (top10k, then top100k)")
     ap.add_argument("--max-seconds", type=float, default=2400.0)
     args = ap.parse_args(argv)
     season = (args.season or "").strip() or resolve_current_season()
     if args.print_season:
         print(season)
         return 0
+    if args.gate_gw:
+        bootstrap = Client().get(f"{BASE}/bootstrap-static/")
+        if not bootstrap:
+            print("bootstrap unavailable", file=sys.stderr)
+            return 1
+        gw, reason = latest_settled_gw(bootstrap.get("events") or [], season, datetime.now(timezone.utc))
+        print(f"gate: {reason}", file=sys.stderr)
+        print(gw if gw is not None else "")
+        return 0
     storage: Storage = R2Storage() if args.publish == "r2" else LocalStorage(Path(args.out_dir))
+    if args.scheduled:
+        if args.gw is None:
+            print("--scheduled needs --gw (from --gate-gw)", file=sys.stderr)
+            return 1
+        return run_scheduled(season=season, gw=args.gw, storage=storage, make_client=Client,
+                             max_seconds=args.max_seconds)
     return run(season=season, gw=args.gw, storage=storage, client=Client(), tier=args.tier,
                max_seconds=args.max_seconds)
 
