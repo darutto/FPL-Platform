@@ -48,6 +48,7 @@ import CommandPanel from './CommandPanel';
 import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
+import { readMainLeagueId, writeMainLeagueId } from '@/lib/main-league';
 
 // Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands (labels: pager.* in the dictionary).
 const CHAT_SCREEN = 2;
@@ -95,12 +96,22 @@ export default function ChatShell() {
   const [insert, setInsert] = useState<InsertRequest | null>(null);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
+  // The user's main mini-league (EO of "my league"): a per-browser preference kept next to the
+  // team id. Read after mount (SSR-safe), sent every turn, dropped when the team is disconnected.
+  const [mainLeagueId, setMainLeagueId] = useState<number | null>(null);
+  useEffect(() => {
+    setMainLeagueId(readMainLeagueId());
+  }, []);
   const [gw, setGw] = useState<number | null>(null);
 
   const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
     setTeamId(id);
     setTeamName(name);
-    if (id == null) setGw(null);
+    if (id == null) {
+      setGw(null);
+      setMainLeagueId(null);
+      writeMainLeagueId(null);
+    }
   }, []);
 
   // Drop text into the chat input and snap back to the chat screen.
@@ -211,6 +222,8 @@ export default function ChatShell() {
         squad_context: squadContext ?? null,
         // team_id enables get_my_squad server-side (i39); null when no team connected
         team_id: teamId ?? null,
+        // main_league_id enables get_league_eo server-side; only meaningful with a team, so null without one
+        main_league_id: teamId != null ? (mainLeagueId ?? null) : null,
         // plan_to_sign follow-up: the previous answer's plan state, this turn only (lib/plan-state.ts).
         ...(planState ? { plan_state: planState } : {}),
         // Explicit opt-in only — never silent. Gated by tier eligibility so
@@ -334,7 +347,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId, compareCommand, t]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId, mainLeagueId, compareCommand, t]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical
