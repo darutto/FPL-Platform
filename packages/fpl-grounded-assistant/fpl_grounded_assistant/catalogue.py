@@ -1086,6 +1086,10 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "{name} is a top player: selling him is the only way to fund {target}.",
         "es": "{name} es top: su venta es la única forma de pagar a {target}.",
     },
+    "plan_to_sign.concl_every_way": {
+        "en": "Every way to fund {target} sells a top player.",
+        "es": "Toda forma de pagar a {target} pasa por vender a un top.",
+    },
     "plan_to_sign.concl_out": {
         "en": "{name}: FPL lists him as out.", "es": "{name}: FPL lo da como baja.",
     },

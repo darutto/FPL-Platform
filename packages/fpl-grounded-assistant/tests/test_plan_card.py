@@ -48,6 +48,27 @@ def test_only_way_names_the_top_and_the_target():
     assert plan_conclusions(raw, "es") == ["Isak es top: su venta es la única forma de pagar a N.Jackson."]
 
 
+def test_only_way_is_said_per_player_only_when_every_option_sells_that_player():
+    isak = {"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}
+    other = {**_option("Haaland"), "tops_sold": [{"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}]}
+    raw = _raw(_option("Isak", tops=[isak]), other)
+    assert plan_conclusions(raw, "en") == ["Isak is a top player: selling him is the only way to fund N.Jackson."]
+
+
+def test_when_every_option_sells_some_top_but_not_the_same_one_there_is_one_general_line():
+    isak = {"id": 13, "web_name": "Isak", "reasons": ["price"], "why": "only_way"}
+    haaland = {"id": 14, "web_name": "Haaland", "reasons": ["price"], "why": "only_way"}
+    raw = _raw(_option("Isak", tops=[isak]), _option("Haaland", tops=[haaland]))
+    assert plan_conclusions(raw, "en") == ["Every way to fund N.Jackson sells a top player."]
+    assert plan_conclusions(raw, "es") == ["Toda forma de pagar a N.Jackson pasa por vender a un top."]
+    both = _option("Isak", tops=[isak, haaland], moves=2)
+    # Haaland is in every option, so he really is the only way; Isak is not. One general line, one per-player line.
+    assert plan_conclusions(_raw(both, _option("Haaland", tops=[haaland])), "en") == [
+        "Every way to fund N.Jackson sells a top player.",
+        "Haaland is a top player: selling him is the only way to fund N.Jackson.",
+    ]
+
+
 def test_an_out_top_says_what_fpl_says():
     top = [{"id": 13, "web_name": "Semenyo", "reasons": ["price"], "why": "unavailable"}]
     sold = [{"id": 13, "web_name": "Semenyo", "hard_fixtures": 0, "availability": "unavailable", "set_pieces": 0}]
@@ -130,7 +151,7 @@ def test_the_card_carries_the_swaps_the_leftover_money_and_the_conclusions():
     assert card.rows == (("Isak · C2", "N.Jackson · C3", "8.0 → 7.0"),)
     assert all(len(row) == len(card.columns) for row in card.rows)
     lines = card.footer.split("\n")
-    assert lines[0].startswith("Isak is a top player") and lines[-1].startswith("Current prices")
+    assert lines[0].startswith("Isak is a top player") and lines[-1].startswith("Current prices")  # one option: his alone
 
 
 def test_spanish_card_uses_te_sobran_and_dot_decimals():

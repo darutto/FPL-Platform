@@ -6,8 +6,9 @@ Pure wording over the tool's own output: every number and every reason was decid
 At most :data:`MAX_CONCLUSIONS` short lines, first rule wins:
 
 1. the move choice gave no better plan (hits or free transfers, yet the best plan is one move);
-2. why each top goes: the only way to fund the target, FPL says he is out / the chance he plays, or the
-   short recent-against-season comparison of a decline;
+2. why each top goes: the only way to fund the target (only when EVERY option sells that same player; when
+   every option sells some top but not the same one, a single "every way ... sells a top player" line),
+   FPL says he is out / the chance he plays, or the short recent-against-season comparison of a decline;
 3. a sold player who is out or doubtful (a non-top);
 4. a sold player with a hard run (3+ hard fixtures in the next 5);
 5. a sold player with few starts this season (never "rotating": the figure is season-long).
@@ -64,11 +65,16 @@ def plan_conclusions(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
         lines.append(t("plan_to_sign.concl_hits_no_better" if moves == "hits" else "plan_to_sign.concl_free_no_better", locale))
 
     explained: set[int] = set()
+    every_way = False
     for top in option.get("tops_sold") or []:
         why, pid = top.get("why"), top.get("id")
         sold = next((s for s in option.get("sold") or [] if s["id"] == pid), {})
         if why == "only_way":
-            lines.append(t("plan_to_sign.concl_only_way", locale, name=top["web_name"], target=target))
+            if all(any(other.get("id") == pid for other in o.get("tops_sold") or []) for o in options):
+                lines.append(t("plan_to_sign.concl_only_way", locale, name=top["web_name"], target=target))
+            elif not every_way:  # every option sells a top, but not the same one: one line, not one per top
+                lines.append(t("plan_to_sign.concl_every_way", locale, target=target))
+                every_way = True
         elif why == "unavailable":
             line = _availability_line(option, sold, locale)
             if line:
