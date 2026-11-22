@@ -2037,6 +2037,9 @@ def _render_plan_to_sign(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
         lines.append(t("plan_to_sign.infeasible", locale, moves=output.get("max_moves"), name=name))
         return "\n".join(lines)
 
+    from .plan_card import hero_index, plan_conclusions  # noqa: PLC0415
+
+    hero = hero_index(output)
     for index, option in enumerate(output.get("options") or [], start=1):
         assumed = t("plan_to_sign.hit_assumed", locale) if option.get("hit_cost") and option.get("hit_basis") == "assumed_one_free" else ""
         lines.append(t(
@@ -2052,8 +2055,8 @@ def _render_plan_to_sign(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
                 out_price=out["price"], status=flag, inn=inn["web_name"], in_team=inn["team_short"],
                 in_price=inn["price"],
             ))
-        if option.get("unavailable_sold"):
-            lines.append(t("plan_to_sign.unavailable_note", locale, names=", ".join(option["unavailable_sold"])))
+        if index - 1 == hero:
+            lines.extend(f"  → {line}" for line in plan_conclusions(output, locale))
     lines.append(
         t("plan_to_sign.user_numbers", locale) if output.get("price_basis") == "user"
         else t("plan_to_sign.price_caveat", locale)

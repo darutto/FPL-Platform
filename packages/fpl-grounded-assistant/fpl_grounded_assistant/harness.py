@@ -889,13 +889,21 @@ def ask_v2(
         from .plan_followup import (  # noqa: PLC0415
             followup_args as _plan_followup_args,
             is_plan_followup as _is_plan_followup,
+            option_pick as _plan_option_pick,
             sanitize_plan_state as _sanitize_plan_state,
         )
 
-        _plan_state_in = _sanitize_plan_state(actual_bootstrap["_plan_state"]) if _is_plan_followup(question) else None
+        _plan_pick = _plan_option_pick(question)
+        _plan_state_in = (
+            _sanitize_plan_state(actual_bootstrap["_plan_state"])
+            if _plan_pick is not None or _is_plan_followup(question)
+            else None
+        )
         if _plan_state_in is not None:
-            _plan_args = _plan_followup_args(_plan_state_in)
+            _plan_args = _plan_followup_args(_plan_state_in, keep_shown=_plan_pick is not None)
             _plan_raw = run_tool("plan_to_sign", _plan_args, actual_bootstrap)
+            if _plan_pick is not None:
+                _plan_raw["focus"] = _plan_pick  # the card is about the option the user tapped
             _plan_outcome = _outcome_from_status(_plan_raw)
             routing_trace = {
                 "branch": "route",
@@ -924,6 +932,15 @@ def ask_v2(
                 "routing_trace": routing_trace,
                 **_meta("plan_to_sign", _plan_raw),
             }
+            from .atomic_tool_cards import maybe_atomic_tool_card  # noqa: PLC0415
+
+            if result.get("generic_card") is None:
+                _plan_card = maybe_atomic_tool_card("plan_to_sign", _plan_raw, None, locale)
+                if _plan_card is not None:
+                    result["generic_card"] = _plan_card
+            _plan_chips = _plan_to_sign_chips("plan_to_sign", _plan_raw, locale)
+            if _plan_chips is not None:
+                result["player_suggestions"] = _plan_chips
             if _plan_raw.get("plan_state") is not None:
                 result["plan_state"] = _plan_raw["plan_state"]
             if context_meta is not None:
@@ -1432,7 +1449,7 @@ def ask_v2(
             }
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
             if _chips is None:
-                _chips = _plan_to_sign_chips(orch_result.tool_chosen, _orch_raw)
+                _chips = _plan_to_sign_chips(orch_result.tool_chosen, _orch_raw, locale)
             if _chips is None:
                 _chips = _league_pick_chips(orch_result.tool_chosen, _orch_raw, locale)
             if _chips is not None:
@@ -1546,17 +1563,28 @@ def _suggestions_for_text() -> list[str]:
     return list(list_resources())
 
 
-def _plan_to_sign_chips(tool_name: str | None, raw_output: dict[str, Any]) -> list[dict[str, Any]] | None:
-    """The "how many moves" chips of plan_to_sign, or ``None``.
+def _plan_to_sign_chips(
+    tool_name: str | None, raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE,
+) -> list[dict[str, Any]] | None:
+    """The chips of plan_to_sign, or ``None``.
 
-    The tool owns the options and their wording (``move_options``); this only
-    turns them into self-contained prompt-rewrite chips. The same tap re-asks
-    the question with the choice named, so nothing about it needs an id.
+    ``choose_moves``: the tool owns the options and their wording (``move_options``); this only turns them into
+    self-contained prompt-rewrite chips. ``plan``: one chip per option other than the one the card is about
+    (``plan_card.option_chips``); the tap sends "Show option N", which the follow-up path answers without a model.
     """
-    if tool_name != "plan_to_sign" or raw_output.get("stage") != "choose_moves":
+    if tool_name != "plan_to_sign":
         return None
     from .suggestions import KIND_PROMPT_REWRITE, Suggestion, suggestions_to_list  # noqa: PLC0415
 
+    if raw_output.get("stage") == "plan":
+        from .plan_card import option_chips  # noqa: PLC0415
+
+        return suggestions_to_list(tuple(
+            Suggestion(label=c["label"], send_text=c["send_text"], kind=KIND_PROMPT_REWRITE)
+            for c in option_chips(raw_output, locale)
+        ) or None)
+    if raw_output.get("stage") != "choose_moves":
+        return None
     return suggestions_to_list(tuple(
         Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PROMPT_REWRITE)
         for o in raw_output.get("move_options") or []
