@@ -43,7 +43,8 @@ class FakeApi:
             return 200, BOOT, {}
         if "standings" in url:
             page = int(url.rsplit("=", 1)[1])
-            results = [{"rank": (page - 1) * 50 + i + 1, "entry": 1000 + (page - 1) * 50 + i + 1,
+            # every row's `rank` is tied in pairs (as near 10K); the page order is the true order
+            results = [{"rank": (page - 1) * 50 + (i // 2) * 2 + 1, "entry": 1000 + (page - 1) * 50 + i + 1,
                         "player_name": "Hidden"} for i in range(50)]
             return 200, {"standings": {"results": results}}, {}
         entry = int(url.split("/entry/")[1].split("/")[0])
@@ -186,3 +187,13 @@ def test_r2_storage_without_env_names_fails_by_name_only(monkeypatch):
     with pytest.raises(RuntimeError) as exc:
         eo.R2Storage()
     assert "OWNED_STORE_R2_BUCKET" in str(exc.value)
+
+
+def test_tied_ranks_on_a_page_do_not_break_the_stride(tmp_path):
+    api = FakeApi()
+    storage = eo.LocalStorage(tmp_path)
+    assert eo.run(season="s", gw=12, storage=storage, client=client(api), now=NOW, log=QUIET) == 0
+    assert storage.get("eo/s/gw12/top10k.json")["n_sampled"] == 2000
+    picks = [u for u in api.urls if "/picks/" in u]
+    entries = sorted(int(u.split("/entry/")[1].split("/")[0]) for u in picks)
+    assert entries == [1000 + r for r in eo.sample_ranks()]  # exactly every 5th position

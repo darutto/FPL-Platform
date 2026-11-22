@@ -57,18 +57,27 @@ jobs:
           fi
           echo "season=$KEY" >> "$GITHUB_OUTPUT"
 
-      - name: Sample the top 10K
+      - name: Sample the top 10K (dry run, no credentials in the environment)
+        if: ${{ github.event.inputs.publish != 'true' }}
         env:
           SEASON: ${{ steps.season.outputs.season }}
           GW: ${{ github.event.inputs.gw }}
-          PUBLISH: ${{ github.event.inputs.publish }}
+        run: |
+          ARGS="--season $SEASON --out-dir eo_out"
+          if [ -n "$GW" ]; then ARGS="$ARGS --gw $GW"; fi
+          python scripts/tier_eo_top10k.py $ARGS
+
+      - name: Sample the top 10K and publish to R2
+        if: ${{ github.event.inputs.publish == 'true' }}
+        env:
+          SEASON: ${{ steps.season.outputs.season }}
+          GW: ${{ github.event.inputs.gw }}
           OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
           OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
           OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
           OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
           OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
         run: |
-          ARGS="--season $SEASON"
+          ARGS="--season $SEASON --publish r2"
           if [ -n "$GW" ]; then ARGS="$ARGS --gw $GW"; fi
-          if [ "$PUBLISH" = "true" ]; then ARGS="$ARGS --publish r2"; else ARGS="$ARGS --out-dir eo_out"; fi
           python scripts/tier_eo_top10k.py $ARGS

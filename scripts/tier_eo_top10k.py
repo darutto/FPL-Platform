@@ -310,7 +310,10 @@ def run(*, season: str, gw: int | None, storage: Storage, client: Client,
                 return 2
             body = client.get(f"{BASE}/leagues-classic/{OVERALL_LEAGUE}/standings/?page_standings={page}")
             results = ((body or {}).get("standings") or {}).get("results") or []
-            by_rank = {r.get("rank"): r.get("entry") for r in results}
+            # position in the page, not the row's `rank`: tied managers share a rank,
+            # so rank would collapse rows and break the stride
+            first = (page - 1) * PAGE_SIZE
+            by_rank = {first + i + 1: r.get("entry") for i, r in enumerate(results)}
             for rank in wanted:
                 entry = by_rank.get(rank)
                 picks = client.get(f"{BASE}/entry/{entry}/event/{gw}/picks/") if entry else None
