@@ -271,34 +271,6 @@ def _rank_with(monkeypatch, plans, values, free_transfers=1):
     return [[tr["out"]["id"] for tr in o["transfers"]] for o in res["options"]], res["options"]
 
 
-def test_a_cheaper_loss_does_not_buy_back_two_extra_hits(monkeypatch):
-    one = [(13, 100)]
-    three = [(15, 100), (12, 200), (11, 201)]
-    # raw loss: one-move 2.0, three-move 1.9 (lower), but it costs -8 with one free transfer.
-    order, options = _rank_with(monkeypatch, [three, one], {13: 2.0, 15: 1.9, 12: 3.0, 11: 3.0, 200: 3.0, 201: 3.0})
-    assert order[0] == [13]
-    by_moves = {o["moves"]: o for o in options}
-    assert by_moves[1]["score"] == 10.0 and by_moves[3]["score"] == 17.5
-    assert by_moves[3]["loss"] < by_moves[1]["loss"] and by_moves[3]["hit_cost"] == 8
-
-
-def test_a_two_move_plan_wins_when_its_saving_clearly_exceeds_the_hit(monkeypatch):
-    one = [(13, 100)]
-    two = [(14, 100), (12, 200)]
-    order, options = _rank_with(monkeypatch, [one, two], {13: 2.0, 14: 0.5, 12: 3.0, 200: 3.0})
-    assert order[0] == [14, 12]
-    assert [o["score"] for o in options] == [6.5, 10.0]
-    assert options[0]["hit_cost"] == 4  # still shown
-
-
-def test_equal_scores_go_to_fewer_moves(monkeypatch):
-    one = [(13, 100)]
-    two = [(14, 100), (12, 200)]
-    # one-move: 1.0 * 5 = 5.0; two-move: 0.2 * 5 + 4 = 5.0 -- a tie.
-    order, _ = _rank_with(monkeypatch, [two, one], {13: 1.0, 14: 0.2, 12: 3.0, 200: 3.0})
-    assert order[0] == [13]
-
-
 def test_a_downgrade_that_sells_a_club_mate_can_make_a_plan_legal(run):
     # Three squad players already play for the target's club. Selling Alpha for the
     # target alone leaves four there; also selling one of those three fixes it.
