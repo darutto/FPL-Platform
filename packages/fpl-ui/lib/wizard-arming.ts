@@ -16,6 +16,7 @@
 import type { Suggestion } from '@/lib/types';
 import {
   SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE,
+  SUGGESTION_KIND_LEAGUE_PICK,
   SUGGESTION_KIND_PROMPT_REWRITE,
 } from '@/lib/types';
 
@@ -36,4 +37,11 @@ export function isStableIdSuggestion(
   suggestion: Suggestion,
 ): suggestion is Suggestion & { player_id: number } {
   return suggestion.player_id != null && !isRewriteSuggestion(suggestion);
+}
+
+/** A "which league?" chip: it names a league and carries its id (get_league_eo). */
+export function isLeaguePickSuggestion(
+  suggestion: Suggestion,
+): suggestion is Suggestion & { league_id: number } {
+  return suggestion.kind === SUGGESTION_KIND_LEAGUE_PICK && suggestion.league_id != null;
 }
