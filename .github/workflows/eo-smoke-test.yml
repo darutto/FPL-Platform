@@ -1,0 +1,27 @@
+name: EO Smoke Test
+
+# Step 1 of the tier effective-ownership (EO) track. Proves a GitHub Actions
+# runner can reach the public FPL API (3 read-only requests) and logs status
+# codes and timing only. It publishes and stores nothing, needs no secrets, and
+# is manual: run it with `gh workflow run eo-smoke-test.yml`.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run the 3-request smoke test
+        run: python scripts/eo_smoke.py
