@@ -1524,6 +1524,38 @@ SEARCH_WEB_SCHEMA = ToolSchema(
 
 
 # ---------------------------------------------------------------------------
+# Near-rank EO — opt-in tool (kept OUT of _ALL_SCHEMAS), offered only when
+# FPL_NEAR_RANK_EO_ENABLED is on (default OFF). Same separation as search_web.
+# ---------------------------------------------------------------------------
+
+NEAR_RANK_EO_SCHEMA = ToolSchema(
+    name="get_near_rank_eo",
+    description=(
+        "Effective ownership (EO) among the managers around the connected user's own overall rank "
+        "(about 125 sampled): top-EO players plus any you name, with ownership and captaincy %. "
+        "Use for 'what do managers near me own', 'who hurts me if he hauls', 'EO of X near my rank'. "
+        "The numbers are approximate (a sample): say so. If status is 'computing' the job has just "
+        "started: tell the user plainly it is not ready and to ask again in about 30 seconds, and "
+        "never invent numbers. status='no_team_connected' when no team is linked: ask the user to "
+        "connect one."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "player_names": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 10,
+                "description": "Web names of players whose EO the user asked about (optional).",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # T-zonal atomic tools — tactical zonal-weakness intelligence (owned
 # Understat store). Orchestrator-callable only: deliberately NOT in
 # _TOOL_TO_INTENT / SUPPORTED_INTENTS / the classifier (narrated as text).
@@ -2008,7 +2040,11 @@ FI7B_TOOL_NAMES: frozenset[str] = frozenset(s.name for s in FI7B_TOOL_SCHEMAS)
 #: premium-gated and opt-in per request — see SEARCH_WEB_SCHEMA docstring
 #: above). This separate registry/name-set is consulted ONLY when the caller
 #: explicitly enables web search for the turn (orchestrator.py).
-_REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {**_REGISTRY, SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA}
+_REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {
+    **_REGISTRY,
+    SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA,
+    NEAR_RANK_EO_SCHEMA.name: NEAR_RANK_EO_SCHEMA,  # opt-in like search_web; offered only behind its flag
+}
 TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
 
 
@@ -2025,6 +2061,7 @@ def get_offered_tool_names(
     football_intelligence_enabled: bool,
     *,
     web_search_enabled: bool = False,
+    near_rank_eo_enabled: bool = False,
 ) -> frozenset[str]:
     """Return names reachable through LLM tool dispatch for one request."""
     names = frozenset(
@@ -2032,7 +2069,9 @@ def get_offered_tool_names(
         for schema in get_offered_tool_schemas(football_intelligence_enabled)
     )
     if web_search_enabled:
-        return names | {SEARCH_WEB_SCHEMA.name}
+        names = names | {SEARCH_WEB_SCHEMA.name}
+    if near_rank_eo_enabled:
+        names = names | {NEAR_RANK_EO_SCHEMA.name}
     return names
 
 
