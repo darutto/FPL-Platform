@@ -208,6 +208,11 @@ export interface AskRequest {
    */
   team_id?: number | null;
   /**
+   * The user's chosen main mini-league (get_league_eo), kept in the browser next to the team id
+   * (lib/main-league.ts). `null`/omitted when none is stored or no team is connected.
+   */
+  main_league_id?: number | null;
+  /**
    * The `plan_state` of the immediately preceding plan_to_sign answer, sent back
    * so a follow-up ("who else can I sell?") keeps its target. See lib/plan-state.ts.
    */
