@@ -147,7 +147,7 @@ class _Script:
         return OrchestratorResult(
             question=question, tool_chosen="plan_to_sign", tool_args=call, tool_output=out,
             answer_text=render("plan_to_sign", out, locale=locale), llm_used=True, model="fake",
-            outcome="ok",
+            outcome="ok", tool_call_count=1,
         )
 
 

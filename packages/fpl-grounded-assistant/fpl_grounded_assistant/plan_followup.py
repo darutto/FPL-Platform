@@ -53,6 +53,18 @@ _FOLLOWUP_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
 )
 
 
+_OPTION_PICK = re.compile(r"\b(?:option|opcion) ([1-3])\b")
+
+
+def option_pick(question: Any) -> int | None:
+    """The 1-based option a chip tap asks for ("Show option 2" / "Muéstrame la opción 2"), or ``None``."""
+    text = normalize_player_name(question)
+    if not text or len(text) > 60:
+        return None
+    match = _OPTION_PICK.search(text)
+    return int(match.group(1)) if match else None
+
+
 def is_plan_followup(question: Any) -> bool:
     """True when *question* asks for other players to sell for the same target."""
     text = normalize_player_name(question)
@@ -109,10 +121,11 @@ def sanitize_plan_state(raw: Any) -> dict[str, Any] | None:
     return state
 
 
-def followup_args(state: dict[str, Any]) -> dict[str, Any]:
+def followup_args(state: dict[str, Any], *, keep_shown: bool = False) -> dict[str, Any]:
     """``plan_to_sign`` arguments that ask for NEW sales on the same plan.
 
-    Everyone already offered stays excluded, so each "who else?" moves on. The
+    Everyone already offered stays excluded, so each "who else?" moves on. With ``keep_shown`` (a tap on one of
+    the options already shown) only the user's own exclusions stay, so the same options come back. The
     target is passed as its numeric id, which the resolver treats as
     authoritative. The user's own bank and selling prices carry over; the
     squad's bank is re-read, not remembered.
@@ -121,7 +134,9 @@ def followup_args(state: dict[str, Any]) -> dict[str, Any]:
         "target": str(state["target_id"]),
         "moves": state["moves"],
         "exclude_out_ids": sorted(
-            set(state["shown_out_ids"]) | set(state["planned_out_ids"]) | set(state["excluded_out_ids"])
+            set(state["excluded_out_ids"])
+            if keep_shown
+            else set(state["shown_out_ids"]) | set(state["planned_out_ids"]) | set(state["excluded_out_ids"])
         ),
     }
     if "bank_tenths" in state:

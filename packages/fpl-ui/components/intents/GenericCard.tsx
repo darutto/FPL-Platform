@@ -89,7 +89,7 @@ export default function GenericCard({ data }: Props) {
 
         {/* Footer */}
         {footer != null && (
-          <p className="border-t border-white/10 pt-2 text-[11px] text-bf-gray/70">{footer}</p>
+          <p className="whitespace-pre-line border-t border-white/10 pt-2 text-[11px] text-bf-gray/70">{footer}</p>
         )}
       </div>
     </div>
