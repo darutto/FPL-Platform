@@ -248,7 +248,7 @@ WIZARD_ARMING_TOOLS: frozenset[str] = frozenset({"get_player_snapshot", "get_pla
 #: Tools whose answer is NOT the player card: an ambiguous player arms rewrite chips that
 #: re-ask the user's own question with the player named in full, never the stable-id
 #: handoff (which answers with the generic snapshot and drops the question).
-RESUME_QUESTION_TOOLS: frozenset[str] = frozenset({"get_position_changes", "get_player_involvement"})
+RESUME_QUESTION_TOOLS: frozenset[str] = frozenset({"get_position_changes", "get_player_involvement", "plan_to_sign"})
 
 #: Tools whose own status (ok/ambiguous/not_found) must not be flattened to
 #: "ok" just because the orchestrator call succeeded -- otherwise the frontend
@@ -885,23 +885,33 @@ def ask_v2(
     # plan_to_sign follow-up ("who else can I sell to get the money?"): the UI
     # sends back the previous plan's state on this turn only; a recognised
     # phrase re-runs the same deterministic tool with it. No model call.
-    if selected_player_id is None and isinstance(actual_bootstrap.get("_plan_state"), dict):
+    # A tap on a move-count chip ("... Plan: Use hits (-4 each)") is the same tool with ``moves`` set, also
+    # without a model: the chip text is the tool's own template and names the target, so it needs no state.
+    if selected_player_id is None:
         from .plan_followup import (  # noqa: PLC0415
             followup_args as _plan_followup_args,
             is_plan_followup as _is_plan_followup,
+            move_tap as _plan_move_tap,
             option_pick as _plan_option_pick,
             sanitize_plan_state as _sanitize_plan_state,
         )
 
-        _plan_pick = _plan_option_pick(question)
-        _plan_state_in = (
-            _sanitize_plan_state(actual_bootstrap["_plan_state"])
-            if _plan_pick is not None or _is_plan_followup(question)
-            else None
-        )
-        if _plan_state_in is not None:
-            _plan_args = _plan_followup_args(_plan_state_in, keep_shown=_plan_pick is not None)
-            _plan_raw = run_tool("plan_to_sign", _plan_args, actual_bootstrap)
+        _plan_pick = None
+        _plan_args = _plan_move_tap(question)
+        _plan_raw = run_tool("plan_to_sign", _plan_args, actual_bootstrap) if _plan_args is not None else None
+        if _plan_raw is not None and (_plan_raw.get("status") != "ok" or _plan_raw.get("stage") != "plan"):
+            _plan_args = _plan_raw = None  # no plan to show (unknown or ambiguous target ...): the normal route answers
+        if _plan_args is None and isinstance(actual_bootstrap.get("_plan_state"), dict):
+            _plan_pick = _plan_option_pick(question)
+            _plan_state_in = (
+                _sanitize_plan_state(actual_bootstrap["_plan_state"])
+                if _plan_pick is not None or _is_plan_followup(question)
+                else None
+            )
+            if _plan_state_in is not None:
+                _plan_args = _plan_followup_args(_plan_state_in, keep_shown=_plan_pick is not None)
+                _plan_raw = run_tool("plan_to_sign", _plan_args, actual_bootstrap)
+        if _plan_args is not None and _plan_raw is not None:
             if _plan_pick is not None:
                 _plan_raw["focus"] = _plan_pick  # the card is about the option the user tapped
             _plan_outcome = _outcome_from_status(_plan_raw)
@@ -1326,7 +1336,8 @@ def ask_v2(
         # success there). A non-ok owner (e.g. an ambiguous snapshot, i60)
         # still falls through to the branch below, unchanged.
         from .final_response import composed_primary_call  # noqa: PLC0415
-        _primary_call = composed_primary_call(orch_result.tool_calls_trace)
+        _composed_call = composed_primary_call(orch_result.tool_calls_trace)
+        _primary_call = _plan_call_owner(orch_result.tool_calls_trace) or _composed_call
         _owner_status = ((_primary_call or {}).get("output") or {}).get("status")
         _owner_rescues_turn = (
             orch_result.outcome == ORCH_OUTCOME_TOOL_RESULT_ERROR and _owner_status == "ok"
@@ -1356,8 +1367,8 @@ def ask_v2(
             # same helper hands the slot to the answering tool when a
             # gameweek-anchor call (get_current_gameweek) opened the turn, or
             # (rule 3) a get_my_squad call did. _primary_call is computed above.
-            if _primary_call is not None:
-                routing_trace["composed_primary_tool"] = _primary_call["name"]
+            if _composed_call is not None:
+                routing_trace["composed_primary_tool"] = _composed_call["name"]
             _orch_tool = _primary_call["name"] if _primary_call else orch_result.tool_chosen
             _orch_args = dict(_primary_call.get("args") or {}) if _primary_call else dict(orch_result.tool_args)
             _orch_raw = dict(_primary_call.get("output") or {}) if _primary_call else dict(orch_result.tool_output)
@@ -1394,8 +1405,11 @@ def ask_v2(
                 orch_result.tool_call_count,
                 _orch_tool_names,
             )
-            if _single_tool_turn and _orch_meta.get("generic_card") is None:
-                _overlay = maybe_atomic_tool_card(orch_result.tool_chosen, _orch_raw, None, locale)
+            # A plan_to_sign call that ran ok owns the slot whatever else ran around it (get_my_squad first or
+            # again on the retry), so its card is the turn's card.
+            _plan_owns = _orch_tool == "plan_to_sign" and _orch_raw.get("stage") == "plan"
+            if (_single_tool_turn or _plan_owns) and _orch_meta.get("generic_card") is None:
+                _overlay = maybe_atomic_tool_card(_orch_tool if _plan_owns else orch_result.tool_chosen, _orch_raw, None, locale)
                 if _overlay is not None:
                     _orch_meta["generic_card"] = _overlay  # dataclass; _to_dict serializes downstream
             # The cited sources of a search_web call that ran this turn (alone or beside
@@ -1447,9 +1461,9 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
+            _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap, locale)
             if _chips is None:
-                _chips = _plan_to_sign_chips(orch_result.tool_chosen, _orch_raw, locale)
+                _chips = _plan_to_sign_chips(_orch_tool, _orch_raw, locale)
             if _chips is None:
                 _chips = _league_pick_chips(orch_result.tool_chosen, _orch_raw, locale)
             if _chips is not None:
@@ -1461,7 +1475,7 @@ def ask_v2(
                 "get_player_intelligence",
             }:
                 result["evidence"] = _orch_raw.get("evidence")
-            if orch_result.tool_chosen == "plan_to_sign" and _orch_raw.get("plan_state") is not None:
+            if _orch_tool == "plan_to_sign" and _orch_raw.get("plan_state") is not None:
                 result["plan_state"] = _orch_raw["plan_state"]  # the UI sends it back on the next turn
             _copy_existing_intent_evidence(result)
             if context_meta is not None:
@@ -1526,7 +1540,7 @@ def ask_v2(
         # report the intent the UI arms on (ChatShell WIZARD_ARMING_INTENTS).
         _amb_call = _last_ambiguous_chip_call(orch_result.tool_calls_trace)
         if _amb_call is not None:
-            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text, actual_bootstrap)
+            _amb_chips = _ambiguity_suggestions(_amb_call["name"], _amb_call.get("output") or {}, cleaned_text, actual_bootstrap, locale)
             if _amb_chips is not None:
                 result["outcome"] = "ambiguous"
                 result["intent"] = _TOOL_TO_INTENT.get(_amb_call["name"], result.get("intent"))
@@ -1563,6 +1577,24 @@ def _suggestions_for_text() -> list[str]:
     return list(list_resources())
 
 
+def _plan_call_owner(tool_calls_trace: Any) -> dict[str, Any] | None:
+    """The executed plan_to_sign call that owns the turn's slot, or ``None``.
+
+    The plan call owns it whenever one ran ok, even when ``get_my_squad`` opened or closed the turn (the model
+    reads the squad around it, and a retry may read it again). Of several ok plan calls the last one that carries
+    the user's chosen moves (stage ``plan``) wins, so a retry that forgot ``moves`` (and so only came back with
+    the choose-moves step) does not replace the plan the user asked for.
+    """
+    calls = [
+        e for e in tuple(tool_calls_trace or ())
+        if isinstance(e, dict) and e.get("name") == "plan_to_sign" and (e.get("output") or {}).get("status") == "ok"
+    ]
+    if not calls:
+        return None
+    planned = [e for e in calls if (e.get("output") or {}).get("stage") == "plan"]
+    return (planned or calls)[-1]
+
+
 def _plan_to_sign_chips(
     tool_name: str | None, raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE,
 ) -> list[dict[str, Any]] | None:
@@ -1574,19 +1606,19 @@ def _plan_to_sign_chips(
     """
     if tool_name != "plan_to_sign":
         return None
-    from .suggestions import KIND_PROMPT_REWRITE, Suggestion, suggestions_to_list  # noqa: PLC0415
+    from .suggestions import KIND_PLAN_OPTION, Suggestion, suggestions_to_list  # noqa: PLC0415
 
     if raw_output.get("stage") == "plan":
         from .plan_card import option_chips  # noqa: PLC0415
 
         return suggestions_to_list(tuple(
-            Suggestion(label=c["label"], send_text=c["send_text"], kind=KIND_PROMPT_REWRITE)
+            Suggestion(label=c["label"], send_text=c["send_text"], kind=KIND_PLAN_OPTION)
             for c in option_chips(raw_output, locale)
         ) or None)
     if raw_output.get("stage") != "choose_moves":
         return None
     return suggestions_to_list(tuple(
-        Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PROMPT_REWRITE)
+        Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PLAN_OPTION)
         for o in raw_output.get("move_options") or []
         if o.get("label") and o.get("send_text")
     ) or None)
@@ -1616,6 +1648,7 @@ def _ambiguity_suggestions(
     raw_output: dict[str, Any],
     question: str | None = None,
     bootstrap: dict[str, Any] | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> list[dict[str, Any]] | None:
     """i60: the pick-one chips for an ambiguous player tool, or ``None``.
 
@@ -1634,13 +1667,18 @@ def _ambiguity_suggestions(
     if tool_name in RESUME_QUESTION_TOOLS:
         from .suggestions import question_resume_suggestions  # noqa: PLC0415
 
-        if not question:
-            return None
-        return suggestions_to_list(
+        rewrites = suggestions_to_list(
             question_resume_suggestions(
                 raw_output.get("candidates", []), str(raw_output.get("query") or ""), question, bootstrap,
             )
-        )
+        ) if question else None
+        if rewrites is None and tool_name == "plan_to_sign":
+            # An ambiguous target must always arm a picker with its candidates, never an empty one: when the
+            # user's wording cannot be re-asked, ask the plain question about each candidate.
+            from .plan_card import target_pick_suggestions  # noqa: PLC0415
+
+            return suggestions_to_list(target_pick_suggestions(raw_output.get("candidates", []), locale))
+        return rewrites
     if tool_name in WIZARD_ARMING_TOOLS:
         # A question that says more than the name ("compara a Palmer y Saka") must not be
         # answered with the generic card: re-ask it per candidate. A bare name keeps the

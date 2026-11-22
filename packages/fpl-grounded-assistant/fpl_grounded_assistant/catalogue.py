@@ -1115,6 +1115,9 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "plan_to_sign.concl_free_no_better": {
         "en": "Your free transfers don't give a better plan.", "es": "Con tus traspasos gratis no hay un plan mejor.",
     },
+    "plan_to_sign.pick_send": {
+        "en": "How do I get {name} with my current team?", "es": "¿Cómo ficho a {name} con mi equipo actual?",
+    },
     "plan_to_sign.chip_option_label": {"en": "Sell {outs}", "es": "Vender a {outs}"},
     "plan_to_sign.chip_option_send": {"en": "Show option {n}", "es": "Muéstrame la opción {n}"},
     "plan_to_sign.error_fallback": {"en": "Unexpected error.", "es": "Error inesperado."},

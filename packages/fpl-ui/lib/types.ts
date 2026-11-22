@@ -409,6 +409,15 @@ export const SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE = 'historical_player_rewr
  */
 export const SUGGESTION_KIND_LEAGUE_PICK = 'league_pick';
 
+/**
+ * `Suggestion.kind` for a plan_to_sign chip (a move-count choice or another option of the plan). Like a
+ * prompt rewrite, `send_text` is a complete question sent verbatim, but it is not a player pick, so the
+ * chips get their own short title (`wizard.pickPlan`).
+ *
+ * Source: fpl_grounded_assistant/suggestions.py -> KIND_PLAN_OPTION.
+ */
+export const SUGGESTION_KIND_PLAN_OPTION = 'plan_option';
+
 /** A single tappable suggestion chip (Guided Comparison). */
 export interface Suggestion {
   /** Chip label — short player web_name. */

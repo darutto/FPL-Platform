@@ -225,13 +225,13 @@ def test_the_card_says_prices_are_current_unless_the_user_gave_numbers(run):
     assert "current prices" not in mine and "numbers you gave" in mine
 
 
-def test_chip_step_chips_are_prompt_rewrites():
+def test_chip_step_chips_are_plan_options():
     from fpl_grounded_assistant.harness import _plan_to_sign_chips
 
     raw = {"stage": "choose_moves", "move_options": [{"label": "1 transfer", "send_text": "q 1"}, {"label": "Use hits", "send_text": "q h"}]}
     chips = _plan_to_sign_chips("plan_to_sign", raw)
     assert [c["label"] for c in chips] == ["1 transfer", "Use hits"]
-    assert all(c["kind"] == "prompt_rewrite" for c in chips)
+    assert all(c["kind"] == "plan_option" for c in chips)
     assert _plan_to_sign_chips("plan_to_sign", {"stage": "plan"}) is None
     assert _plan_to_sign_chips("get_my_squad", raw) is None
 
@@ -288,3 +288,18 @@ def test_plan_state_lists_everyone_offered_and_keeps_the_users_prices(run):
     offered = {tr["out"]["id"] for o in res["options"] for tr in o["transfers"]}
     assert state["shown_out_ids"] == sorted(offered)
     assert state["user_sell_prices"] == [{"player": "13", "price": 8.0}]
+
+
+def test_every_player_in_the_plan_carries_season_minutes(monkeypatch):
+    """The prose is grounded on minutes: the target, each player sold and each player bought carry FPL's `minutes`."""
+    bootstrap = _bootstrap()
+    for el in bootstrap["elements"]:
+        el["minutes"] = 1000 + el["id"]  # synthetic, distinct per player
+    monkeypatch.setattr(pts, "get_my_squad", lambda bs, gw=None: _squad_payload(30))
+    res = plan_to_sign(target="N.Jackson", moves="hits", bootstrap=bootstrap)
+    assert res["target"]["minutes"] == 1100
+    assert res["options"]
+    for option in res["options"]:
+        for tr in option["transfers"]:
+            assert tr["out"]["minutes"] == 1000 + tr["out"]["id"]
+            assert tr["in"]["minutes"] == 1000 + tr["in"]["id"]

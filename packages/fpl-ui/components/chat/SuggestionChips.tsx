@@ -19,7 +19,7 @@
  * All copy here is UI-owned; the backend never dictates the wizard wording.
  */
 import type { Suggestion } from '@/lib/types';
-import { isLeaguePickSuggestion } from '@/lib/wizard-arming';
+import { isLeaguePickSuggestion, isPlanOptionSuggestion } from '@/lib/wizard-arming';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 export interface CompareWizardState {
@@ -99,7 +99,11 @@ export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
   return (
     <div className="mt-3" data-testid="player-pick-wizard">
       <p className="text-[13px] font-semibold text-bf-text/90">
-        {wizard.options.every(isLeaguePickSuggestion) ? t('wizard.pickLeague') : t('wizard.pickOne')}
+        {wizard.options.every(isLeaguePickSuggestion)
+          ? t('wizard.pickLeague')
+          : wizard.options.every(isPlanOptionSuggestion)
+            ? t('wizard.pickPlan')
+            : t('wizard.pickOne')}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {wizard.options.map((chip) => (
