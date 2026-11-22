@@ -286,3 +286,21 @@ def test_one_move_plans_are_never_dropped_for_leaving_money(monkeypatch):
     big, lean = [(13, 100)], [(15, 100)]
     order, _ = _rank(monkeypatch, [big, lean], bank_after={tuple(big): 91, tuple(lean): 26})
     assert sorted(order) == [[13], [15]]
+
+
+def test_a_fixture_edge_under_one_band_is_a_tie_wherever_it_falls(monkeypatch):
+    # 0.6 apart on both sides of a 0.5 boundary: the old buckets made one of them "a whole step"
+    for hard, easy in ((3.6, 3.0), (3.4, 2.8), (3.3, 2.7)):
+        order, _ = _rank(monkeypatch, [[(13, 100)], [(15, 100)]], values={13: 3.0, 15: 1.0}, bands={13: hard, 15: easy})
+        assert order[0] == [15], (hard, easy)  # fixtures tie; performance picks the lesser loss
+
+
+def test_a_clear_fixture_edge_still_overrides_performance(monkeypatch):
+    order, _ = _rank(monkeypatch, [[(13, 100)], [(15, 100)]], values={13: 3.0, 15: 1.0}, bands={13: 4.0, 15: 3.0})
+    assert order[0] == [13]  # exactly 1.0
+
+
+def test_when_fixtures_and_performance_tie_the_smaller_leftover_wins(monkeypatch):
+    a, b = [(13, 100)], [(15, 100)]
+    order, _ = _rank(monkeypatch, [a, b], values={13: 1.2, 15: 1.0}, bands={13: 3.6, 15: 3.0}, bank_after={tuple(a): 91, tuple(b): 26})
+    assert order[0] == [15]

@@ -35,8 +35,8 @@ Football first, money and hits as tie-breaks (Leo, 2026-11-21). The signals are 
    ``only_way``) in ``tops_sold`` so the card can say so.
 2. Availability sold minus bought (lower is better): selling the injured or doubtful is the best sale.
 3. Fixtures, the next five gameweeks from the first one a transfer can affect: the sold players' average
-   band minus the replacements' (higher is better, buckets of 0.5).
-4. Performance given up: ``loss`` plus a set-piece penalty (buckets of 0.5 per gameweek).
+   band minus the replacements' (higher is better). Only an edge of at least 1.0 counts; less is a tie.
+4. Performance given up: ``loss`` plus a set-piece penalty (a difference under 0.5 is a tie).
 5. Money left unspent (lower is better, buckets of 0.5m): the plan should not over-sell.
 6. Hits, then moves, then player ids.
 
@@ -83,7 +83,6 @@ offered, and the hit estimate says it assumes one free transfer.
 from __future__ import annotations
 
 from collections import Counter
-import math
 from itertools import combinations
 from typing import Any
 
@@ -114,8 +113,8 @@ MAX_OPTIONS: int = 3
 _REPLACEMENT_POOL: int = 12
 
 #: Ordering buckets: differences smaller than these are a tie, so the next criterion decides.
-FIXTURE_BUCKET: float = 0.5  # summed FDR bands
-LOSS_BUCKET: float = 0.5  # per-gameweek value
+FIXTURE_CLEAR_EDGE: float = 1.0  # summed FDR bands: a smaller edge is a tie (same bar as an extra move)
+LOSS_BUCKET: float = 0.5  # per-gameweek value: a smaller difference is a tie
 BANK_BUCKET_TENTHS: int = 5  # leftover money, 0.5m
 #: An extra move must improve the summed fixture gain by this much per extra move (Leo, 2026-11-22).
 FIXTURE_GAIN_PER_EXTRA_MOVE: float = 1.0
@@ -339,8 +338,30 @@ def _hit_cost(moves: int, free_transfers: int | None) -> tuple[int, str]:
     return HIT_COST * max(0, moves - free_transfers), "given"
 
 
-def _bucket(value: float, size: float) -> int:
-    return int(math.floor(value / size + 0.5))
+def _tiers(values: list[float], width: float, *, higher_is_better: bool) -> list[int]:
+    """Tier index per value (0 best): values within *width* of the best one still unplaced share a tier.
+
+    Anchored on the best value rather than on fixed bucket edges, so a 0.6 gap straddling a boundary is not
+    "a whole bucket" while a 0.6 gap elsewhere is a tie. Deterministic and transitive.
+    """
+    order = sorted(range(len(values)), key=lambda i: values[i], reverse=higher_is_better)
+    out = [0] * len(values)
+    tier, anchor = 0, None
+    for i in order:
+        if anchor is None:
+            anchor = values[i]
+        elif abs(values[i] - anchor) >= width:
+            tier, anchor = tier + 1, values[i]
+        out[i] = tier
+    return out
+
+
+def _assign_tiers(options: list[dict[str, Any]]) -> None:
+    """Fixture and performance tiers, relative to the options being compared."""
+    fixtures = _tiers([o["signals"]["fixture_gain"] for o in options], FIXTURE_CLEAR_EDGE, higher_is_better=True)
+    performance = _tiers([o["signals"]["performance"] for o in options], LOSS_BUCKET, higher_is_better=False)
+    for option, fx, perf in zip(options, fixtures, performance):
+        option["_fx_tier"], option["_perf_tier"] = fx, perf
 
 
 def _band(ctx: _Context, pid: int) -> float:
@@ -430,8 +451,8 @@ def _rank_key(option: dict[str, Any]) -> tuple[Any, ...]:
     sig = option["signals"]
     return (
         sig["avail_net"],
-        -_bucket(sig["fixture_gain"], FIXTURE_BUCKET),
-        _bucket(sig["performance"], LOSS_BUCKET),
+        option["_fx_tier"],
+        option["_perf_tier"],
         option["bank_after_tenths"] // BANK_BUCKET_TENTHS,
         option["hit_cost"],
         option["moves"],
@@ -480,6 +501,7 @@ def _drop_dominated(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
     money or a marginal fixture edge.
     """
     kept = []
+    _assign_tiers(options)
     for option in options:
         fewer = [o for o in options if o["moves"] < option["moves"]]
         if fewer:
@@ -634,6 +656,7 @@ def plan_to_sign(
     plans = _search(ctx, target=target_id, squad=squad, bank=bank_tenths, sell_price=sell_price,
                     max_moves=max_moves, exclude_out=exclude)
     scored = _drop_oversells(_drop_dominated(_gate_tops(ctx, [_score_plan(ctx, p, sell_price, ft) for p in plans])))
+    _assign_tiers(scored)
     scored.sort(key=_rank_key)
     options: list[dict[str, Any]] = []
     for option in scored:
@@ -644,7 +667,7 @@ def plan_to_sign(
         if errors:  # the search cannot produce this; the proof is here to say so loudly
             continue
         option["rank_key"] = list(_rank_key(option)[:4])
-        for private in ("_outs", "_unjustified"):
+        for private in ("_outs", "_unjustified", "_fx_tier", "_perf_tier"):
             option.pop(private, None)
         options.append(option)
         if len(options) >= MAX_OPTIONS:
