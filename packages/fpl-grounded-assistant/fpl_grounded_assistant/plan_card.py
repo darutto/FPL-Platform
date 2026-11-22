@@ -142,37 +142,43 @@ def plan_one_line(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -
     )
 
 
-def _joined(players: Any) -> str:
-    """Names in a stable order: dearest first, then by name (never the search order)."""
-    def cost(p: dict[str, Any]) -> float:
-        return p.get("price_tenths") or round((p.get("price") or 0) * 10)
-
-    ordered = sorted(players, key=lambda p: (-cost(p), str(p.get("web_name"))))
-    return " + ".join(p["web_name"] for p in ordered)
+def _pair(tr: dict[str, Any]) -> tuple[Any, Any]:
+    return tr["out"]["id"], tr["in"]["id"]
 
 
-def _same_outs(option: dict[str, Any], options: list[dict[str, Any]], index: int) -> bool:
-    mine = {tr["out"]["id"] for tr in option["transfers"]}
-    return any(
-        i != index and {tr["out"]["id"] for tr in other["transfers"]} == mine for i, other in enumerate(options)
-    )
+def _move_text(tr: dict[str, Any]) -> str:
+    return f"{tr['out']['web_name']} → {tr['in']['web_name']}"
+
+
+def option_labels(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[str]:
+    """One label per option, the same in every view: what the option does differently from option 1.
+
+    "Option 1" for the best plan; "Option N: A → B" for the first move not in option 1, with a second move
+    when that is not enough to tell it from another option (never the same label twice). The label is also the
+    text a tap sends, so it must stay short and parse back to N (:func:`plan_followup.option_pick`).
+    """
+    options = raw_output.get("options") or []
+    if not options:
+        return []
+    best = {_pair(tr) for tr in options[0]["transfers"]}
+    diffs = []
+    for option in options:
+        moves = [tr for tr in option["transfers"] if _pair(tr) not in best]
+        diffs.append([_move_text(tr) for tr in (moves or option["transfers"])])
+    labels = [t("plan_to_sign.chip_option_n", locale, n=1)]
+    for index in range(1, len(options)):
+        mine = diffs[index]
+        k = 1
+        while k < len(mine) and any(
+            j != index and j != 0 and diffs[j][:k] == mine[:k] for j in range(len(options))
+        ):
+            k += 1
+        labels.append(t("plan_to_sign.chip_option_diff", locale, n=index + 1, moves=" + ".join(mine[:k])))
+    return labels
 
 
 def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[dict[str, str]]:
-    """``{label, send_text}`` for every option except the hero, in rank order. The tap asks for that option."""
-    options = raw_output.get("options") or []
+    """``{label, send_text}`` for every option except the hero, in rank order; the tap sends the label itself."""
+    labels = option_labels(raw_output, locale)
     hero = hero_index(raw_output)
-    chips: list[dict[str, str]] = []
-    for index, option in enumerate(options):
-        if index == hero:
-            continue
-        ins = _joined(tr["in"] for tr in option["transfers"] if tr.get("role") != "target")
-        if ins and _same_outs(option, options, index):  # the sales alone would read the same: show what differs
-            label = t("plan_to_sign.chip_option_ins_label", locale, ins=ins)
-        else:
-            label = t("plan_to_sign.chip_option_label", locale, outs=_joined(tr["out"] for tr in option["transfers"]))
-        chips.append({
-            "label": label,
-            "send_text": t("plan_to_sign.chip_option_send", locale, n=index + 1),
-        })
-    return chips
+    return [{"label": label, "send_text": label} for index, label in enumerate(labels) if index != hero]
