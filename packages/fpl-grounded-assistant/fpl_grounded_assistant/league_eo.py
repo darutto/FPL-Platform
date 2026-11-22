@@ -30,6 +30,7 @@ the user's own league's.
 """
 from __future__ import annotations
 
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
@@ -61,6 +62,30 @@ def private_leagues(entry_body: dict[str, Any]) -> list[dict[str, Any]]:
             out.append({"id": int(league["id"]), "name": str(league.get("name") or ""),
                         "size": int(size) if isinstance(size, int) else 0})
     return sorted(out, key=lambda lg: (lg["size"], lg["id"]))
+
+
+def _fold(text: str) -> str:
+    return " ".join(unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode().casefold().split())
+
+
+def resolve_league(leagues: list[dict[str, Any]], league_id: int | None,
+                   league_name: str | None) -> tuple[dict[str, Any] | None, str | None]:
+    """The user's league picked by name (wins when given: it is the user's latest words) or by id.
+
+    Returns ``(league, None)`` or ``(None, reason)`` with reason ``not_a_member`` (an id that is not
+    one of the user's leagues), ``league_not_found`` or ``league_ambiguous`` (a name).
+    """
+    wanted = _fold(league_name or "")
+    if wanted:
+        exact = [lg for lg in leagues if _fold(lg["name"]) == wanted]
+        found = exact or [lg for lg in leagues if wanted in _fold(lg["name"])]
+        if len(found) == 1:
+            return found[0], None
+        return None, "league_ambiguous" if found else "league_not_found"
+    if league_id is not None:
+        league = next((lg for lg in leagues if lg["id"] == league_id), None)
+        return (league, None) if league else (None, "not_a_member")
+    return None, None
 
 
 def check_size(size: int) -> str | None:
@@ -136,25 +161,25 @@ class LeagueEOService(JobService):
     thread_prefix = "league-eo"
 
     def status(self, season: str, gw: int, entry_id: int, league_id: int | None = None, *,
-               valid_until: float | None = None) -> dict[str, Any]:
+               league_name: str | None = None, valid_until: float | None = None) -> dict[str, Any]:
         leagues_key = ("leagues", entry_id)
         listed = self._peek(leagues_key)
         if listed is None:
             return self._lookup_or_start(
-                leagues_key, self._leagues_work(season, gw, entry_id, league_id, valid_until),
+                leagues_key, self._leagues_work(season, gw, entry_id, league_id, league_name, valid_until),
                 None, ttl=LEAGUES_TTL_S)
         if listed["status"] != "ready":
             return listed
         leagues = listed["data"]["leagues"]
-        if league_id is None:
+        if league_id is None and not league_name:
             return listed
-        league = next((lg for lg in leagues if lg["id"] == league_id), None)
+        league, why = resolve_league(leagues, league_id, league_name)  # checked on every call
         if league is None:
-            return {"status": "unavailable", "reason": "not_a_member"}  # checked on every call
+            return {"status": "unavailable", "reason": why}
         reason = check_size(league["size"])
         if reason:
             return {"status": "unavailable", "reason": reason}
-        return self._lookup_or_start(("league", season, gw, league_id),
+        return self._lookup_or_start(("league", season, gw, league["id"]),
                                      self._league_work(league, season, gw), valid_until)
 
     def _league_work(self, league: dict[str, Any], season: str, gw: int):
@@ -162,7 +187,8 @@ class LeagueEOService(JobService):
             return compute_league_eo(league, season, gw, api, workers=self._workers)
         return work
 
-    def _leagues_work(self, season: str, gw: int, entry_id: int, league_id: int | None, valid_until: float | None):
+    def _leagues_work(self, season: str, gw: int, entry_id: int, league_id: int | None,
+                      league_name: str | None, valid_until: float | None):
         """List the user's leagues (1 request); if a league was asked for, compute it in the same job
         so the user waits once, not twice."""
         def work(api: _Api) -> dict[str, Any]:
@@ -170,8 +196,8 @@ class LeagueEOService(JobService):
             if not body:
                 raise Unavailable("entry_unavailable")
             leagues = private_leagues(body)
-            league = next((lg for lg in leagues if lg["id"] == league_id), None) if league_id else None
-            key = ("league", season, gw, league_id)
+            league = resolve_league(leagues, league_id, league_name)[0]
+            key = ("league", season, gw, league["id"]) if league else None
             if league and check_size(league["size"]) is None and self._peek(key) is None and self._claim(key):
                 try:
                     result, expires = self._outcome(self._league_work(league, season, gw), valid_until)

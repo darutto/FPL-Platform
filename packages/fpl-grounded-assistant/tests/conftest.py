@@ -95,6 +95,17 @@ def _no_network_fixture_state(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_shared_eo_plumbing():
+    """The EO services share one module-global limiter and circuit breaker; a test that trips the
+    breaker must not leak into the next one, so every test starts from a clean slate."""
+    from fpl_grounded_assistant import near_rank_eo
+
+    near_rank_eo._SHARED.clear()
+    yield
+    near_rank_eo._SHARED.clear()
+
+
+@pytest.fixture(autouse=True)
 def _no_network_element_summary(monkeypatch):
     """plan_to_sign's trend check fetches element-summary history. No test may reach the network (or the
     owned store) for it: a bootstrap that injects ``_element_summaries`` is served, every other fetch fails."""

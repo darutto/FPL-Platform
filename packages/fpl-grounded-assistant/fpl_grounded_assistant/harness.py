@@ -577,6 +577,7 @@ def ask_v2(
     _enrich_existing_intents: bool = True,
     locale: Locale = DEFAULT_LOCALE,
     team_id: int | None = None,
+    league_id: int | None = None,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -742,6 +743,10 @@ def ask_v2(
         exact same ``actual_bootstrap`` object it always did. Read by the
         ``get_my_squad`` tool (``get_my_squad.py``); every other tool ignores
         the extra key.
+    league_id:
+        The user's chosen main mini-league id, when the request carries one. Injected as
+        ``bootstrap["_my_league_id"]`` on a shallow copy, exactly like ``team_id`` (never a
+        mutation of the shared bootstrap); read only by ``get_league_eo``. Skipped when None.
     """
     # Import here to avoid circulars at module-load time.
     from .decision_router import (
@@ -816,6 +821,9 @@ def ask_v2(
     if team_id is not None:
         actual_bootstrap = dict(actual_bootstrap)
         actual_bootstrap["_my_team_id"] = team_id
+    if league_id is not None:
+        actual_bootstrap = dict(actual_bootstrap)
+        actual_bootstrap["_my_league_id"] = league_id
 
     # Free transfers the user states in this turn's own words ("tengo 3 cambios
     # disponibles"): plan_to_sign reads them from here when the model did not pass
