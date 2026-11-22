@@ -1368,7 +1368,7 @@ def ask_v2(
             # gameweek-anchor call (get_current_gameweek) opened the turn, or
             # (rule 3) a get_my_squad call did. _primary_call is computed above.
             if _composed_call is not None:
-                routing_trace["composed_primary_tool"] = _primary_call["name"]
+                routing_trace["composed_primary_tool"] = _composed_call["name"]
             _orch_tool = _primary_call["name"] if _primary_call else orch_result.tool_chosen
             _orch_args = dict(_primary_call.get("args") or {}) if _primary_call else dict(orch_result.tool_args)
             _orch_raw = dict(_primary_call.get("output") or {}) if _primary_call else dict(orch_result.tool_output)
