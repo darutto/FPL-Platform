@@ -10,7 +10,8 @@ Pure and offline: everything is read from the loaded FPL bootstrap, nothing is f
   The ownership test lives behind ONE function, :func:`ownership_is_top`, because it is meant to be
   replaced by the tier-based effective ownership the project is building.
 * **Availability tier** -- 0 unavailable, 1 doubtful or a rotation risk, 2 a nailed starter.
-* **Fixture window** -- the club's next :data:`FIXTURE_WINDOW` gameweeks from ``fixture_outlook``
+* **Fixture window** -- the club's next :data:`FIXTURE_WINDOW` gameweeks from ``fixture_outlook``,
+  starting at :func:`first_affected_gw` (the next gameweek once the current one's deadline has passed)
   (the official FDR band 1-5; hard is 4 or 5): average band and the number of hard fixtures.
 
 Early in the season (fewer than :data:`EARLY_SEASON_GWS` finished gameweeks) a rate or a percentile says
@@ -20,11 +21,17 @@ the position pool is everyone who has played.
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any
 
 from .find_players import _safe_float, _safe_int
 from .fixture_outlook import get_team_outlook
-from .player_conclusions import MIN_POOL_MINUTES, STARTS_SHARE_FIRES, _availability as _availability_conclusion
+from .player_conclusions import (
+    MIN_POOL_MINUTES,
+    STARTS_SHARE_FIRES,
+    _availability as _availability_conclusion,
+    _set_pieces,
+)
 from .rank_players_by_metric import finished_gameweeks
 from .scoring_shared import _derive_scoring_inputs
 
@@ -45,6 +52,40 @@ AVAIL_OUT, AVAIL_RISK, AVAIL_NAILED = 0, 1, 2
 _AXIS_BY_POSITION = {1: "defence", 2: "defence", 3: "attack", 4: "attack"}
 
 
+def first_affected_gw(bootstrap: dict[str, Any], now: datetime | None = None) -> int | None:
+    """The first gameweek a transfer made now can affect.
+
+    ``get_current_gameweek`` names the gameweek in progress (``is_current``, not finished), but once its
+    deadline has passed the squad is locked for it: a transfer first counts from the next one. Between
+    gameweeks (``is_next``) the answer is that gameweek. Without a usable ``deadline_time`` the current
+    one is kept.
+    """
+    from fpl_api_client import get_current_gameweek
+
+    current = get_current_gameweek(bootstrap)
+    if current is None:
+        return None
+    events = {_safe_int(ev.get("id")): ev for ev in bootstrap.get("events") or []}
+    event = events.get(current) or {}
+    raw = event.get("deadline_time")
+    if not event.get("is_current") or not isinstance(raw, str) or (current + 1) not in events:
+        return current
+    try:
+        deadline = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return current
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    moment = now or datetime.now(timezone.utc)
+    return current + 1 if moment >= deadline else current
+
+
+def set_piece_count(element: dict[str, Any]) -> int:
+    """How many set pieces (penalties, direct free kicks, corners) he is first choice for."""
+    flagged = _set_pieces(element)
+    return len(flagged["params"]["pieces"]) if flagged else 0
+
+
 def ownership_is_top(element: dict[str, Any]) -> bool:
     """Owned by enough managers to count as a top. The single place to swap in tier-based EO later."""
     return _safe_float(element.get("selected_by_percent")) >= TOP_OWNERSHIP_PCT
@@ -61,7 +102,7 @@ def _cutoff(values: list[float], share: float) -> float | None:
 class PlanSignals:
     """Per-call cache of the signals; build once per bootstrap."""
 
-    def __init__(self, bootstrap: dict[str, Any]) -> None:
+    def __init__(self, bootstrap: dict[str, Any], *, now: datetime | None = None) -> None:
         self.bootstrap = bootstrap
         self.elements: dict[int, dict[str, Any]] = {
             _safe_int(el.get("id")): el for el in bootstrap.get("elements", []) if el.get("id") is not None
@@ -73,6 +114,8 @@ class PlanSignals:
         from fpl_api_client import get_current_gameweek
 
         self._current_gw = get_current_gameweek(bootstrap)
+        #: First gameweek a transfer can affect: the fixture window starts here, not at the one in progress.
+        self.window_gw = first_affected_gw(bootstrap, now)
         self._cutoffs: dict[int, tuple[float | None, float | None]] | None = None
         self._xgi: dict[int, float] = {}
         self._fixtures: dict[tuple[int, str], dict[str, Any]] = {}
@@ -148,7 +191,7 @@ class PlanSignals:
         axis = _AXIS_BY_POSITION.get(_safe_int(el.get("element_type")), "attack")
         key = (team, axis)
         if key not in self._fixtures:
-            outlook = get_team_outlook(self.bootstrap, team, axis, horizon=FIXTURE_WINDOW)
+            outlook = get_team_outlook(self.bootstrap, team, axis, horizon=FIXTURE_WINDOW, _current_gw=self.window_gw)
             bands = [fx["band"] for gw in outlook["series"] for fx in (gw["fixtures"] or [])]
             self._fixtures[key] = {
                 "avg_band": round(sum(bands) / len(bands), 2) if bands else None,

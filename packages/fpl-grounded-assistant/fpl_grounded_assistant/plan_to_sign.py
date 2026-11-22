@@ -26,16 +26,25 @@ each returned option is re-proved with ``squad_solver.validate_squad``.
 
 Ranking
 -------
-One scale, in points: ``score = loss * HORIZON_GWS + hit_cost``, lowest first.
-``loss`` is a per-gameweek value, so ``loss * HORIZON_GWS`` is the estimated
-points the squad gives up over the window and ``hit_cost`` is what the extra
-moves cost outright (-4 each beyond the free transfers). A 3-move plan that
-loses a little less than a 1-move plan therefore still ranks behind it once its
--8 is counted, and a 2-move plan wins only when what it saves clearly exceeds
-its -4. Ties go to fewer moves, then to the player ids. The hit is shown on
-every option as well as being inside the score.
+Football first, money and hits as tie-breaks (Leo, 2026-11-21). The signals are in ``plan_signals``.
 
-``loss`` is the least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
+1. Constraints: legal squad, funds, move budget, and the **top gate**: a top player (price, shrunk xGI or
+   ownership, see ``plan_signals``) is sold only when he is unavailable, or in decline (trend data, never
+   early in the season), or when no plan without a top exists. Rotation alone never frees one: the start
+   share is season-long. A top that is sold anyway carries ``why`` (``unavailable`` / ``decline`` /
+   ``only_way``) in ``tops_sold`` so the card can say so.
+2. Availability sold minus bought (lower is better): selling the injured or doubtful is the best sale.
+3. Fixtures, the next five gameweeks from the first one a transfer can affect: the sold players' average
+   band minus the replacements' (higher is better, buckets of 0.5).
+4. Performance given up: ``loss`` plus a set-piece penalty (buckets of 0.5 per gameweek).
+5. Money left unspent (lower is better, buckets of 0.5m): the plan should not over-sell.
+6. Hits, then moves, then player ids.
+
+A plan with more moves than another survives only when it is better on 2 or 3 than the best plan with
+fewer moves, so a -4 is never paid for a gain in production or money alone. The hit is shown on every
+option. ``rank_key`` carries the first four tiers.
+
+``loss`` (tier 4) is the least value given up over the next :data:`HORIZON_GWS` gameweeks, where a
 player's value is ``(form + XGI_WEIGHT * xGI/90) * availability * games / N``:
 the same ``form`` and the minutes-shrunk ``xgi_per_90_shrunk`` the transfer tools
 feed their position score with (reused via ``scoring_shared._derive_scoring_inputs``,
@@ -72,6 +81,7 @@ offered, and the hit estimate says it assumes one free transfer.
 from __future__ import annotations
 
 from collections import Counter
+import math
 from itertools import combinations
 from typing import Any
 
@@ -83,6 +93,7 @@ from .catalogue import t
 from .find_players import _STATUS_MAP, _safe_float, _safe_int
 from .get_my_squad import get_my_squad
 from .locale_types import bootstrap_locale
+from .plan_signals import PlanSignals, set_piece_count
 from .rank_players_by_metric import finished_gameweeks, per_90_minutes_floor
 from .scoring_shared import _derive_scoring_inputs
 from .squad_solver import CLUB_CAP, POSITION_LABELS, SQUAD_QUOTAS, validate_squad
@@ -99,6 +110,15 @@ XGI_WEIGHT: float = 5.0
 MAX_OPTIONS: int = 3
 #: Replacement candidates tried per downgrade (best value first).
 _REPLACEMENT_POOL: int = 12
+
+#: Ordering buckets: differences smaller than these are a tie, so the next criterion decides.
+FIXTURE_BUCKET: float = 0.5  # summed FDR bands
+LOSS_BUCKET: float = 0.5  # per-gameweek value
+BANK_BUCKET_TENTHS: int = 5  # leftover money, 0.5m
+#: Value a set-piece taker is worth beyond his rate, per piece, per gameweek.
+SET_PIECE_PENALTY: float = 0.5
+#: A club with no fixture data counts as a neutral band.
+NEUTRAL_BAND: float = 3.0
 
 MOVES_ONE = "one"
 MOVES_FREE = "free"
@@ -147,6 +167,11 @@ class _Context:
         self.fdr_map = bootstrap.get("fixture_difficulty_map", {}) or {}
         self.team_fixtures = bootstrap.get("team_fixtures") or {}
         self.current_gw = get_current_gameweek(bootstrap)
+        self.signals = PlanSignals(bootstrap)
+        # First gameweek a transfer can affect (the next one once the current deadline has passed).
+        self.window_gw = self.signals.window_gw
+        # Tops the trend data says are in decline (filled by the trend fetch; empty means "not known").
+        self.declining: set[int] = set()
         # Minutes a replacement needs before its rate means anything (see module docstring).
         self.minutes_floor = per_90_minutes_floor(bootstrap) if finished_gameweeks(bootstrap) > 0 else 0
         self._value: dict[int, float] = {}
@@ -165,7 +190,7 @@ class _Context:
             el = self.elements[pid]
             inputs = _derive_scoring_inputs(el, self.fdr_map, self.team_fixtures, self.current_gw)
             raw = inputs["form"] + XGI_WEIGHT * inputs["xgi_per_90_shrunk"]
-            self._value[pid] = raw * _availability(el) * _games_factor(self.club(pid), self.team_fixtures, self.current_gw)
+            self._value[pid] = raw * _availability(el) * _games_factor(self.club(pid), self.team_fixtures, self.window_gw)
         return self._value[pid]
 
     def card(self, pid: int, *, price_tenths: int | None = None) -> dict[str, Any]:
@@ -308,8 +333,32 @@ def _hit_cost(moves: int, free_transfers: int | None) -> tuple[int, str]:
     return HIT_COST * max(0, moves - free_transfers), "given"
 
 
+def _bucket(value: float, size: float) -> int:
+    return int(math.floor(value / size + 0.5))
+
+
+def _band(ctx: _Context, pid: int) -> float:
+    band = ctx.signals.fixtures(pid)["avg_band"]
+    return NEUTRAL_BAND if band is None else float(band)
+
+
+def _top_sale_reason(ctx: _Context, pid: int) -> str | None:
+    """Why a top may be sold on football grounds alone, or None (see :func:`_gate_tops`).
+
+    ``unavailable``: FPL says he is out. ``decline``: the trend data put him in decline (never early in the
+    season). A rotation tier alone is NOT a reason: the start share is season-long, so a nailed starter who
+    missed the first gameweeks injured would read as a rotation risk.
+    """
+    if ctx.signals.availability(pid)["tier"] == 0:
+        return "unavailable"
+    if pid in ctx.declining and not ctx.signals.early_season:
+        return "decline"
+    return None
+
+
 def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int], free_transfers: int | None) -> dict[str, Any]:
     pairs = plan["pairs"]
+    sig = ctx.signals
     transfers = [
         {
             "out": ctx.card(o, price_tenths=sell_price[o]),
@@ -318,11 +367,26 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
         }
         for idx, (o, i) in enumerate(pairs)
     ]
+    outs = [o for o, _ in pairs]
+    downgrades_in = [i for idx, (_, i) in enumerate(pairs) if idx > 0]
     # The target's own value is the same in every plan, so the comparison is
     # what the squad gives up: value out minus value of the downgrades in.
-    loss = sum(ctx.value(o) for o, _ in pairs) - sum(ctx.value(i) for idx, (_, i) in enumerate(pairs) if idx > 0)
+    loss = sum(ctx.value(o) for o in outs) - sum(ctx.value(i) for i in downgrades_in)
     hit, basis = _hit_cost(len(pairs), free_transfers)
-    rank_score = round(loss * HORIZON_GWS + hit, 4)
+    # Availability sold minus availability bought (lower is better: selling the injured is good).
+    avail_net = sum(sig.availability(o)["tier"] for o in outs) - sum(sig.availability(i)["tier"] for i in downgrades_in)
+    # The sold players' hard run minus the replacements' (higher is better).
+    fixture_gain = round(sum(_band(ctx, o) for o in outs) - sum(_band(ctx, i) for i in downgrades_in), 2)
+    # What the squad stops producing, plus the set pieces it gives up.
+    set_pieces_given = max(
+        0, sum(set_piece_count(ctx.elements[o]) for o in outs) - sum(set_piece_count(ctx.elements[i]) for i in downgrades_in)
+    )
+    performance = loss + SET_PIECE_PENALTY * set_pieces_given
+    tops = [
+        {"id": o, "web_name": str(ctx.elements[o].get("web_name", "")), "reasons": sig.top(o)["reasons"]}
+        for o in outs
+        if sig.top(o)["is_top"]
+    ]
     return {
         "moves": len(pairs),
         "transfers": transfers,
@@ -332,10 +396,73 @@ def _score_plan(ctx: _Context, plan: dict[str, Any], sell_price: dict[int, int],
         "bank_after_tenths": plan["bank_after"],
         "bank_after": round(plan["bank_after"] / 10, 1),
         "unavailable_sold": [tr["out"]["web_name"] for tr in transfers if tr["out"]["status_code"] != "a"],
-        "points_given_up": round(loss * HORIZON_GWS, 2),
-        "score": rank_score,
-        "_sort": (rank_score, len(pairs), tuple(sorted(o for o, _ in pairs))),
+        "tops_sold": tops,
+        "signals": {
+            "avail_net": avail_net,
+            "fixture_gain": fixture_gain,
+            "set_pieces_given": set_pieces_given,
+            "performance": round(performance, 2),
+        },
+        "_outs": outs,
     }
+
+
+def _rank_key(option: dict[str, Any]) -> tuple[Any, ...]:
+    """Football criteria first, then money, then hits (Leo, 2026-11-21).
+
+    1. availability sold minus bought (lower), 2. fixture gain (higher), 3. performance given up (lower),
+    4. money left unspent (lower: do not over-sell), then hits, moves and player ids as tie-breaks.
+    """
+    sig = option["signals"]
+    return (
+        sig["avail_net"],
+        -_bucket(sig["fixture_gain"], FIXTURE_BUCKET),
+        _bucket(sig["performance"], LOSS_BUCKET),
+        option["bank_after_tenths"] // BANK_BUCKET_TENTHS,
+        option["hit_cost"],
+        option["moves"],
+        tuple(sorted(option["_outs"])),
+    )
+
+
+def _gate_tops(ctx: _Context, options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A top is not sold unless the football says so, or there is no other way to fund the target.
+
+    A top sale is justified when he is unavailable or in decline. A plan that sells an unjustified top is
+    dropped while any plan without one exists; when none does, they all stay and each such top is marked
+    ``only_way`` so the card can say it.
+    """
+    for option in options:
+        for top in option["tops_sold"]:
+            top["why"] = _top_sale_reason(ctx, top["id"])
+        option["_unjustified"] = any(top["why"] is None for top in option["tops_sold"])
+    clean = [o for o in options if not o["_unjustified"]]
+    if clean:
+        return clean
+    for option in options:
+        for top in option["tops_sold"]:
+            top["why"] = top["why"] or "only_way"
+    return options
+
+
+def _drop_dominated(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A plan with more moves than another survives only if it is better on availability or fixtures.
+
+    Without that, the extra move (and its -4) would be bought for a gain in performance or money alone.
+    """
+    kept = []
+    for option in options:
+        fewer = [o for o in options if o["moves"] < option["moves"]]
+        if fewer:
+            best = min(fewer, key=_rank_key)
+            better_avail = option["signals"]["avail_net"] < best["signals"]["avail_net"]
+            better_fixtures = _bucket(option["signals"]["fixture_gain"], FIXTURE_BUCKET) > _bucket(
+                best["signals"]["fixture_gain"], FIXTURE_BUCKET
+            )
+            if not (better_avail or better_fixtures):
+                continue
+        kept.append(option)
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +605,8 @@ def plan_to_sign(
 
     plans = _search(ctx, target=target_id, squad=squad, bank=bank_tenths, sell_price=sell_price,
                     max_moves=max_moves, exclude_out=exclude)
-    scored = sorted((_score_plan(ctx, p, sell_price, ft) for p in plans), key=lambda s: s["_sort"])
+    scored = _drop_dominated(_gate_tops(ctx, [_score_plan(ctx, p, sell_price, ft) for p in plans]))
+    scored.sort(key=_rank_key)
     options: list[dict[str, Any]] = []
     for option in scored:
         outs = {tr["out"]["id"] for tr in option["transfers"]}
@@ -487,7 +615,9 @@ def plan_to_sign(
         errors = validate_squad(after, ctx.elements, budget_tenths=10**9, quotas=SQUAD_QUOTAS)
         if errors:  # the search cannot produce this; the proof is here to say so loudly
             continue
-        option.pop("_sort")
+        option["rank_key"] = list(_rank_key(option)[:4])
+        for private in ("_outs", "_unjustified"):
+            option.pop(private, None)
         options.append(option)
         if len(options) >= MAX_OPTIONS:
             break
