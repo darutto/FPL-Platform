@@ -145,7 +145,7 @@ def compute_league_eo(league: dict[str, Any], season: str, gw: int, api: _Api, *
         "league_id": league["id"], "league_name": league["name"], "league_size": size,
         "exact": exact, "approx": not exact,
         "n_sampled": len(samples), "n_target": len(entries),
-        "label": f"{'exact' if exact else 'approx.'}, n={len(samples)} of {size}",
+        "label": f"exact, n={len(samples)}" if exact else f"approx., n={len(samples)} of {size}",
         "sampled_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
         **compute_eo(samples),
     }

@@ -30,6 +30,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from . import league_eo as _core
+from .get_my_squad import load_linked_squad
 from .near_rank_eo_tool import MAX_NAMED, TOP_N, _name_index, _row, _season, gw_and_valid_until
 from .orch_config import is_league_eo_enabled
 from fpl_player_registry import normalize_player_name
@@ -51,8 +52,39 @@ def set_service(service: _core.LeagueEOService | None) -> None:
     _SERVICE = service
 
 
-def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: list[str]) -> dict[str, Any]:
-    """The compact answer for the model: the top EO players plus any the user named."""
+#: "Most of the league has him": the share of the league that owns a player the user does not.
+RISK_MIN_OWNED_PCT = 50.0
+#: "The league mostly does not have him": the share at or under which the user's own player is a differential.
+DIFFERENTIAL_MAX_OWNED_PCT = 20.0
+GROUP_SIZE = 5
+
+
+def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any] | None,
+                     by_id: dict[str, dict[str, Any]], teams: dict[int, str]) -> dict[str, Any]:
+    """The league's EO against the user's own 15, as two short opportunity lists.
+
+    ``risks``: players most of the league owns that the user does not (the ones to cover), highest EO
+    first. ``differentials``: the user's own players the league mostly does not own, rarest first.
+    Both at most ``GROUP_SIZE``. Without a squad the comparison is simply absent.
+    """
+    if not squad or not squad.get("players"):
+        return {"squad_compared": False}
+    own = {str(p["id"]) for p in squad["players"] if p.get("id") is not None}
+    risk_ids = sorted((i for i, s in players.items() if i not in own and s["owned_pct"] >= RISK_MIN_OWNED_PCT),
+                      key=lambda i: (-players[i]["eo"], int(i)))[:GROUP_SIZE]
+    zero = {"eo": 0.0, "owned_pct": 0.0, "captain_pct": 0.0}
+    diff_ids = sorted((i for i in own if players.get(i, zero)["owned_pct"] <= DIFFERENTIAL_MAX_OWNED_PCT),
+                      key=lambda i: (players.get(i, zero)["owned_pct"], int(i)))[:GROUP_SIZE]
+    return {
+        "squad_compared": True,
+        "risks": [_row(i, players[i], by_id, teams) for i in risk_ids],
+        "differentials": [_row(i, players.get(i, zero), by_id, teams) for i in diff_ids],
+    }
+
+
+def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: list[str],
+                 squad: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The compact answer for the model: the top EO players, any the user named, and the squad comparison."""
     by_id, teams = _name_index(bootstrap)
     players = data["players"]
     top_ids = sorted(players, key=lambda k: players[k]["eo"], reverse=True)[:TOP_N]
@@ -71,8 +103,11 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
         "exact": data["exact"], "approx": data["approx"], "n_sampled": data["n_sampled"], "label": data["label"],
         "top_players": [_row(i, players[i], by_id, teams) for i in top_ids],
         "named_players": [_row(i, players[i], by_id, teams) for i in dict.fromkeys(named_ids)],
+        **squad_comparison(players, squad, by_id, teams),
         "note": ("EO = how many copies of the player the managers of this league hold, counting captains "
-                 "double. Quote the label: 'exact' means every member was read, 'approx.' a sample."),
+                 "double. Quote the label: 'exact' means every member was read, 'approx.' a sample. "
+                 "`risks` are players most of the league owns that the user does not; `differentials` are the "
+                 "user's own players the league mostly does not own: present both as opportunities, never as orders."),
     }
 
 
@@ -104,13 +139,21 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
             if not leagues:
                 return {"status": "no_league", "code": "no_private_league"}
             if len(leagues) > 1:
-                return {"status": "needs_league", "message": "Ask the user which league, then call again with league_name.",
+                # status "ok" + stage, like plan_to_sign's choose_moves: a question for the user, not a failure, so
+                # the turn is a grounded one and the league chips can be armed on it.
+                return {"status": "ok", "stage": "needs_league",
+                        "message": ("Ask the user which league; the league names are shown to them as buttons. "
+                                    "Then call again with league_name."),
                         "leagues": [{"league_id": lg["id"], "name": lg["name"], "size": lg["size"]} for lg in leagues]}
             result = ask(leagues[0]["id"], None)  # exactly one: it is the one
     except Exception:  # noqa: BLE001  (a tool never raises into the turn)
         return {"status": "unavailable", "reason": "error"}
     if result["status"] == "ready":
-        return shape_result(result["data"], boot, list(player_names or []))
+        try:
+            squad = load_linked_squad(boot, gw)  # one small FPL call (the user's own picks); None if it fails
+        except Exception:  # noqa: BLE001
+            squad = None
+        return shape_result(result["data"], boot, list(player_names or []), squad)
     if result["status"] == "computing":
         return {"status": "computing", "eta_s": result["eta_s"],
                 "message": ("Being calculated in the background (up to about 30 seconds). Tell the user it is "

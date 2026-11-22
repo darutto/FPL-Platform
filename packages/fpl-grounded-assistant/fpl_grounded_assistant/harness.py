@@ -1433,6 +1433,8 @@ def ask_v2(
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap)
             if _chips is None:
                 _chips = _plan_to_sign_chips(orch_result.tool_chosen, _orch_raw)
+            if _chips is None:
+                _chips = _league_pick_chips(orch_result.tool_chosen, _orch_raw, locale)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1559,6 +1561,25 @@ def _plan_to_sign_chips(tool_name: str | None, raw_output: dict[str, Any]) -> li
         Suggestion(label=str(o["label"]), send_text=str(o["send_text"]), kind=KIND_PROMPT_REWRITE)
         for o in raw_output.get("move_options") or []
         if o.get("label") and o.get("send_text")
+    ) or None)
+
+
+def _league_pick_chips(tool_name: str | None, raw_output: dict[str, Any], locale: Locale) -> list[dict[str, Any]] | None:
+    """The "which league?" chips of get_league_eo, or ``None``.
+
+    One chip per private league of the user, labelled with its name; the tap re-asks the question
+    with that league named and the UI stores the id as the main league (see ``Suggestion``).
+    """
+    if tool_name != "get_league_eo" or raw_output.get("stage") != "needs_league":
+        return None
+    from .catalogue import t  # noqa: PLC0415
+    from .suggestions import KIND_LEAGUE_PICK, Suggestion, suggestions_to_list  # noqa: PLC0415
+
+    return suggestions_to_list(tuple(
+        Suggestion(label=str(lg["name"]), send_text=t("league_eo.chip_question", locale, league=str(lg["name"])),
+                   kind=KIND_LEAGUE_PICK, league_id=int(lg["league_id"]))
+        for lg in raw_output.get("leagues") or []
+        if lg.get("name") and lg.get("league_id")
     ) or None)
 
 
