@@ -268,3 +268,53 @@ def test_both_services_share_one_limiter_and_one_breaker_by_default():
     assert a._limiter is b._limiter is ne.shared_limiter()
     assert a._breaker is b._breaker is ne.shared_breaker()
     assert isinstance(a, ne.JobService) and isinstance(b, ne.JobService)
+
+
+# -- picking by name -----------------------------------------------------------------------------------
+
+LEAGUES = [{"id": 1, "name": "Café Ñandú", "size": 9}, {"id": 2, "name": "Work Mates A", "size": 9},
+           {"id": 3, "name": "Work Mates B", "size": 9}]
+
+
+@pytest.mark.parametrize("league_id,name,expected,reason", [
+    (None, "cafe nandu", 1, None),                 # accents and case folded
+    (None, "  CAFÉ  ñandú ", 1, None),
+    (None, "work mates a", 2, None),               # exact wins over the shared substring
+    (None, "mates", None, "league_ambiguous"),
+    (None, "nothing", None, "league_not_found"),
+    (3, None, 3, None),
+    (99, None, None, "not_a_member"),
+    (3, "cafe", 1, None),                          # a name wins over the stored id
+    (None, None, None, None),
+])
+def test_resolve_league(league_id, name, expected, reason):
+    league, why = le.resolve_league(LEAGUES, league_id, name)
+    assert (league["id"] if league else None) == expected and why == reason
+
+
+def test_a_league_name_is_resolved_inside_the_first_job():
+    fake = FakeApi(size=12, extra_leagues=[league_row(77, 48, name="Work")])
+    svc = service(fake)
+    assert svc.status("s", 11, USER, league_name="friends", valid_until=10**10)["status"] == "computing"
+    out = svc.status("s", 11, USER, league_name="friends", valid_until=10**10)
+    assert out["status"] == "ready" and out["data"]["league_name"] == "Friends"
+    assert fake.count("/entry/" + str(USER)) == 1 and fake.count("/standings/") == 1  # one job, listed and computed
+
+
+def test_an_unknown_name_is_unavailable_and_reads_no_league():
+    fake = FakeApi(size=12)
+    svc = service(fake)
+    svc.status("s", 11, USER, league_name="nothing")
+    assert svc.status("s", 11, USER, league_name="nothing") == {"status": "unavailable", "reason": "league_not_found"}
+    assert fake.count("/standings/") == 0
+
+
+def test_a_tripped_breaker_does_not_leak_into_the_next_test_part_1():
+    ne.shared_breaker()
+    for _ in range(ne.BREAKER_THRESHOLD):
+        ne.shared_breaker().failure()
+    assert ne.shared_breaker().allow() is False
+
+
+def test_a_tripped_breaker_does_not_leak_into_the_next_test_part_2():
+    assert ne.shared_breaker().allow() is True  # the autouse fixture reset the shared plumbing

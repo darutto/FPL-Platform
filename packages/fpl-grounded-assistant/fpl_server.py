@@ -306,6 +306,9 @@ class AskRequest(BaseModel):
     #: ``None`` for every anonymous turn. Threaded to ask_v2() -> the
     #: get_my_squad tool only — squad_context above is unrelated and unchanged.
     team_id: StrictInt | None = None
+    #: The user's chosen main mini-league (get_league_eo). ``None`` when none is stored; the UI
+    #: keeps it next to the team id. Threaded to ask_v2() like team_id.
+    main_league_id: StrictInt | None = None
     #: Explicit per-request opt-in for the premium web-search tool (globe
     #: toggle). Only takes effect when the caller's tier is in
     #: WEB_SEARCH_TIERS — see the gate in POST /ask. Parity with WC's
@@ -2393,6 +2396,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         selected_player_id=req.selected_player_id,
         locale=locale,
         team_id=req.team_id,  # i39: get_my_squad tool context
+        league_id=req.main_league_id,  # get_league_eo tool context
     )
 
     # ------------------------------------------------------------------
@@ -2646,6 +2650,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     if req.team_id is not None:
         _session_bootstrap = dict(_bootstrap)
         _session_bootstrap["_my_team_id"] = req.team_id
+    if req.main_league_id is not None:
+        _session_bootstrap = dict(_session_bootstrap)
+        _session_bootstrap["_my_league_id"] = req.main_league_id
 
     if req.selected_player_id is not None:
         r = entry.session.respond_to_selected_player_id(
