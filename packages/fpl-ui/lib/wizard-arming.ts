@@ -15,6 +15,7 @@
  */
 import type { Suggestion } from '@/lib/types';
 import {
+  SUGGESTION_KIND_EO_SWITCH,
   SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE,
   SUGGESTION_KIND_LEAGUE_PICK,
   SUGGESTION_KIND_PLAN_OPTION,
@@ -29,6 +30,7 @@ export const REWRITE_SUGGESTION_KINDS: ReadonlySet<string> = new Set([
   SUGGESTION_KIND_PROMPT_REWRITE,
   SUGGESTION_KIND_HISTORICAL_PLAYER_REWRITE,
   SUGGESTION_KIND_PLAN_OPTION,
+  SUGGESTION_KIND_EO_SWITCH,
 ]);
 
 export function isRewriteSuggestion(suggestion: Suggestion): boolean {
@@ -51,4 +53,9 @@ export function isLeaguePickSuggestion(
   suggestion: Suggestion,
 ): suggestion is Suggestion & { league_id: number } {
   return suggestion.kind === SUGGESTION_KIND_LEAGUE_PICK && suggestion.league_id != null;
+}
+
+/** The chip under an EO card that switches to the other EO view: sent verbatim, titled "Another view". */
+export function isEoSwitchSuggestion(suggestion: Suggestion): boolean {
+  return suggestion.kind === SUGGESTION_KIND_EO_SWITCH;
 }

@@ -19,7 +19,7 @@
  * All copy here is UI-owned; the backend never dictates the wizard wording.
  */
 import type { Suggestion } from '@/lib/types';
-import { isLeaguePickSuggestion, isPlanOptionSuggestion } from '@/lib/wizard-arming';
+import { isEoSwitchSuggestion, isLeaguePickSuggestion, isPlanOptionSuggestion } from '@/lib/wizard-arming';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 export interface CompareWizardState {
@@ -101,7 +101,9 @@ export function PlayerPickChips({ wizard, onPick }: PlayerPickProps) {
       <p className="text-[13px] font-semibold text-bf-text/90">
         {wizard.options.every(isLeaguePickSuggestion)
           ? t('wizard.pickLeague')
-          : wizard.options.every(isPlanOptionSuggestion)
+          : wizard.options.every(isEoSwitchSuggestion)
+            ? t('wizard.pickEo')
+            : wizard.options.every(isPlanOptionSuggestion)
             ? t('wizard.pickPlan')
             : t('wizard.pickOne')}
       </p>

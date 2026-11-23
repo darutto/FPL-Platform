@@ -18,6 +18,7 @@ import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
 import {
   WIZARD_ARMING_INTENTS,
   isLeaguePickSuggestion,
+  isEoSwitchSuggestion,
   isPlanOptionSuggestion,
   isRewriteSuggestion,
 } from '@/lib/wizard-arming';
@@ -223,6 +224,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   const isLeaguePickTurn = (responseSuggestions ?? []).some(isLeaguePickSuggestion);
   // A plan_to_sign turn offers plan choices (move count, other options), not players.
   const isPlanTurn = (responseSuggestions ?? []).some(isPlanOptionSuggestion);
+  const isEoSwitchTurn = (responseSuggestions ?? []).some(isEoSwitchSuggestion);
   // Guided Comparison chips: only under the LATEST top-level assistant bubble
   // (never historical turns, never sub-responses) while a wizard is armed.
   const showWizard = hasSuggestions && isLast && compareWizard != null && onSuggestionPick != null;
@@ -381,7 +383,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
           ))}
         {hasSuggestions && !showWizard && !showPlayerPickWizard && (
           <p className="text-sm font-semibold text-bf-text/90">
-            {isLeaguePickTurn ? t('wizard.pickLeague') : isPlanTurn ? t('wizard.pickPlan') : isPickOneTurn ? t('wizard.pickOne') : t('wizard.compareStep1')}
+            {isLeaguePickTurn ? t('wizard.pickLeague') : isEoSwitchTurn ? t('wizard.pickEo') : isPlanTurn ? t('wizard.pickPlan') : isPickOneTurn ? t('wizard.pickOne') : t('wizard.compareStep1')}
           </p>
         )}
 

@@ -63,6 +63,11 @@ KIND_HISTORICAL_PLAYER_REWRITE: str = "historical_player_rewrite"
 #: user's main league when the chip is tapped. Carries no ``player_id``.
 KIND_LEAGUE_PICK: str = "league_pick"
 
+#: ``Suggestion.kind`` for the chip under an EO card that switches to the other EO view (league <-> near
+#: rank): ``send_text`` is a complete question sent verbatim, like a prompt rewrite, but the UI titles it
+#: "another view", not "which of these players".
+KIND_EO_SWITCH: str = "eo_switch"
+
 #: ``Suggestion.kind`` for a plan_to_sign chip (a move-count choice or another option of the plan): ``send_text``
 #: is a complete question sent verbatim, like a prompt rewrite, but the chip is not a player pick, so the UI
 #: gives it its own short title instead of "which of these players".

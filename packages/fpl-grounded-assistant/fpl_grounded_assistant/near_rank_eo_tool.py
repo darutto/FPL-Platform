@@ -26,6 +26,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from . import near_rank_eo as _core
+from .tool_schema_registry import NEAR_RANK_EO_SCHEMA
 from .get_my_squad import load_linked_squad
 from .orch_config import is_near_rank_eo_enabled
 
@@ -124,7 +125,12 @@ def wording_note(has_him_en: str, has_him_es: str) -> str:
         f"as orders. Every row says `user_owns`: `group_has` rows have user_owns=false (the user does NOT own "
         f"them); `differentials` rows have user_owns=true (the user owns them). "
         f"NEVER use threat words: {', '.join(THREAT_WORDS)} (nor hurts/daño). "
-        f"Never write the field names `group_has` or `differentials` in the answer."
+        f"Never write the field names `group_has` or `differentials` in the answer. "
+        f"The card already shows every player and number, so write AT MOST 2 short conclusions and NO "
+        f"per-player list: no top-players run-through, no group-by-group recital, no numbers the card shows "
+        f"(use at most the one that makes a conclusion). Example of the tone: «Haaland es la cobertura más "
+        f"importante de tu liga; Isak es tu diferencial más relevante.» Mention the label (exact / approx.) "
+        f"once, briefly."
     )
 
 
@@ -153,6 +159,15 @@ def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any]
     }
 
 
+def main_league(data: dict[str, Any], bootstrap: dict[str, Any]) -> dict[str, Any]:
+    """``{"main_league": {league_id, name}}`` when the stored main league is one of the user's (else nothing)."""
+    stored = (bootstrap or {}).get("_my_league_id")
+    for lg in data.get("leagues") or []:
+        if stored and lg.get("id") == stored and lg.get("name"):
+            return {"main_league": {"league_id": lg["id"], "name": lg["name"]}}
+    return {}
+
+
 def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: list[str],
                  squad: dict[str, Any] | None = None) -> dict[str, Any]:
     """The compact answer for the model: the top EO players, any the user named, and the squad comparison."""
@@ -176,6 +191,7 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
         "user_rank": data["user_rank"], "n_sampled": data["n_sampled"],
         "label": f"approx., n={data['n_sampled']}",
         "top_players": rows, "named_players": named,
+        **main_league(data, bootstrap),
         **squad_comparison(players, squad, by_id, teams),
         "note": ("EO = how many copies of the player the managers around the user's rank hold, "
                  "counting captains double; a sample, so read it as approximate. "
@@ -214,14 +230,7 @@ def get_near_rank_eo(bootstrap: dict[str, Any] | None, *, player_names: list[str
 
 NEAR_RANK_EO_SPEC = ToolSpec(
     name="get_near_rank_eo",
-    description=(
-        "Effective ownership (EO) among the managers around the connected user's own overall rank "
-        "(about 125 sampled): top-EO players plus any named players, with ownership and captaincy %. "
-        "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank'. "
-        "It is approximate (a sample). status='computing' means the job just started: tell the user "
-        "plainly it is not ready and to ask again in about 30 seconds; never invent numbers. "
-        "status='no_team_connected' when no team is linked."
-    ),
+    description=NEAR_RANK_EO_SCHEMA.description,  # one text for the model, here and in the schema
     parameters={
         "type": "object",
         "properties": {

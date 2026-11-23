@@ -30,6 +30,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 from fpl_tool_runner.specs import ToolSpec
 
 from . import league_eo as _core
+from .tool_schema_registry import LEAGUE_EO_SCHEMA
 from .get_my_squad import load_linked_squad
 from .near_rank_eo_tool import (  # noqa: F401  (the comparison and its thresholds live there, shared with near-rank)
     DIFFERENTIAL_MAX_OWNED_PCT,
@@ -146,12 +147,7 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
 
 LEAGUE_EO_SPEC = ToolSpec(
     name="get_league_eo",
-    description=(
-        "Effective ownership (EO) inside the connected user's own private mini-league: top-EO players plus "
-        "any named, with ownership and captaincy %. status='needs_league' lists the user's leagues: ask "
-        "which, then call again with league_name. status='computing' means not ready: say so and ask the "
-        "user to try again shortly. status='no_team_connected' when no team is linked."
-    ),
+    description=LEAGUE_EO_SCHEMA.description,  # one text for the model, here and in the schema
     parameters={
         "type": "object",
         "properties": {

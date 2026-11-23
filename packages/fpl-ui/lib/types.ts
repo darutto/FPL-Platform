@@ -418,6 +418,15 @@ export const SUGGESTION_KIND_LEAGUE_PICK = 'league_pick';
  */
 export const SUGGESTION_KIND_PLAN_OPTION = 'plan_option';
 
+/**
+ * `Suggestion.kind` for the chip under an EO card that switches to the other EO view (league <-> near
+ * rank): `send_text` is a complete question sent verbatim, like a prompt rewrite; the chip row is titled
+ * `wizard.pickEo`, not "which of these players".
+ *
+ * Source: fpl_grounded_assistant/suggestions.py -> KIND_EO_SWITCH.
+ */
+export const SUGGESTION_KIND_EO_SWITCH = 'eo_switch';
+
 /** A single tappable suggestion chip (Guided Comparison). */
 export interface Suggestion {
   /** Chip label — short player web_name. */

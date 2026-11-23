@@ -1531,9 +1531,11 @@ SEARCH_WEB_SCHEMA = ToolSchema(
 NEAR_RANK_EO_SCHEMA = ToolSchema(
     name="get_near_rank_eo",
     description=(
-        "Effective ownership (EO) among the managers around the connected user's own overall rank "
+        "Effective ownership (EO) among the managers around the connected user's own OVERALL rank "
         "(about 125 sampled): top-EO players plus any you name, with ownership and captaincy %. "
-        "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank'. "
+        "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank', "
+        "and whenever the user asks about their overall rank: 'my overall rank', 'my overall ranking', "
+        "'respecto a mi ranking general', 'mi puesto general', 'clasificacion general'. "
         "The numbers are approximate (a sample): say so. If status is 'computing' the job has just "
         "started: tell the user plainly it is not ready and to ask again in about 30 seconds, and "
         "never invent numbers. status='no_team_connected' when no team is linked: ask the user to "
@@ -1563,7 +1565,9 @@ NEAR_RANK_EO_SCHEMA = ToolSchema(
 LEAGUE_EO_SCHEMA = ToolSchema(
     name="get_league_eo",
     description=(
-        "Effective ownership (EO) inside the connected user's own private mini-league: the top-EO "
+        "Effective ownership (EO) inside the connected user's own private MINI-LEAGUE only (never for the "
+        "overall rank: 'overall rank', 'ranking general', 'puesto general' and 'clasificacion general' go to "
+        "get_near_rank_eo): the top-EO "
         "players plus any you name, with ownership and captaincy %. Use for 'what does my league own', "
         "'who should I cover in my league if he hauls', 'EO of X in my mini-league'. Small leagues are read "
         "in full (label 'exact'); big ones are sampled (label 'approx.'): quote the label. "

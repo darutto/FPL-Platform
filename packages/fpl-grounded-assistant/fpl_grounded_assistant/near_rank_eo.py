@@ -229,6 +229,12 @@ def compute_eo(samples: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _private_leagues(entry_body: dict[str, Any]) -> list[dict[str, Any]]:
+    from .league_eo import private_leagues  # noqa: PLC0415  (lazy: league_eo imports this module)
+
+    return private_leagues(entry_body)
+
+
 def compute_near_rank_eo(entry_id: int, season: str, gw: int, api: _Api, *, workers: int = WORKERS,
                          now: datetime | None = None) -> dict[str, Any]:
     """Run one compute. Raises ``Unavailable`` (never anything else for an API problem)."""
@@ -236,6 +242,7 @@ def compute_near_rank_eo(entry_id: int, season: str, gw: int, api: _Api, *, work
     rank = user_rank_for_gw(history or {}, gw)
     if rank is None:
         raise Unavailable("no_rank")
+    entry_body = api.get(f"{BASE}/entry/{entry_id}/") or {}  # the user's league names (for the "EO in <league>" chip)
 
     pages: dict[int, list[dict[str, Any]]] = {}
     for page in window_pages(rank):
@@ -265,6 +272,7 @@ def compute_near_rank_eo(entry_id: int, season: str, gw: int, api: _Api, *, work
     return {
         "schema_version": 1, "season": season, "gw": gw, "tier": "near", "basis": "locked",
         "approx": True, "user_rank": rank,
+        "leagues": [{"id": lg["id"], "name": lg["name"]} for lg in _private_leagues(entry_body)],
         "n_sampled": len(samples), "n_target": len(entries),
         "window": {"pages": [ordered[0], ordered[-1]], "every": EVERY},
         "sampled_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
