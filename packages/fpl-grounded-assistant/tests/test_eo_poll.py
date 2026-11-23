@@ -158,13 +158,13 @@ def test_disabled_flag_is_reported(monkeypatch):
 
 # -- the marker through the harness and the /ask wire --------------------------------------------------------------
 
-def _orch(tool_name, raw):
+def _orch(tool_name, raw, outcome="ok"):
     from fpl_grounded_assistant.orchestrator import OrchestratorResult
 
     trace = ({"round": 1, "tool_call_id": "1", "name": tool_name, "args": {}, "output": raw, "success": True},)
     return OrchestratorResult(question="q", tool_chosen=tool_name, tool_args={}, tool_output=raw,
                               answer_text="Se esta calculando; pregunta de nuevo en unos segundos.", llm_used=True,
-                              model="controlled", outcome="ok", synthesis_turn=True, tool_call_count=1,
+                              model="controlled", outcome=outcome, synthesis_turn=True, tool_call_count=1,
                               tool_calls_trace=trace)
 
 
@@ -184,6 +184,59 @@ def test_a_computing_turn_carries_pending_and_keeps_the_model_text(monkeypatch, 
     d = harness.ask_v2("EO de mi liga", dict(STANDARD_BOOTSTRAP), orch_client=object(), team_id=555, locale="es")
     assert d["pending"] == expected
     assert "pregunta de nuevo" in d["answer_text"]  # clients that do not poll keep the existing text
+
+
+@pytest.mark.parametrize("tool_name,raw,expected", [
+    ("get_near_rank_eo", {"status": "computing", "tier": "near", "eta_s": 30},
+     {"tool": "get_near_rank_eo", "eta_s": 30, "poll_s": 4, "max_s": 60}),
+    ("get_league_eo", {"status": "computing", "tier": "league", "eta_s": 30, "league_id": 9},
+     {"tool": "get_league_eo", "league_id": 9, "eta_s": 30, "poll_s": 4, "max_s": 60}),
+])
+def test_the_real_computing_outcome_carries_pending(monkeypatch, tool_name, raw, expected):
+    """A computing result is not ok: the orchestrator reports tool_result_error and the turn takes the
+    'no grounded tool' branch, which is where the marker must be attached too (it was not)."""
+    from fpl_grounded_assistant import harness
+    from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
+
+    monkeypatch.setenv("FPL_ORCH_ENABLED", "1")
+    monkeypatch.setattr("fpl_grounded_assistant.harness._build_eval_client", lambda *a, **k: None)
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.ask_orchestrated",
+                        lambda *a, **k: _orch(tool_name, raw, outcome="tool_result_error"))
+    d = harness.ask_v2("EO de mi liga", dict(STANDARD_BOOTSTRAP), orch_client=object(), team_id=555, locale="es")
+    assert d["routing_trace"]["branch"] == "unsupported"
+    assert d["pending"] == expected
+
+
+def test_the_marker_is_read_from_the_last_poll_tool_call_in_a_multi_call_trace(monkeypatch):
+    from fpl_grounded_assistant import harness
+    from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
+
+    base = _orch("get_league_eo", {"status": "computing", "league_id": 9, "eta_s": 30}, outcome="tool_result_error")
+    trace = (
+        {"round": 1, "tool_call_id": "1", "name": "get_my_squad", "args": {}, "output": {"status": "ok"}, "success": True},
+        {"round": 1, "tool_call_id": "2", "name": "get_league_eo", "args": {},
+         "output": {"status": "computing", "tier": "league", "eta_s": 30, "league_id": 9}, "success": False},
+    )
+    import dataclasses
+
+    orch = dataclasses.replace(base, tool_calls_trace=trace, tool_call_count=2)
+    monkeypatch.setenv("FPL_ORCH_ENABLED", "1")
+    monkeypatch.setattr("fpl_grounded_assistant.harness._build_eval_client", lambda *a, **k: None)
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.ask_orchestrated", lambda *a, **k: orch)
+    d = harness.ask_v2("EO de mi liga", dict(STANDARD_BOOTSTRAP), orch_client=object(), team_id=555, locale="es")
+    assert d["pending"] == {"tool": "get_league_eo", "league_id": 9, "eta_s": 30, "poll_s": 4, "max_s": 60}
+
+
+def test_a_failed_tool_without_computing_has_no_pending(monkeypatch):
+    from fpl_grounded_assistant import harness
+    from fpl_grounded_assistant.conversation_fixtures import STANDARD_BOOTSTRAP
+
+    monkeypatch.setenv("FPL_ORCH_ENABLED", "1")
+    monkeypatch.setattr("fpl_grounded_assistant.harness._build_eval_client", lambda *a, **k: None)
+    monkeypatch.setattr("fpl_grounded_assistant.orchestrator.ask_orchestrated",
+                        lambda *a, **k: _orch("get_league_eo", {"status": "no_team_connected"}, outcome="tool_result_error"))
+    d = harness.ask_v2("EO de mi liga", dict(STANDARD_BOOTSTRAP), orch_client=object(), team_id=555, locale="es")
+    assert "pending" not in d
 
 
 def test_a_ready_turn_has_no_pending(monkeypatch):

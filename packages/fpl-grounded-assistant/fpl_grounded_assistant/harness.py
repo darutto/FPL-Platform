@@ -1557,6 +1557,15 @@ def ask_v2(
                 result["outcome"] = "ambiguous"
                 result["intent"] = _TOOL_TO_INTENT.get(_amb_call["name"], result.get("intent"))
                 result["player_suggestions"] = _amb_chips
+        # A ``computing`` EO answer is not "ok", so it lands HERE, never in the grounded branch: the marker the
+        # UI polls on must be read off the executed calls too (same shape as the i60 ambiguity chips above).
+        _computing_call = _last_computing_poll_call(orch_result.tool_calls_trace)
+        if _computing_call is not None:
+            from .eo_poll import pending_marker as _pending_marker  # noqa: PLC0415
+
+            _pending = _pending_marker(_computing_call["name"], _computing_call.get("output") or {})
+            if _pending is not None:
+                result["pending"] = _pending
         if context_meta is not None:
             result["context_meta"] = context_meta
         _telemetry.record(routing_trace)  # M5 telemetry (orchestrator no grounded tool -> unsupported)
@@ -1757,6 +1766,20 @@ def _last_ambiguous_chip_call(tool_calls_trace: Any) -> dict[str, Any] | None:
             isinstance(_e, dict)
             and _e.get("name") in STATUS_BEARING_TOOLS
             and (_e.get("output") or {}).get("status") == "ambiguous"
+        ):
+            return _e
+    return None
+
+
+def _last_computing_poll_call(tool_calls_trace: Any) -> dict[str, Any] | None:
+    """The last executed call of a pollable EO tool that came back ``computing`` (primary or retry)."""
+    from .eo_poll import POLL_TOOLS  # noqa: PLC0415
+
+    for _e in reversed(tuple(tool_calls_trace or ())):
+        if (
+            isinstance(_e, dict)
+            and _e.get("name") in POLL_TOOLS
+            and (_e.get("output") or {}).get("status") == "computing"
         ):
             return _e
     return None

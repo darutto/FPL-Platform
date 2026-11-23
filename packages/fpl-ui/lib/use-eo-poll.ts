@@ -55,15 +55,18 @@ export function useEoPoll({ teamId, locale, onReady }: Options) {
     const wait = (seconds: number) => {
       timer = setTimeout(tick, Math.max(1, seconds) * 1000);
     };
+    const fail = () => {
+      setState((s) => (s && s.messageId === state.messageId ? { ...s, timedOut: true } : s));
+    };
     const tick = async () => {
       if (cancelled) return;
       if (Date.now() - state.startedAt >= marker.max_s * 1000) {
-        setState((s) => (s && s.messageId === state.messageId ? { ...s, timedOut: true } : s));
+        fail();
         return;
       }
       const team = teamRef.current;
       if (team == null) {
-        setState(null);
+        fail(); // no team to poll for: say so («Reintentar»), never go quiet
         return;
       }
       try {
@@ -85,7 +88,7 @@ export function useEoPoll({ teamId, locale, onReady }: Options) {
       } catch (err) {
         if (cancelled) return;
         if (err instanceof FplApiError && err.status === 429) wait(marker.poll_s); // too often: just wait
-        else setState(null);
+        else fail(); // 401 (no session), 5xx, network: a failed poll is visible, never silent
       }
     };
     wait(marker.poll_s);
