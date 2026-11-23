@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-21",
+  "updated": "2026-11-23",
   "cards": [
     {
       "id": "s1",
@@ -2721,6 +2721,65 @@
       "desc": "Fusionada (PR #661, 21/11). El resolver de jugadores suma GIVEN_NAME_GROUPS en fpl-player-registry/nicknames.py (nicolas/nico/nick, alexander/alex, matthew/matt, …) y una ruta given_name_variant en resolution.py por debajo de nombre exacto y por encima de prefijo, simétrica y con apellido obligatorio; los empates siguen en ambiguous y un nombre completo exacto siempre gana al diminutivo, así que resolve_player_candidates y todas las herramientas de chat que lo usan heredan el cambio sin tocar prompts.",
       "tags": [
         "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s92",
+      "col": "shipped",
+      "title": "EO (effective ownership) top-10K/100K con muestreo programado",
+      "desc": "Fusionada (PR #671, #673, #676, #689, #695; 22-23/11). Workflow de Actions muestrea el effective ownership de picks top-10K y top-100K de la liga global tras cada deadline (split-half, checkpoint resumible, ≤4 req/s) y lo publica en R2; get_tier_eo lo lee detrás de FPL_TIER_EO_ENABLED (apagado) y arma la tarjeta «EO top 10K/100K» con chip a EO cerca de tu puesto y estado en /healthz.",
+      "tags": [
+        "Backend",
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s93",
+      "col": "shipped",
+      "title": "EO cerca de tu puesto (vecinos de ranking)",
+      "desc": "Fusionada (PR #677, #679, #686; 22/11). Job calcula el effective ownership entre los managers alrededor del puesto general del usuario (±2 páginas de standings, muestra de ~125) y get_near_rank_eo lo muestra en la tarjeta «EO cerca de tu puesto» contra la plantilla propia, detrás de FPL_NEAR_RANK_EO_ENABLED (apagado).",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s94",
+      "col": "shipped",
+      "title": "EO por mini-liga privada",
+      "desc": "Fusionada (PR #680, #682, #683, #684, #685; 22/11). Nuevo servicio calcula el effective ownership de una mini-liga privada del usuario (exacto hasta 100 managers, muestreado hasta 2000) y get_league_eo lo expone en la tarjeta «EO en <liga>» con chips para elegir la liga y el id guardado en el cliente, detrás de FPL_LEAGUE_EO_ENABLED (apagado).",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s95",
+      "col": "shipped",
+      "title": "Redacción y chips pulidos entre las tarjetas de EO",
+      "desc": "Fusionada (PR #692, #693, #694; 22-23/11). Tras la prueba en vivo de Leo: la nota de las herramientas de EO pasa de lenguaje de amenaza a oportunidad (group_has en vez de risks), las tarjetas ganan tonos de badge por grupo con user_owns en cada fila y differentials ordenados por el EO mostrado, y liga/cerca-de-tu-puesto/top-10K suman chips cruzados (eo_switch) para saltar entre vistas.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s96",
+      "col": "shipped",
+      "title": "plan_to_sign: orden fútbol-primero y tarjeta con chips",
+      "desc": "Fusionada (PR #672, #675, #678, #681, #687, #688, #690, #691; 22/11). La recomendación de a quién vender pasa de un score único a un orden por niveles (disponibilidad, calendario, rendimiento cedido, dinero libre) con chequeo de forma/xGI en declive antes de ofrecer a un top, y se sirve en una tarjeta con conclusiones, opciones sin duplicados y chips de opción que no llaman al modelo.",
+      "tags": [
+        "Backend",
+        "UI",
         "FPL Asistente"
       ],
       "progress": 100
