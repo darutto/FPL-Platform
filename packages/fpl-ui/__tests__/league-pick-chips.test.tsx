@@ -177,3 +177,37 @@ describe('league chips', () => {
     expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBeNull();
   });
 });
+
+
+const switchReply = {
+  ...reply,
+  intent: 'plan_to_sign',
+  final_text: 'Haaland es la cobertura mas importante.',
+  suggestions: [{ label: 'EO cerca de tu puesto', send_text: 'EO cerca de tu puesto', kind: 'eo_switch' }],
+};
+
+describe('EO switch chip', () => {
+  test('is titled "another view", sends its text verbatim and is a plain question', async () => {
+    ask.mockResolvedValueOnce(switchReply);
+    const user = userEvent.setup();
+    renderShell('es');
+    await user.click(screen.getByText('connect-team'));
+    await send(user, 'EO en mi liga');
+    expect(await screen.findByText('Otra vista')).toBeInTheDocument();
+    expect(screen.queryByText('¿Cuál de estos jugadores buscabas?')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'EO cerca de tu puesto' }));
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0]).toMatchObject({ question: 'EO cerca de tu puesto', team_id: 555 });
+    expect(ask.mock.calls[1][0].selected_player_id).toBeUndefined();
+    expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBeNull(); // not a league pick: nothing is stored
+  });
+
+  test('the title in English', async () => {
+    ask.mockResolvedValueOnce({ ...switchReply, suggestions: [{ label: 'EO near your rank', send_text: 'EO near your rank', kind: 'eo_switch' }] });
+    const user = userEvent.setup();
+    renderShell('en');
+    await user.click(screen.getByText('connect-team'));
+    await send(user, 'EO in my league');
+    expect(await screen.findByText('Another view')).toBeInTheDocument();
+  });
+});

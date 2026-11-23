@@ -108,3 +108,67 @@ def test_other_cards_do_not_carry_badge_tones():
 
     plain = GenericCardMeta(accent="gray", title="x", subtitle=None, hero=None, pills=(), columns=(), rows=())
     assert generic_card_to_dict(plain)["badge_tones"] is None
+
+
+# -- trimmed prose, overall-rank routing, the switch chips ----------------------------------------------------
+
+def test_the_note_asks_for_at_most_two_short_conclusions_and_no_per_player_list():
+    for note in notes().values():
+        assert "AT MOST 2 short conclusions" in note and "NO per-player list" in note
+        assert "no numbers the card shows" in note
+        assert "Haaland es la cobertura más importante de tu liga; Isak es tu diferencial más relevante." in note
+        assert "label (exact / approx.)" in note
+
+
+def test_overall_rank_phrasings_route_to_near_rank_and_the_league_tool_says_it_is_mini_league_only():
+    near = NEAR_RANK_EO_SCHEMA.description
+    for phrase in ("overall rank", "my overall ranking", "ranking general", "mi puesto general", "clasificacion general"):
+        assert phrase in near
+        assert phrase not in LEAGUE_EO_SCHEMA.description.replace("never for the overall rank: 'overall rank', "
+                                                                  "'ranking general', 'puesto general' and "
+                                                                  "'clasificacion general' go to get_near_rank_eo", "")
+    assert "MINI-LEAGUE only" in LEAGUE_EO_SCHEMA.description and "get_near_rank_eo" in LEAGUE_EO_SCHEMA.description
+
+
+def test_the_spec_and_the_schema_descriptions_are_the_same_text():
+    assert near_rank_eo_tool.NEAR_RANK_EO_SPEC.description is NEAR_RANK_EO_SCHEMA.description
+    assert league_eo_tool.LEAGUE_EO_SPEC.description is LEAGUE_EO_SCHEMA.description
+
+
+def test_main_league_name_comes_from_the_job_data_only_when_it_is_the_stored_one():
+    data = {**DATA, "leagues": [{"id": 7, "name": "Friends"}, {"id": 8, "name": "Work"}]}
+    boot = {**BOOT, "_my_league_id": 8}
+    assert near_rank_eo_tool.shape_result(data, boot, [], SQUAD)["main_league"] == {"league_id": 8, "name": "Work"}
+    assert "main_league" not in near_rank_eo_tool.shape_result(data, BOOT, [], SQUAD)
+    assert "main_league" not in near_rank_eo_tool.shape_result(data, {**BOOT, "_my_league_id": 99}, [], SQUAD)
+
+
+def _chips(tool, raw, locale="es"):
+    from fpl_grounded_assistant.harness import _eo_switch_chips
+
+    return _eo_switch_chips(tool, raw, locale)
+
+
+def test_the_league_card_carries_one_chip_to_the_near_rank_view():
+    raw = league_eo_tool.shape_result(LEAGUE_DATA, BOOT, [], SQUAD)
+    assert [(c["label"], c["send_text"], c["kind"]) for c in _chips("get_league_eo", raw)] == \
+        [("EO cerca de tu puesto", "EO cerca de tu puesto", "eo_switch")]
+    assert _chips("get_league_eo", raw, "en")[0]["send_text"] == "EO near your rank"
+
+
+def test_the_near_rank_card_carries_a_league_chip_only_when_the_main_league_is_known():
+    data = {**DATA, "leagues": [{"id": 8, "name": "Work"}]}
+    known = near_rank_eo_tool.shape_result(data, {**BOOT, "_my_league_id": 8}, [], SQUAD)
+    assert [(c["send_text"], c["kind"]) for c in _chips("get_near_rank_eo", known)] == [("EO en Work", "eo_switch")]
+    assert _chips("get_near_rank_eo", known, "en")[0]["send_text"] == "EO in Work"
+    assert _chips("get_near_rank_eo", near_rank_eo_tool.shape_result(data, BOOT, [], SQUAD)) is None
+
+
+@pytest.mark.parametrize("tool,raw", [
+    ("get_league_eo", {"status": "computing", "eta_s": 30}),
+    ("get_league_eo", {"status": "ok", "stage": "needs_league", "leagues": []}),
+    ("get_near_rank_eo", {"status": "unavailable", "reason": "no_rank"}),
+    ("get_my_squad", {"status": "ok", "tier": "league"}),
+])
+def test_no_switch_chip_unless_an_eo_card_is_shown(tool, raw):
+    assert _chips(tool, raw) is None

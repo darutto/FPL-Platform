@@ -98,7 +98,7 @@ def test_compute_samples_every_second_manager_excluding_the_user():
     picked = [int(u.split("/entry/")[1].split("/")[0]) for u in fake.urls if "/picks/" in u]
     assert USER not in picked and len(picked) == len(set(picked)) == 125
     assert all((e - 1_000_000) % 2 == 0 for e in picked)  # even positions only
-    assert len(fake.urls) == 1 + 5 + 125
+    assert len(fake.urls) == 1 + 1 + 5 + 125  # history, the user's entry (league names), standings, picks
 
 
 def test_user_on_an_even_position_is_excluded_from_the_sample():
@@ -281,3 +281,17 @@ def test_a_bug_in_a_job_becomes_unavailable_not_a_stuck_key():
     assert svc.status("s", 11, USER)["status"] == "computing"
     assert svc.status("s", 11, USER) == {"status": "unavailable", "reason": "error"}
     assert svc._inflight == set()
+
+
+def test_compute_keeps_the_names_of_the_users_private_leagues_for_the_switch_chip():
+    class WithLeagues(FakeApi):
+        def __call__(self, url):
+            if url.endswith(f"/entry/{USER}/"):
+                self.urls.append(url)
+                return 200, {"leagues": {"classic": [
+                    {"id": 9, "name": "Friends", "league_type": "x", "scoring": "c", "rank_count": 12},
+                    {"id": 314, "name": "Overall", "league_type": "s", "scoring": "c"}]}}, {}
+            return super().__call__(url)
+
+    out = ne.compute_near_rank_eo(USER, "s", 11, make_api(WithLeagues()), workers=1)
+    assert out["leagues"] == [{"id": 9, "name": "Friends"}]

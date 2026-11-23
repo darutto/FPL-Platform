@@ -104,8 +104,8 @@ def test_flag_on_offers_the_tool_in_every_provider_format(monkeypatch):
 
 def test_the_two_eo_flags_are_independent(monkeypatch):
     on(monkeypatch)
-    text = str(orchestrator._build_tools(None, football_intelligence_enabled=False))
-    assert "get_near_rank_eo" not in text
+    assert "get_near_rank_eo" not in get_offered_tool_names(False, league_eo_enabled=True)  # (its name is only mentioned in the league text)
+    assert "get_league_eo" in get_offered_tool_names(False, league_eo_enabled=True)
 
 
 def test_a_direct_call_with_the_flag_off_is_disabled_and_starts_nothing():

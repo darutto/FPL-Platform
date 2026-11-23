@@ -1471,6 +1471,8 @@ def ask_v2(
                 _chips = _plan_to_sign_chips(_orch_tool, _orch_raw, locale)
             if _chips is None:
                 _chips = _league_pick_chips(orch_result.tool_chosen, _orch_raw, locale)
+            if _chips is None:
+                _chips = _eo_switch_chips(_orch_tool, _orch_raw, locale)
             if _chips is not None:
                 result["player_suggestions"] = _chips
             if orch_result.tool_chosen in {
@@ -1646,6 +1648,28 @@ def _league_pick_chips(tool_name: str | None, raw_output: dict[str, Any], locale
         for lg in raw_output.get("leagues") or []
         if lg.get("name") and lg.get("league_id")
     ) or None)
+
+
+def _eo_switch_chips(tool_name: str | None, raw_output: dict[str, Any], locale: Locale) -> list[dict[str, Any]] | None:
+    """The one chip under an EO card that switches to the other view, or ``None``.
+
+    Under the league card: "EO near your rank". Under the near-rank card: "EO in <main league>", only when
+    the user's main league is known. Plain verbatim questions (they still go through the model).
+    """
+    if raw_output.get("status") != "ok" or raw_output.get("stage"):
+        return None
+    from .catalogue import t  # noqa: PLC0415
+    from .suggestions import KIND_EO_SWITCH, Suggestion, suggestions_to_list  # noqa: PLC0415
+
+    text = None
+    if tool_name == "get_league_eo" and raw_output.get("tier") == "league":
+        text = t("near_eo.title", locale)
+    elif tool_name == "get_near_rank_eo" and raw_output.get("tier") == "near":
+        name = (raw_output.get("main_league") or {}).get("name")
+        text = t("league_eo.chip_question", locale, league=str(name)) if name else None
+    if not text:
+        return None
+    return suggestions_to_list((Suggestion(label=text, send_text=text, kind=KIND_EO_SWITCH),))
 
 
 def _ambiguity_suggestions(

@@ -220,7 +220,8 @@ def test_a_ready_turn_carries_the_card(monkeypatch, orch_on, bootstrap):
     d = harness.ask_v2("EO en mi liga", bootstrap, orch_client=object(), team_id=555, league_id=42, locale="es")
     card = d["generic_card"]
     assert card is not None and card.title == "EO en Friends" and card.rows[0][0] == "La liga lo tiene"
-    assert not d.get("player_suggestions")
+    # one chip to the other view, nothing else (no league-pick chips)
+    assert [c["kind"] for c in d["player_suggestions"]] == ["eo_switch"]
 
 
 def test_a_picker_turn_carries_the_chips_and_no_card(monkeypatch, orch_on, bootstrap):

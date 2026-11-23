@@ -202,6 +202,7 @@ export const en: typeof es = {
   'wizard.pickOne': 'Which of these players did you mean?',
   'wizard.pickLeague': 'Which of your leagues?',
   'wizard.pickPlan': 'Plan',
+  'wizard.pickEo': 'Another view',
   'wizard.firstPlayer': 'First player:',
   'wizard.notFound': 'Cannot see your player? Type the name below.',
 
