@@ -2795,6 +2795,17 @@
         "FPL Asistente"
       ],
       "progress": 0
+    },
+    {
+      "id": "i165",
+      "col": "shipped",
+      "title": "Rendimiento de local vs visita por jugador y por rival: medido y descartado",
+      "desc": "Idea de Leo (23/11): cruzar si un jugador rinde más de local o de visita contra rivales mejores de local o de visita, para elegir y rotar a corto plazo. Backtest pre-registrado sobre la tienda propia (datos públicos de FPL, 4 temporadas con xG, primera mitad → segunda mitad, 2025-26 reservada): ninguna puerta pasa. La diferencia local/visita propia de un jugador o de un equipo no se repite de una mitad a la otra y, sumada a la dificultad de FPL, empeora la predicción; solo la ventaja de local general es real. No se construye; reabrir solo con datos nuevos.",
+      "tags": [
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 100
     }
   ]
 }
