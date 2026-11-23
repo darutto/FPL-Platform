@@ -10,7 +10,7 @@
  *   429  — session cap (sessions only)
  *   503  — backend not initialised
  */
-import type { AskRequest, AskResponse } from './types';
+import type { AskRequest, AskResponse, EoPollResponse } from './types';
 import type { SessionSeed } from './session-seed';
 import { translate } from './i18n/dictionary';
 import { DEFAULT_LOCALE, type Locale } from './i18n/locale';
@@ -70,6 +70,25 @@ export async function ask(request: AskRequest): Promise<AskResponse> {
   }
 
   return res.json() as Promise<AskResponse>;
+}
+
+/**
+ * One poll of a "computing" EO answer (POST /eo/poll via the proxy): no model, no quota turn.
+ * Throws FplApiError with the HTTP status (401 signed out, 429 too often).
+ */
+export async function eoPoll(body: {
+  tool: 'get_league_eo' | 'get_near_rank_eo';
+  team_id: number;
+  league_id?: number | null;
+  locale?: string;
+}): Promise<EoPollResponse> {
+  const res = await fetch('/api/eo-poll', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new FplApiError(res.status, `Request failed (${res.status})`);
+  return res.json() as Promise<EoPollResponse>;
 }
 
 /**

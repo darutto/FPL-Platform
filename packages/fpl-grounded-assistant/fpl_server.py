@@ -48,7 +48,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import asdict as _dc_asdict, dataclass
-from typing import Any
+from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
 # sys.path setup  (same pattern as fpl_repl.py / run_validation.py)
@@ -84,6 +84,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
+from fpl_grounded_assistant import eo_poll
 from fpl_grounded_assistant.competition_calendar import competitions_response, materialize_manual_layer
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
@@ -365,6 +366,9 @@ class AskResponse(BaseModel):
     differential: dict[str, Any] | None = None            # Phase 7g
     #: plan_to_sign: what a "who else can I sell?" follow-up needs; the UI sends it back next turn.
     plan_state: dict[str, Any] | None = None
+    #: A ``computing`` EO answer (get_league_eo / get_near_rank_eo): {tool, league_id?, eta_s, poll_s, max_s}.
+    #: The UI polls POST /eo/poll for it, with no model. ``None`` on every other turn.
+    pending: dict[str, Any] | None = None
     orch_outcome: str | None = None                        # Orch-4c: audit
     degraded: bool = False                                 # Phase 2.6b: provider failed silently
     player_form: dict[str, Any] | None = None              # Phase 2.6d
@@ -2164,6 +2168,39 @@ def fixtures_competitions(
     """Off-Premier-League matches per club with rest days. Premium sees the detail,
     everyone else per-week counts only. ``{"available": false}`` unless the dev gate is open."""
     return competitions_response(tier_of(request), team, date_from, date_to)
+
+
+class EoPollRequest(BaseModel):
+    """POST /eo/poll: what a ``computing`` EO answer's ``pending`` marker names. Two tools and bounded ints only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool: Literal["get_league_eo", "get_near_rank_eo"]
+    team_id: StrictInt = Field(gt=0, lt=eo_poll.MAX_ID)
+    league_id: StrictInt | None = Field(default=None, gt=0, lt=eo_poll.MAX_ID)
+    locale: str | None = Field(default=None, max_length=8)
+
+
+_EO_POLL_GATE = eo_poll.RateGate(eo_poll.POLL_MIN_INTERVAL_S)
+
+
+@app.post("/eo/poll")
+def eo_poll_route(req: EoPollRequest, request: Request) -> dict[str, Any]:
+    """The deterministic retry of a ``computing`` EO answer: no orchestrator, no model, no quota turn.
+
+    Gating: a signed-in caller only (``eo_poll.caller_id``: X-User-Id from the Clerk session, plus the internal
+    token when configured), then one poll per user per 2 s. Both are checked BEFORE any tool call, so a refused
+    request starts no job. The ``team_id`` / ``league_id`` are the client's, exactly as in POST /ask: this route
+    does not tie them to the user id. The league job still checks that the team is a member of the league.
+    """
+    raw_user = eo_poll.caller_id(request.headers)
+    if raw_user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not _EO_POLL_GATE.allow(hash_user_id(raw_user)):
+        raise HTTPException(status_code=429, detail="Too Many Requests", headers={"Retry-After": "2"})
+    if _bootstrap is None:
+        raise HTTPException(status_code=503, detail="not ready")
+    return eo_poll.poll(req.tool, req.team_id, req.league_id, _bootstrap, req.locale)
 
 
 def resolve_locale(request: Request, body: "AskRequest") -> Locale:

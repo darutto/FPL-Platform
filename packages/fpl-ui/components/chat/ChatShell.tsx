@@ -54,6 +54,8 @@ import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 import { readMainLeagueId, writeMainLeagueId } from '@/lib/main-league';
+import { useEoPoll } from '@/lib/use-eo-poll';
+import type { EoPollResponse } from '@/lib/types';
 
 // Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands (labels: pager.* in the dictionary).
 const CHAT_SCREEN = 2;
@@ -109,15 +111,43 @@ export default function ChatShell() {
   }, []);
   const [gw, setGw] = useState<number | null>(null);
 
+  // A "computing" EO answer is polled for on its own (no model): when the card is ready it replaces the
+  // bubble's text and card in place. At most one poll per conversation (lib/use-eo-poll.ts).
+  const handleEoReady = useCallback((messageId: string, reply: EoPollResponse) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.response != null
+          ? {
+              ...m,
+              text: reply.text ?? m.text,
+              response: {
+                ...m.response,
+                final_text: reply.text ?? m.response.final_text,
+                generic_card: reply.generic_card ?? m.response.generic_card,
+                suggestions: reply.suggestions ?? null,
+                pending: null,
+              },
+            }
+          : m,
+      ),
+    );
+  }, []);
+  const { state: eoPoll, start: startEoPoll, cancel: cancelEoPoll, retry: retryEoPoll } = useEoPoll({
+    teamId,
+    locale,
+    onReady: handleEoReady,
+  });
+
   const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
     setTeamId(id);
     setTeamName(name);
     if (id == null) {
+      cancelEoPoll();
       setGw(null);
       setMainLeagueId(null);
       writeMainLeagueId(null);
     }
-  }, []);
+  }, [cancelEoPoll]);
 
   // Drop text into the chat input and snap back to the chat screen.
   // `placeholder` (e.g. "p.ej. Haaland") hints the required argument when
@@ -207,6 +237,7 @@ export default function ChatShell() {
     const armedForId = followUpArmedFor;
 
     setMessages((prev) => [...prev, userMessage]);
+    cancelEoPoll(); // a new question ends any EO poll still running
     setLoading(true);
     setFollowUpArmedFor(null);
     // Every send clears the (now-resolved-or-abandoned) wizard state; if the
@@ -288,6 +319,7 @@ export default function ChatShell() {
         response,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+      if (response.pending != null) startEoPoll(assistantMessage.id, response.pending);
       // Three chip flows share the single `suggestions` field, so each arming
       // check must be exclusive of the other two or a turn would arm the wrong
       // wizard. The discriminators, in the order tested below:
@@ -359,7 +391,7 @@ export default function ChatShell() {
     } finally {
       setLoading(false);
     }
-  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId, mainLeagueId, compareCommand, t]);
+  }, [loading, followUpArmedFor, sessionId, squadContext, webSearchOn, webSearchAvailable, messages, compareWizard, locale, teamId, mainLeagueId, compareCommand, t, cancelEoPoll, startEoPoll]);
 
   // Guided Comparison: a chip tap. First tap stores player A client-side (no
   // round trip) and swaps the question to step 2. Second tap sends the canonical
@@ -468,6 +500,12 @@ export default function ChatShell() {
                     onSuggestionPick={handleSuggestionPick}
                     playerPickWizard={playerPickWizard}
                     onPlayerPick={handlePlayerPick}
+                    pendingEo={
+                      eoPoll != null
+                        ? { messageId: eoPoll.messageId, tool: eoPoll.marker.tool, etaS: eoPoll.marker.eta_s, timedOut: eoPoll.timedOut }
+                        : null
+                    }
+                    onRetryEo={retryEoPoll}
                   />
                 </ChatAskProvider>
               )}

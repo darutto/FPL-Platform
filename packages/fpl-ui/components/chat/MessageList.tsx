@@ -13,7 +13,7 @@
  *   - Text-only turns render final_text in a bubble as before.
  *   - Show a visible origin badge for assistant turns in both shapes.
  */
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import type { AskResponse, Outcome, Suggestion } from '@/lib/types';
 import {
   WIZARD_ARMING_INTENTS,
@@ -73,6 +73,10 @@ interface Props {
   playerPickWizard?: PlayerPickWizardState | null;
   /** Called with a tapped chip's send_text. */
   onPlayerPick?: (suggestion: Suggestion) => void;
+  /** A "computing" EO answer being polled for: the message it belongs to (see lib/use-eo-poll.ts). */
+  pendingEo?: { messageId: string; tool: string; etaS: number; timedOut: boolean } | null;
+  /** «Reintentar» after the poll gave up. */
+  onRetryEo?: () => void;
 }
 
 export default function MessageList({
@@ -84,6 +88,8 @@ export default function MessageList({
   onSuggestionPick,
   playerPickWizard,
   onPlayerPick,
+  pendingEo,
+  onRetryEo,
 }: Props) {
   const t = useT();
   const listRef = useRef<HTMLDivElement>(null);
@@ -109,18 +115,36 @@ export default function MessageList({
   return (
     <div ref={listRef} data-testid="conversation-scroll" className="flex-1 min-w-0 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          shareQuestion={shareQuestionByAssistantId[msg.id] ?? null}
-          isLast={msg.id === lastId}
-          armed={followUpArmedFor === msg.id}
-          onFollowUp={onFollowUp}
-          compareWizard={compareWizard}
-          onSuggestionPick={onSuggestionPick}
-          playerPickWizard={playerPickWizard}
-          onPlayerPick={onPlayerPick}
-        />
+        <Fragment key={msg.id}>
+          <MessageBubble
+            message={msg}
+            shareQuestion={shareQuestionByAssistantId[msg.id] ?? null}
+            isLast={msg.id === lastId}
+            armed={followUpArmedFor === msg.id}
+            onFollowUp={onFollowUp}
+            compareWizard={compareWizard}
+            onSuggestionPick={onSuggestionPick}
+            playerPickWizard={playerPickWizard}
+            onPlayerPick={onPlayerPick}
+          />
+          {pendingEo != null && pendingEo.messageId === msg.id && (
+            <div className="flex justify-start" data-testid="eo-pending">
+              {pendingEo.timedOut ? (
+                <button
+                  type="button"
+                  onClick={onRetryEo}
+                  className="rounded-full border border-bf-turquoise/60 px-3 py-1 text-sm text-bf-turquoise hover:bg-white/5"
+                >
+                  {t('eo.retry')}
+                </button>
+              ) : (
+                <span role="status" className="text-bf-turquoise text-sm animate-pulse">
+                  {t(pendingEo.tool === 'get_league_eo' ? 'eo.pending.league' : 'eo.pending.near', { s: pendingEo.etaS })}
+                </span>
+              )}
+            </div>
+          )}
+        </Fragment>
       ))}
       {loading && (
         <div className="flex justify-start">

@@ -124,6 +124,9 @@ export const es = {
 
   // --- Messages ---
   'msg.thinking': 'Pensando…',
+  'eo.pending.league': 'Calculando el EO de tu liga… (~{s} s)',
+  'eo.pending.near': 'Calculando el EO cerca de tu puesto… (~{s} s)',
+  'eo.retry': 'Reintentar',
   'msg.structuredAnswer': 'Respuesta estructurada',
   'msg.verdict': 'Veredicto',
   'concl.attack.DEF': 'Muy ofensivo para ser defensa',

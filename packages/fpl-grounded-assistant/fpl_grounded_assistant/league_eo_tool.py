@@ -139,7 +139,8 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
             squad = None
         return shape_result(result["data"], boot, list(player_names or []), squad)
     if result["status"] == "computing":
-        return {"status": "computing", "eta_s": result["eta_s"],
+        return {"status": "computing", "tier": "league", "eta_s": result["eta_s"],
+                "league_id": int(stored) if stored else None,  # echoed: the UI polls for exactly this league
                 "message": ("Being calculated in the background (up to about 30 seconds). Tell the user it is "
                             "not ready yet and that they can ask again shortly; do not guess numbers.")}
     return {"status": "unavailable", "reason": result.get("reason", "error")}

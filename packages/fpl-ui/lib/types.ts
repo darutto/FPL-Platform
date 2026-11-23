@@ -219,6 +219,26 @@ export interface AskRequest {
   plan_state?: Record<string, unknown> | null;
 }
 
+/** The marker of a "computing" EO answer: which tool to poll, with which league, how often, for how long. */
+export interface EoPending {
+  tool: 'get_league_eo' | 'get_near_rank_eo';
+  league_id?: number;
+  eta_s: number;
+  poll_s: number;
+  max_s: number;
+}
+
+/** The answer of POST /eo/poll. `ready` carries the card, the one-line text and the "another view" chips. */
+export interface EoPollResponse {
+  status: 'computing' | 'ready' | 'unavailable' | 'disabled';
+  eta_s?: number;
+  poll_s?: number;
+  text?: string;
+  generic_card?: AskResponse['generic_card'];
+  suggestions?: Suggestion[] | null;
+  reason?: string;
+}
+
 /** Optional squad state included on every /ask request once the user
  *  connects their FPL team. Deferred to Phase 2 (SquadContextPanel). */
 export interface SquadContext {
@@ -248,6 +268,11 @@ export interface SquadContext {
  *   - Phase 2 will render structured metadata components per intent.
  */
 export interface AskResponse {
+  /**
+   * A "computing" EO answer (get_league_eo / get_near_rank_eo): what the UI polls POST /eo/poll for, with no
+   * model (lib/use-eo-poll.ts). Null/absent on every other turn.
+   */
+  pending?: EoPending | null;
   /**
    * plan_to_sign answers only: the state a follow-up needs. Send it back on the
    * next /ask as `plan_state` (lib/plan-state.ts); null/absent on every other turn.

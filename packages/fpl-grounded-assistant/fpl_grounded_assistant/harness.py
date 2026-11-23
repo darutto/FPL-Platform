@@ -1475,6 +1475,11 @@ def ask_v2(
                 _chips = _eo_switch_chips(_orch_tool, _orch_raw, locale)
             if _chips is not None:
                 result["player_suggestions"] = _chips
+            from .eo_poll import pending_marker as _pending_marker  # noqa: PLC0415
+
+            _pending = _pending_marker(_orch_tool, _orch_raw)
+            if _pending is not None:
+                result["pending"] = _pending  # the UI polls POST /eo/poll for it (no model)
             if orch_result.tool_chosen in {
                 "get_expected_minutes",
                 "get_tactical_role",

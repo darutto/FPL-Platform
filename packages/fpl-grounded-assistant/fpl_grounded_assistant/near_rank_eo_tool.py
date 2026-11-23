@@ -222,7 +222,7 @@ def get_near_rank_eo(bootstrap: dict[str, Any] | None, *, player_names: list[str
             squad = None
         return shape_result(result["data"], bootstrap or {}, list(player_names or []), squad)
     if result["status"] == "computing":
-        return {"status": "computing", "eta_s": result["eta_s"],
+        return {"status": "computing", "tier": "near", "eta_s": result["eta_s"],
                 "message": ("Being calculated in the background (about 30 seconds). Tell the user it is "
                             "not ready yet and that they can ask again shortly; do not guess numbers.")}
     return {"status": "unavailable", "reason": result.get("reason", "error")}
