@@ -247,6 +247,18 @@ def test_a_second_move_is_added_only_when_the_first_does_not_tell_options_apart(
     ]
 
 
+@pytest.mark.parametrize("locale", ["en", "es"])
+def test_options_with_identical_diff_moves_stay_apart_by_the_option_one_move_they_keep(locale):
+    keeps_first = _opt((3, "Rogers", 50, "Target"), (1, "Palmer", 50, "Target"))
+    keeps_second = _opt((3, "Rogers", 50, "Target"), (2, "Manzambi", 61, "Rudoni"))
+    chips = option_chips(_raw(BEST, keeps_first, keeps_second), locale)
+    texts = [c["label"] for c in chips]
+    assert len(texts) == 2 and len(set(texts)) == 2
+    assert [option_pick(x) for x in texts] == [2, 3]
+    assert all("Rogers → Target" in x and "Palmer → Target" in x for x in texts)
+    assert all(len(x) <= 160 for x in texts)
+
+
 @pytest.mark.parametrize("text,n", [
     ("Show option 2", 2), ("Muéstrame la opción 3", 3), ("show me option 1 please", 1), ("opcion 2", 2),
     ("Option 2: Rogers \u2192 Target + Manzambi \u2192 Cheap", 2), ("Opción 3: Ndiaye \u2192 Wirtz", 3),

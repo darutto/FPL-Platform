@@ -123,7 +123,6 @@ export const es = {
   'topbar.contrast': 'Contraste alto (accesibilidad)',
 
   // --- Messages ---
-  'msg.thinking': 'Pensando…',
   'loading.word.1': 'Driblando',
   'loading.word.2': 'Presionando arriba',
   'loading.word.3': 'Revisando el VAR',

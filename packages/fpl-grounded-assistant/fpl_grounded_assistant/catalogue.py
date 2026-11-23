@@ -1141,6 +1141,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     # An option's chip: the label IS the text a tap sends (and what the user's bubble shows).
     "plan_to_sign.chip_option_n": {"en": "Option {n}", "es": "Opción {n}"},
     "plan_to_sign.chip_option_diff": {"en": "Option {n}: {moves}", "es": "Opción {n}: {moves}"},
+    "plan_to_sign.chip_option_with": {"en": "{moves} (keeps {move})", "es": "{moves} (mantiene {move})"},
+    "plan_to_sign.chip_option_without": {"en": "{moves} (drops {move})", "es": "{moves} (quita {move})"},
     "plan_to_sign.error_fallback": {"en": "Unexpected error.", "es": "Error inesperado."},
 
     # -- status_label: shared by resolve_player and get_player_summary ------

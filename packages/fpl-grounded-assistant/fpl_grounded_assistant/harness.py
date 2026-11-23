@@ -1623,7 +1623,8 @@ def _plan_to_sign_chips(
 
     ``choose_moves``: the tool owns the options and their wording (``move_options``); this only turns them into
     self-contained prompt-rewrite chips. ``plan``: one chip per option other than the one the card is about
-    (``plan_card.option_chips``); the tap sends "Show option N", which the follow-up path answers without a model.
+    (``plan_card.option_chips``); the tap sends the chip's own label ("Option N: A → B" / «Opción N: A → B»), which the follow-up path
+    answers without a model.
     """
     if tool_name != "plan_to_sign":
         return None

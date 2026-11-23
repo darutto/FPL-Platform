@@ -124,7 +124,6 @@ export const en: typeof es = {
   'topbar.contrast': 'High contrast (accessibility)',
 
   // --- Messages ---
-  'msg.thinking': 'Thinking…',
   'loading.word.1': 'Dribbling',
   'loading.word.2': 'Pressing high',
   'loading.word.3': 'Checking VAR',

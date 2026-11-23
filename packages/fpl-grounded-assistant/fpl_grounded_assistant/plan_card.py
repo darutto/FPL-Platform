@@ -154,8 +154,9 @@ def option_labels(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -
     """One label per option, the same in every view: what the option does differently from option 1.
 
     "Option 1" for the best plan; "Option N: A → B" for the first move not in option 1, with a second move
-    when that is not enough to tell it from another option (never the same label twice). The label is also the
-    text a tap sends, so it must stay short and parse back to N (:func:`plan_followup.option_pick`).
+    when that is not enough to tell it from another option (never the same label twice). When two options differ
+    only in which of option 1's moves they keep, the first such move is named ("with" / "without"). The label is
+    also the text a tap sends, so it must stay short and parse back to N (:func:`plan_followup.option_pick`).
     """
     options = raw_output.get("options") or []
     if not options:
@@ -173,8 +174,24 @@ def option_labels(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -
             j != index and j != 0 and diffs[j][:k] == mine[:k] for j in range(len(options))
         ):
             k += 1
-        labels.append(t("plan_to_sign.chip_option_diff", locale, n=index + 1, moves=" + ".join(mine[:k])))
+        moves_text = " + ".join(mine[:k])
+        twins = [j for j in range(1, len(options)) if j != index and diffs[j] == mine]
+        if twins:  # the diff moves ran out and another option has exactly the same ones
+            moves_text = _keeps_note(options, index, twins[0], moves_text, locale)
+        labels.append(t("plan_to_sign.chip_option_diff", locale, n=index + 1, moves=moves_text))
     return labels
+
+
+def _keeps_note(options: list[dict[str, Any]], index: int, twin: int, moves_text: str, locale: Locale) -> str:
+    """``moves_text`` plus the first of option 1's moves that this option and its twin treat differently."""
+    mine = {_pair(tr) for tr in options[index]["transfers"]}
+    theirs = {_pair(tr) for tr in options[twin]["transfers"]}
+    for tr in options[0]["transfers"]:
+        pair = _pair(tr)
+        if (pair in mine) != (pair in theirs):
+            key = "plan_to_sign.chip_option_with" if pair in mine else "plan_to_sign.chip_option_without"
+            return t(key, locale, moves=moves_text, move=_move_text(tr))
+    return moves_text
 
 
 def option_chips(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[dict[str, str]]:
