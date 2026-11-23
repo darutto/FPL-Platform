@@ -1661,15 +1661,22 @@ def _eo_switch_chips(tool_name: str | None, raw_output: dict[str, Any], locale: 
     from .catalogue import t  # noqa: PLC0415
     from .suggestions import KIND_EO_SWITCH, Suggestion, suggestions_to_list  # noqa: PLC0415
 
-    text = None
+    from .orch_config import is_tier_eo_enabled  # noqa: PLC0415
+
+    texts: list[str] = []
     if tool_name == "get_league_eo" and raw_output.get("tier") == "league":
-        text = t("near_eo.title", locale)
+        texts.append(t("near_eo.title", locale))
     elif tool_name == "get_near_rank_eo" and raw_output.get("tier") == "near":
         name = (raw_output.get("main_league") or {}).get("name")
-        text = t("league_eo.chip_question", locale, league=str(name)) if name else None
-    if not text:
+        if name:
+            texts.append(t("league_eo.chip_question", locale, league=str(name)))
+    elif tool_name == "get_tier_eo" and raw_output.get("tier") == "top10k":
+        texts.append(t("near_eo.title", locale))
+    if tool_name in {"get_league_eo", "get_near_rank_eo"} and is_tier_eo_enabled():
+        texts.append(t("tier_eo.title", locale))  # read from the published file: only offered when the reader is on
+    if not texts:
         return None
-    return suggestions_to_list((Suggestion(label=text, send_text=text, kind=KIND_EO_SWITCH),))
+    return suggestions_to_list(tuple(Suggestion(label=x, send_text=x, kind=KIND_EO_SWITCH) for x in texts))
 
 
 def _ambiguity_suggestions(

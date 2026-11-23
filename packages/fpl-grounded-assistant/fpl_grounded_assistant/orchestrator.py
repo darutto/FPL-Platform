@@ -107,6 +107,7 @@ from .orch_config import (
     is_football_intelligence_enabled,
     is_league_eo_enabled,
     is_near_rank_eo_enabled,
+    is_tier_eo_enabled,
     is_orch_eval_verdict_only,
     is_orch_experiment_output_enabled,
     is_orch_loop_enabled,
@@ -129,6 +130,7 @@ from .renderer import render
 from .tool_schema_registry import (
     _ALL_SCHEMAS,
     LEAGUE_EO_SCHEMA,
+    TIER_EO_SCHEMA,
     NEAR_RANK_EO_SCHEMA,
     SEARCH_WEB_SCHEMA,
     get_offered_tool_names,
@@ -1087,6 +1089,8 @@ def _build_tools(
         schemas = (*schemas, NEAR_RANK_EO_SCHEMA)
     if is_league_eo_enabled():
         schemas = (*schemas, LEAGUE_EO_SCHEMA)
+    if is_tier_eo_enabled():
+        schemas = (*schemas, TIER_EO_SCHEMA)
     if provider == PROVIDER_OPENAI:
         return [s.to_openai() for s in schemas]
     if provider == PROVIDER_GEMINI:
@@ -2848,6 +2852,7 @@ def _ask_orchestrated_impl(
         web_search_enabled=web_search_enabled,
         near_rank_eo_enabled=is_near_rank_eo_enabled(),
         league_eo_enabled=is_league_eo_enabled(),
+        tier_eo_enabled=is_tier_eo_enabled(),
     )
     _provider_for_cache = provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC
     if _provider_for_cache == PROVIDER_ANTHROPIC:

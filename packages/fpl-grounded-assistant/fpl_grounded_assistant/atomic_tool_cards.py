@@ -747,9 +747,20 @@ def compose_near_rank_eo_card(raw_output: dict[str, Any], locale: Locale = DEFAU
                     risk_key="near_eo.group.risk", top_key="near_eo.group.top")
 
 
+def compose_tier_eo_card(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> "GenericCardMeta | None":
+    """The top-10K EO card; its subtitle names the gameweek of the picks in the published file."""
+    if raw_output.get("status") != "ok" or raw_output.get("tier") != "top10k" or raw_output.get("stage"):
+        return None
+    return _eo_card(raw_output, locale, title=t("tier_eo.title", locale),
+                    label=t("tier_eo.label", locale, gw=raw_output.get("gw"), n=raw_output.get("n_sampled")),
+                    eo_header=t("tier_eo.col.eo", locale),
+                    risk_key="tier_eo.group.risk", top_key="tier_eo.group.top")
+
+
 _LOCALIZED_TOOL_COMPOSERS: dict[str, Any] = {
     "get_league_eo": compose_league_eo_card,
     "get_near_rank_eo": compose_near_rank_eo_card,
+    "get_tier_eo": compose_tier_eo_card,
     "rank_players_by_metric": compose_rank_players_card,
     "get_gw_report": compose_gw_report_card,
     "get_position_changes": compose_position_changes_card,

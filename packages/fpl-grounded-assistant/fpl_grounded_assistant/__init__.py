@@ -269,6 +269,7 @@ from .rank_players_by_metric import rank_players_by_metric  # P2.8 — triggers 
 from .build_squad_tool import build_squad                    # S1 — triggers TOOL_REGISTRY self-registration
 from .select_players_tool import select_players_within_budget  # S2 — triggers TOOL_REGISTRY self-registration
 from .plan_to_sign import plan_to_sign                          # triggers TOOL_REGISTRY self-registration
+from . import tier_eo_tool as tier_eo_tool                    # EO of the top 10K (published file): TOOL_REGISTRY self-registration (offered only behind FPL_TIER_EO_ENABLED)
 from . import league_eo_tool as league_eo_tool              # EO of the user's mini-league: TOOL_REGISTRY self-registration (offered only behind FPL_LEAGUE_EO_ENABLED)
 from . import near_rank_eo_tool as near_rank_eo_tool        # EO near the user's rank — triggers TOOL_REGISTRY self-registration (offered only behind FPL_NEAR_RANK_EO_ENABLED)
 from .search_web import search_web                          # web search parity — triggers TOOL_REGISTRY self-registration
