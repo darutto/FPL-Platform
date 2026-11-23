@@ -74,13 +74,13 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
 
 
 def latest_gw_found(bootstrap: dict[str, Any] | None, now: datetime | None = None) -> int | None:
-    """The gameweek of the newest readable file (this one or the one before), else None. For /healthz."""
+    """The gameweek of the newest file already in the reader's cache (a cold cache is None). For /healthz: never a GET."""
     boot = bootstrap or {}
     gw, _ = gw_and_valid_until(boot.get("events") or [], now or datetime.now(timezone.utc))
     season = _season(boot)
     if gw is None or season is None:
         return None
-    data = tier_eo_reader.get_reader().latest(season, gw, TIER)
+    data = tier_eo_reader.get_reader().latest_cached(season, gw, TIER)
     return int(data["gw"]) if data else None
 
 

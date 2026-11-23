@@ -10,6 +10,7 @@ side: one small GET per file, in-process cache, fail-soft (any problem is "not f
   those variables match the workflow's secrets). Nothing about them is ever returned or logged.
 * A published file is immutable (the scheduled run skips existing keys), so a hit is kept for a day. A miss
   is kept for ``MISS_TTL_S`` so a file published by the cron appears within minutes.
+* The client has its own short timeouts (a timeout is "not found"); ``latest_cached`` never does a GET.
 * ``latest`` looks at the requested gameweek and at most ONE gameweek back; older is "not found".
 """
 from __future__ import annotations
@@ -38,11 +39,53 @@ def object_key(prefix: str, season: str, gw: int, tier: str) -> str:
     return f"{prefix}eo/{season}/gw{gw}/{tier}.json"
 
 
+#: A read happens on a user's turn (and, cache-only, never on /healthz), so it must fail fast: a timeout is
+#: "not found" and is cached as a miss. ``owned_store_sync._make_r2_client`` keeps boto3's defaults on purpose
+#: (the startup sync downloads big files); this reader has its own client.
+CONNECT_TIMEOUT_S = 3
+READ_TIMEOUT_S = 5
+MAX_ATTEMPTS = 2
+
+_CLIENT: Any = None
+_CLIENT_LOCK = threading.Lock()
+
+
+def _client_config() -> Any:
+    from botocore.config import Config  # noqa: PLC0415  (lazy, like boto3)
+
+    return Config(connect_timeout=CONNECT_TIMEOUT_S, read_timeout=READ_TIMEOUT_S,
+                  retries={"max_attempts": MAX_ATTEMPTS, "mode": "standard"})
+
+
+def _make_client() -> Any:
+    """A boto3 S3 client for R2 from the same ``OWNED_STORE_R2_*`` variables as ``owned_store_sync``, with short timeouts."""
+    from . import owned_store_sync as sync  # noqa: PLC0415
+
+    values = {name: os.environ.get(name, "").strip() for name in (
+        sync.ENV_R2_ENDPOINT, sync.ENV_R2_BUCKET, sync.ENV_R2_ACCESS_KEY_ID, sync.ENV_R2_SECRET_ACCESS_KEY)}
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise RuntimeError(f"missing required R2 env vars: {', '.join(missing)}")
+    import boto3  # noqa: PLC0415
+
+    return boto3.client(
+        "s3", endpoint_url=values[sync.ENV_R2_ENDPOINT], aws_access_key_id=values[sync.ENV_R2_ACCESS_KEY_ID],
+        aws_secret_access_key=values[sync.ENV_R2_SECRET_ACCESS_KEY], region_name="auto", config=_client_config())
+
+
+def _get_client() -> Any:
+    global _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is None:
+            _CLIENT = _make_client()
+        return _CLIENT
+
+
 def _r2_fetch(key: str) -> bytes | None:
-    """One GET from R2 with the owned-store credentials. None when the object does not exist; raises otherwise."""
+    """One GET from R2 with the owned-store credentials and short timeouts. None when the object does not exist; raises otherwise."""
     from . import owned_store_sync as sync  # noqa: PLC0415  (lazy: boto3 only when a read is made)
 
-    client = sync._make_r2_client()
+    client = _get_client()
     bucket = os.environ.get(sync.ENV_R2_BUCKET, "").strip()
     try:
         obj = client.get_object(Bucket=bucket, Key=key)
@@ -100,6 +143,22 @@ class TierEOReader:
         if body.get("season") != season or body.get("gw") != gw or body.get("tier") != tier:
             return None                                     # a file that does not say what its key says
         return body
+
+    def cached(self, season: str, gw: int, tier: str = "top10k") -> dict[str, Any] | None:
+        """What ``read`` would return from the cache, never a GET: None when cold, expired or a cached miss."""
+        with self._lock:
+            hit = self._cache.get((season, gw, tier))
+            return hit[1] if hit and hit[0] > self._clock() else None
+
+    def latest_cached(self, season: str, gw: int, tier: str = "top10k") -> dict[str, Any] | None:
+        """``latest`` over the cache only (for /healthz): no GET, so it can never wait on R2."""
+        for back in range(MAX_GW_BACK + 1):
+            if gw - back < 1:
+                break
+            data = self.cached(season, gw - back, tier)
+            if data is not None:
+                return data
+        return None
 
     def latest(self, season: str, gw: int, tier: str = "top10k") -> dict[str, Any] | None:
         """The file for *gw*, else for the gameweek before it (at most ``MAX_GW_BACK`` back), else None."""
