@@ -125,6 +125,9 @@ export const en: typeof es = {
 
   // --- Messages ---
   'msg.thinking': 'Thinking…',
+  'eo.pending.league': 'Calculating your league’s EO… (~{s} s)',
+  'eo.pending.near': 'Calculating the EO near your rank… (~{s} s)',
+  'eo.retry': 'Retry',
   'msg.structuredAnswer': 'Structured answer',
   'msg.verdict': 'Verdict',
   'concl.attack.DEF': 'Very attacking for a defender',

@@ -56,6 +56,7 @@ ROUTE_STRUCTURAL_KEYS: frozenset[str] = frozenset({
     "rewritten_question",   # session only: reference resolution echo
     "web_search",           # /ask only: premium opt-in payload slot
     "plan_state",           # /ask only: the chat posts plain turns there and sends this back next turn (plan_to_sign follow-up)
+    "pending",              # /ask only: a computing EO answer (the orchestrated turn); the UI polls /eo/poll for it
     "debug",                # different shapes by design (routing_trace vs session debug)
 })
 
