@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T05:04:32Z",
+  "generatedAt": "2026-11-23T05:05:33Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 10,
@@ -163,6 +163,14 @@
       "minutes": 851
     },
     {
+      "name": "B.Fernandes",
+      "team": "MUN",
+      "position": "MID",
+      "xg": 4.35,
+      "xa": 2.33,
+      "minutes": 900
+    },
+    {
       "name": "Evanilson",
       "team": "BOU",
       "position": "FWD",
@@ -179,12 +187,12 @@
       "minutes": 930
     },
     {
-      "name": "B.Fernandes",
-      "team": "MUN",
-      "position": "MID",
-      "xg": 3.94,
-      "xa": 2.17,
-      "minutes": 810
+      "name": "Isak",
+      "team": "LIV",
+      "position": "FWD",
+      "xg": 6.2,
+      "xa": 0.32,
+      "minutes": 831
     },
     {
       "name": "Calvert-Lewin",
@@ -200,7 +208,7 @@
       "position": "MID",
       "xg": 4.63,
       "xa": 1.29,
-      "minutes": 892
+      "minutes": 913
     },
     {
       "name": "E.Le Fée",
@@ -209,6 +217,14 @@
       "xg": 3.92,
       "xa": 1.94,
       "minutes": 953
+    },
+    {
+      "name": "Groß",
+      "team": "BHA",
+      "position": "MID",
+      "xg": 3.07,
+      "xa": 2.62,
+      "minutes": 970
     },
     {
       "name": "Thiago",
@@ -233,22 +249,6 @@
       "xg": 2.4,
       "xa": 2.91,
       "minutes": 913
-    },
-    {
-      "name": "Groß",
-      "team": "BHA",
-      "position": "MID",
-      "xg": 3.03,
-      "xa": 2.22,
-      "minutes": 880
-    },
-    {
-      "name": "Isak",
-      "team": "LIV",
-      "position": "FWD",
-      "xg": 4.88,
-      "xa": 0.28,
-      "minutes": 747
     },
     {
       "name": "Saka",
@@ -291,6 +291,22 @@
       "minutes": 915
     },
     {
+      "name": "Wirtz",
+      "team": "LIV",
+      "position": "MID",
+      "xg": 2.19,
+      "xa": 2.31,
+      "minutes": 881
+    },
+    {
+      "name": "De Cuyper",
+      "team": "BHA",
+      "position": "DEF",
+      "xg": 2.44,
+      "xa": 1.91,
+      "minutes": 912
+    },
+    {
       "name": "Brobbey",
       "team": "SUN",
       "position": "FWD",
@@ -329,22 +345,6 @@
       "xg": 2.39,
       "xa": 1.69,
       "minutes": 430
-    },
-    {
-      "name": "Rayan",
-      "team": "BOU",
-      "position": "MID",
-      "xg": 3.14,
-      "xa": 0.91,
-      "minutes": 963
-    },
-    {
-      "name": "De Cuyper",
-      "team": "BHA",
-      "position": "DEF",
-      "xg": 2.44,
-      "xa": 1.46,
-      "minutes": 822
     }
   ]
 }
