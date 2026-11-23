@@ -92,6 +92,18 @@ export async function eoPoll(body: {
 }
 
 /**
+ * Ask the backend to start the EO jobs for the connected team (and main league) ahead of the first question
+ * (POST /eo/warm via the proxy). Fire-and-forget: callers ignore the result and every failure.
+ */
+export async function eoWarm(body: { team_id: number; league_id?: number | null }): Promise<void> {
+  await fetch('/api/eo-warm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ team_id: body.team_id, ...(body.league_id != null ? { league_id: body.league_id } : {}) }),
+  });
+}
+
+/**
  * Create a new conversation session via the proxy.
  *
  * Returns a session_id to hold in React state. The session is in-memory on

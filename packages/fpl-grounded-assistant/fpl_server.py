@@ -84,7 +84,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 from fpl_grounded_assistant import respond
-from fpl_grounded_assistant import eo_poll
+from fpl_grounded_assistant import eo_poll, eo_warm
 from fpl_grounded_assistant.competition_calendar import competitions_response, materialize_manual_layer
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
@@ -1977,6 +1977,7 @@ def healthz() -> dict[str, Any]:
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
         "orchestrator":         orchestrator_info,
         "tier_eo":              tier_eo_info,
+        "eo_warm":              eo_warm.counters(),  # warm jobs started (no ids)
         "bootstrap":            _bootstrap_health(),  # i150
         # i18n S0 (D1=B): turns by "<locale>:<question_lang>" and the share where
         # the (known) question language differs from the selected locale.
@@ -2201,6 +2202,49 @@ def eo_poll_route(req: EoPollRequest, request: Request) -> dict[str, Any]:
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="not ready")
     return eo_poll.poll(req.tool, req.team_id, req.league_id, _bootstrap, req.locale)
+
+
+class EoWarmRequest(BaseModel):
+    """POST /eo/warm: the connected team and (optionally) the main league. Bounded ints only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    team_id: StrictInt = Field(gt=0, lt=eo_poll.MAX_ID)
+    league_id: StrictInt | None = Field(default=None, gt=0, lt=eo_poll.MAX_ID)
+
+
+EO_WARM_MIN_INTERVAL_S = 30.0
+_EO_WARM_GATE = eo_poll.RateGate(EO_WARM_MIN_INTERVAL_S)
+
+
+@app.post("/eo/warm")
+def eo_warm_route(req: EoWarmRequest, request: Request) -> dict[str, Any]:
+    """Start the EO jobs for a team (and league) before the first question: the chat calls this on team connect
+    and on a main-league change. Same gating as POST /eo/poll (signed-in caller; the internal token when
+    configured), then one call per user per 30 s, both checked before anything starts. The ids are the client's,
+    as on /ask. Fire-and-forget: it only starts background jobs (see ``eo_warm``) and answers at once."""
+    raw_user = eo_poll.caller_id(request.headers)
+    if raw_user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user_key = hash_user_id(raw_user)
+    if not _EO_WARM_GATE.allow(user_key):
+        raise HTTPException(status_code=429, detail="Too Many Requests", headers={"Retry-After": "30"})
+    if _bootstrap is None:
+        raise HTTPException(status_code=503, detail="not ready")
+    return {"started": eo_warm.warm(_bootstrap, req.team_id, req.league_id, user_key=user_key)}
+
+
+def _warm_from_turn(request: Request, team_id: int | None, league_id: int | None) -> None:
+    """The first turn that carries a team id warms its EO jobs (once per user per gameweek: ``eo_warm``'s memo).
+    Signed-in callers only, like /eo/warm. Never raises, never waits."""
+    if team_id is None or _bootstrap is None:
+        return
+    try:
+        raw_user = eo_poll.caller_id(request.headers)
+        if raw_user is not None:
+            eo_warm.warm(_bootstrap, team_id, league_id, user_key=hash_user_id(raw_user))
+    except Exception:  # noqa: BLE001
+        _LOG.warning("eo warm from turn failed", exc_info=True)
 
 
 def resolve_locale(request: Request, body: "AskRequest") -> Locale:
@@ -2430,6 +2474,7 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # request-local bootstrap copy lets deterministic chip advice know whether
     # availability was supplied; the adapter still owns the actual hard block.
     # ------------------------------------------------------------------
+    _warm_from_turn(request, req.team_id, req.main_league_id)
     _turn_bootstrap = _bootstrap
     if req.squad_context is not None:
         _turn_bootstrap = dict(_bootstrap)
@@ -2696,6 +2741,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             llm_used=False,
         )
 
+    _warm_from_turn(request, req.team_id, req.main_league_id)
     _session_bootstrap = _bootstrap
     if req.team_id is not None:
         _session_bootstrap = dict(_bootstrap)
