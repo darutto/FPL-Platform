@@ -51,6 +51,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
     const teamId = validateTeamId(rawId);
     if (teamId === null) {
       setPanel({ status: 'error', message: t('squad.invalidId') });
+      onTeamIdChange?.(null, null);
       return;
     }
 
@@ -61,6 +62,7 @@ export default function SquadContextPanel({ onContextChange, onTeamIdChange }: P
       const res = await fetch(`/api/fpl-entry/${teamId}`);
       if (res.status === 404) {
         setPanel({ status: 'error', message: t('squad.notFound') });
+        onTeamIdChange?.(null, null); // a team that does not exist is no team (ChatShell may hold it from storage)
         return;
       }
       if (!res.ok) {

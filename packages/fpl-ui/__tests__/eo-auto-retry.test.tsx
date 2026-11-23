@@ -192,6 +192,22 @@ describe('EO auto-retry', () => {
     expect(eoPoll).toHaveBeenCalledTimes(1);
   });
 
+  test.each([[401], [500]])('a failed poll (%i) is visible: «Reintentar», and the button polls again', async (status) => {
+    eoPoll.mockRejectedValueOnce(new FplApiError(status, 'x'));
+    await startPending();
+    await tick(4000);
+    const retry = await screen.findByRole('button', { name: 'Reintentar' });
+    expect(screen.queryByText(/Calculando/)).toBeNull();
+    await tick(20000);
+    expect(eoPoll).toHaveBeenCalledTimes(1); // stopped, not silently retried
+    eoPoll.mockResolvedValue(ready);
+    await act(async () => {
+      retry.click();
+    });
+    await tick(4000);
+    expect(await screen.findByText('Listo: EO Work Mates · GW 12')).toBeInTheDocument();
+  });
+
   test('a 429 only waits: the next poll goes on', async () => {
     eoPoll.mockRejectedValueOnce(new FplApiError(429, 'x')).mockResolvedValue(ready);
     await startPending();
@@ -217,6 +233,15 @@ describe('EO auto-retry', () => {
     expect(screen.queryByTestId('eo-pending')).toBeNull();
     await tick(30000);
     expect(eoPoll).toHaveBeenCalledTimes(1); // the new question cancelled it
+  });
+
+  test('after a refresh the stored team id rides the first question, before the panel reconnects', async () => {
+    localStorage.setItem('fpl_team_id', '555');
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell();
+    await send(user, 'EO de mi liga'); // the mocked panel never reports a team: only storage can supply it
+    await waitFor(() => expect(ask).toHaveBeenCalled());
+    expect(ask.mock.calls[0][0]).toEqual(expect.objectContaining({ team_id: 555 }));
   });
 
   test('disconnecting the team stops the poll', async () => {

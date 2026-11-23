@@ -55,6 +55,7 @@ import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
 import { readMainLeagueId, writeMainLeagueId } from '@/lib/main-league';
 import { useEoPoll } from '@/lib/use-eo-poll';
+import { validateTeamId } from '@/lib/squad-context';
 import type { EoPollResponse } from '@/lib/types';
 
 // Pager screen order: 0 Calendario · 1 Squad · 2 Chat (home) · 3 Commands (labels: pager.* in the dictionary).
@@ -108,6 +109,12 @@ export default function ChatShell() {
   const [mainLeagueId, setMainLeagueId] = useState<number | null>(null);
   useEffect(() => {
     setMainLeagueId(readMainLeagueId());
+    // The stored team id is usable at once: a question sent before the squad panel's reconnect finishes
+    // must still carry team_id (the panel confirms or clears it through onTeamIdChange).
+    try {
+      const stored = validateTeamId(localStorage.getItem('fpl_team_id') ?? '');
+      if (stored != null) setTeamId((cur) => cur ?? stored);
+    } catch { /* storage unavailable */ }
   }, []);
   const [gw, setGw] = useState<number | null>(null);
 
