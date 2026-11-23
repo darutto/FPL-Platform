@@ -26,7 +26,7 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { ask, sessionAsk, createSession, clearSession, apiErrorText, FplApiError } from '@/lib/api';
+import { ask, sessionAsk, createSession, clearSession, eoWarm, apiErrorText, FplApiError } from '@/lib/api';
 import { ChatAskProvider } from '@/lib/chat-ask';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
@@ -132,6 +132,21 @@ export default function ChatShell() {
       ),
     );
   }, []);
+  // Start the EO jobs as soon as a team (and main league) is known, so the first EO question finds them done.
+  // Debounced so the league restored from storage right after the team lands in ONE call; the backend memoises
+  // per user and gameweek and rate-limits, and every failure is ignored.
+  useEffect(() => {
+    if (teamId == null) return;
+    const timer = setTimeout(() => {
+      try {
+        void eoWarm({ team_id: teamId, league_id: mainLeagueId }).catch(() => {});
+      } catch {
+        /* a warm-up is never worth an error */
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [teamId, mainLeagueId]);
+
   const { state: eoPoll, start: startEoPoll, cancel: cancelEoPoll, retry: retryEoPoll } = useEoPoll({
     teamId,
     locale,

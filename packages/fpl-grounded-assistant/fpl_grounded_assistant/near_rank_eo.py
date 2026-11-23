@@ -322,6 +322,7 @@ class JobService:
         self._lock = threading.Lock()
         self._cache: dict[Any, tuple[float, dict[str, Any]]] = {}
         self._inflight: set[Any] = set()
+        self.started = 0  # jobs submitted so far (a counter, for the warm-up's load figure)
 
     def _peek(self, key: Any) -> dict[str, Any] | None:
         """A cached, unexpired result for *key*, or None."""
@@ -371,6 +372,7 @@ class JobService:
             if len(self._inflight) >= self._max_queued:
                 return {"status": "unavailable", "reason": "busy"}
             self._inflight.add(key)
+            self.started += 1
         self._executor.submit(self._run, key, work, valid_until, ttl)
         return {"status": "computing", "eta_s": ETA_S}
 
