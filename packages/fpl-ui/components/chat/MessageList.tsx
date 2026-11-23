@@ -40,6 +40,7 @@ import EvidenceBoundary from '@/components/intelligence/EvidenceBoundary';
 import EvidenceList from '@/components/intelligence/EvidenceList';
 import MarkdownLite from '@/components/MarkdownLite';
 import { useT } from '@/lib/i18n/LocaleProvider';
+import LoadingWord from './LoadingWord';
 
 export interface Message {
   id: string;
@@ -149,9 +150,7 @@ export default function MessageList({
       {loading && (
         <div className="flex justify-start">
           <div className="bg-white/5 border border-white/10 rounded-[14px] rounded-tl px-4 py-3 max-w-prose">
-            <span className="text-bf-turquoise text-sm animate-pulse">
-              {t('msg.thinking')}
-            </span>
+            <LoadingWord />
           </div>
         </div>
       )}

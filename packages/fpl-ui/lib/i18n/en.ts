@@ -125,6 +125,16 @@ export const en: typeof es = {
 
   // --- Messages ---
   'msg.thinking': 'Thinking…',
+  'loading.word.1': 'Dribbling',
+  'loading.word.2': 'Pressing high',
+  'loading.word.3': 'Checking VAR',
+  'loading.word.4': 'Warming up',
+  'loading.word.5': 'Reading the fixtures',
+  'loading.word.6': 'Hunting differentials',
+  'loading.word.7': 'Counting hits',
+  'loading.word.8': 'Measuring EO',
+  'loading.word.9': 'Scouting the bench',
+  'loading.word.10': 'Lining up the XI',
   'eo.pending.league': 'Calculating your league’s EO… (~{s} s)',
   'eo.pending.near': 'Calculating the EO near your rank… (~{s} s)',
   'eo.retry': 'Retry',

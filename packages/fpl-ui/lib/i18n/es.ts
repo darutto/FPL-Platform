@@ -124,6 +124,16 @@ export const es = {
 
   // --- Messages ---
   'msg.thinking': 'Pensando…',
+  'loading.word.1': 'Driblando',
+  'loading.word.2': 'Presionando arriba',
+  'loading.word.3': 'Revisando el VAR',
+  'loading.word.4': 'Calentando en la banda',
+  'loading.word.5': 'Mirando el fixture',
+  'loading.word.6': 'Buscando diferenciales',
+  'loading.word.7': 'Calculando hits',
+  'loading.word.8': 'Midiendo la EO',
+  'loading.word.9': 'Mirando el banco',
+  'loading.word.10': 'Armando el once',
   'eo.pending.league': 'Calculando el EO de tu liga… (~{s} s)',
   'eo.pending.near': 'Calculando el EO cerca de tu puesto… (~{s} s)',
   'eo.retry': 'Reintentar',
