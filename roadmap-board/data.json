@@ -2783,6 +2783,18 @@
         "FPL Asistente"
       ],
       "progress": 100
+    },
+    {
+      "id": "i164",
+      "col": "idea",
+      "title": "Onboarding de usuario nuevo: nombre, id de equipo y preferencias",
+      "desc": "Idea de Leo (22/11): una página de bienvenida la primera vez que alguien entra, para fijar su nombre, su id de equipo FPL, su liga principal y otros detalles (idioma, objetivo «proteger puesto/escalar», referencia de EO) que personalicen respuestas y tarjetas; al guardar el equipo dispara el cálculo previo del EO. No incluye verificar que el equipo sea suyo (los equipos FPL son públicos).",
+      "tags": [
+        "UI",
+        "Auth",
+        "FPL Asistente"
+      ],
+      "progress": 0
     }
   ]
 }
