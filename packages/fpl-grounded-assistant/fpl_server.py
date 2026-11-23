@@ -1951,6 +1951,18 @@ def healthz() -> dict[str, Any]:
         "model":        _orch_model(_provider_now),
     }
 
+    # top-10K EO reader: whether the flag is on and which gameweek's file it can read. No bucket, prefix or key.
+    from fpl_grounded_assistant.orch_config import is_tier_eo_enabled as _tier_eo_on  # noqa: PLC0415
+
+    tier_eo_info: dict[str, Any] = {"enabled": _tier_eo_on(), "latest_gw_found": None}
+    if tier_eo_info["enabled"]:
+        try:
+            from fpl_grounded_assistant.tier_eo_tool import latest_gw_found as _tier_eo_latest  # noqa: PLC0415
+
+            tier_eo_info["latest_gw_found"] = _tier_eo_latest(_bootstrap)
+        except Exception:  # noqa: BLE001  (health must never fail on this)
+            tier_eo_info["latest_gw_found"] = None
+
     payload: dict[str, Any] = {
         "routing_counters":    snap,
         "graduation":          _grad(snap),
@@ -1960,6 +1972,7 @@ def healthz() -> dict[str, Any]:
         # from the filesystem -- not the list the startup sync was asked for.
         "owned_store_seasons":  seasons_on_disk() if seasons_on_disk is not None else [],
         "orchestrator":         orchestrator_info,
+        "tier_eo":              tier_eo_info,
         "bootstrap":            _bootstrap_health(),  # i150
         # i18n S0 (D1=B): turns by "<locale>:<question_lang>" and the share where
         # the (known) question language differs from the selected locale.

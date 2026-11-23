@@ -1535,7 +1535,8 @@ NEAR_RANK_EO_SCHEMA = ToolSchema(
         "(about 125 sampled): top-EO players plus any you name, with ownership and captaincy %. "
         "Use for 'what do managers near me own', 'who should I cover if he hauls', 'EO of X near my rank', "
         "and whenever the user asks about their overall rank: 'my overall rank', 'my overall ranking', "
-        "'respecto a mi ranking general', 'mi puesto general', 'clasificacion general'. "
+        "'respecto a mi ranking general', 'mi puesto general', 'clasificacion general' (not the top 10K "
+        "of the whole game: that is get_tier_eo). "
         "The numbers are approximate (a sample): say so. If status is 'computing' the job has just "
         "started: tell the user plainly it is not ready and to ask again in about 30 seconds, and "
         "never invent numbers. status='no_team_connected' when no team is linked: ask the user to "
@@ -1584,6 +1585,38 @@ LEAGUE_EO_SCHEMA = ToolSchema(
                 "type": "string",
                 "description": "Name of one of the user's own leagues, as the user said it (optional).",
             },
+            "player_names": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 10,
+                "description": "Web names of players whose EO the user asked about (optional).",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# Top-10K EO — opt-in tool (kept OUT of _ALL_SCHEMAS), offered only when
+# FPL_TIER_EO_ENABLED is on (default OFF). Reads the published sample file.
+# ---------------------------------------------------------------------------
+
+TIER_EO_SCHEMA = ToolSchema(
+    name="get_tier_eo",
+    description=(
+        "Effective ownership (EO) among the TOP 10,000 managers of the game: a published sample of 2,000 of "
+        "them, with ownership and captaincy % per player. Use for 'top 10K', 'top 10 mil', 'los mejores', "
+        "'what do the best managers own', 'EO of X in the top 10K'. It works without a connected team; with one "
+        "it also compares the user's squad. The answer states which gameweek's picks the sample is from: say it "
+        "(one short clause when it is not the latest). status='unavailable' (not_published_yet): say it is "
+        "not available yet and never invent numbers. Not for the user's own overall rank (get_near_rank_eo) "
+        "or a mini-league (get_league_eo)."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
             "player_names": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -2087,6 +2120,7 @@ _REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {
     SEARCH_WEB_SCHEMA.name: SEARCH_WEB_SCHEMA,
     NEAR_RANK_EO_SCHEMA.name: NEAR_RANK_EO_SCHEMA,  # opt-in like search_web; offered only behind its flag
     LEAGUE_EO_SCHEMA.name: LEAGUE_EO_SCHEMA,        # likewise (FPL_LEAGUE_EO_ENABLED)
+    TIER_EO_SCHEMA.name: TIER_EO_SCHEMA,            # likewise (FPL_TIER_EO_ENABLED)
 }
 TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
 
@@ -2106,6 +2140,7 @@ def get_offered_tool_names(
     web_search_enabled: bool = False,
     near_rank_eo_enabled: bool = False,
     league_eo_enabled: bool = False,
+    tier_eo_enabled: bool = False,
 ) -> frozenset[str]:
     """Return names reachable through LLM tool dispatch for one request."""
     names = frozenset(
@@ -2118,6 +2153,8 @@ def get_offered_tool_names(
         names = names | {NEAR_RANK_EO_SCHEMA.name}
     if league_eo_enabled:
         names = names | {LEAGUE_EO_SCHEMA.name}
+    if tier_eo_enabled:
+        names = names | {TIER_EO_SCHEMA.name}
     return names
 
 

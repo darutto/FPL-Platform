@@ -275,6 +275,13 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "near_eo.col.eo": {"en": "EO %", "es": "EO %"},
     "near_eo.group.risk": {"en": "Near you has him", "es": "Cerca de ti lo tienen"},
     "near_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
+    # -- top-10K EO card (get_tier_eo): same shape as the other EO cards.
+    "tier_eo.title": {"en": "EO top 10K", "es": "EO top 10K"},
+    "tier_eo.label": {"en": "Top 10K \u00b7 GW {gw} picks \u00b7 sample n={n}",
+                      "es": "Top 10K \u00b7 picks de la GW {gw} \u00b7 muestra n={n}"},
+    "tier_eo.col.eo": {"en": "EO %", "es": "EO %"},
+    "tier_eo.group.risk": {"en": "Top 10K has him", "es": "El top 10K lo tiene"},
+    "tier_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
     "league_eo.chip_question": {"en": "EO in {league}", "es": "EO en {league}"},
     "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
     "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
