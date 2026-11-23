@@ -260,8 +260,76 @@ def test_healthz_reports_the_flag_and_the_latest_gw_found_and_nothing_secret(mon
     monkeypatch.setattr(tier_eo_tool, "_season", lambda b: SEASON)
     store = Store()
     store.files[tier_eo_reader.object_key("SECRET-PREFIX/", SEASON, 9, "top10k")] = json.dumps(doc(9)).encode()
-    reader(store, prefix="SECRET-PREFIX/")
+    r = reader(store, prefix="SECRET-PREFIX/")
+    assert client.get("/healthz").json()["tier_eo"] == {"enabled": True, "latest_gw_found": None}  # cold cache: no GET
+    assert store.gets == []
+    assert r.latest(SEASON, 9) is not None                                                       # a turn read it
     assert client.get("/healthz").json()["tier_eo"] == {"enabled": True, "latest_gw_found": 9}
     assert "SECRET" not in client.get("/healthz").text
     reader(Store())
     assert client.get("/healthz").json()["tier_eo"] == {"enabled": True, "latest_gw_found": None}
+
+
+# -- R2 client timeouts, fail-soft, and /healthz never waiting on R2 -------------------------------------------------
+
+def test_the_reader_client_has_its_own_short_timeouts(monkeypatch):
+    from fpl_grounded_assistant import owned_store_sync as sync
+
+    cfg = tier_eo_reader._client_config()
+    assert (cfg.connect_timeout, cfg.read_timeout) == (3, 5)
+    assert cfg.retries == {"max_attempts": 2, "mode": "standard"}
+    seen = {}
+    import boto3
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: seen.update(k) or object())
+    for name in (sync.ENV_R2_ENDPOINT, sync.ENV_R2_BUCKET, sync.ENV_R2_ACCESS_KEY_ID, sync.ENV_R2_SECRET_ACCESS_KEY):
+        monkeypatch.setenv(name, "x")
+    tier_eo_reader._make_client()
+    assert seen["config"].read_timeout == 5 and seen["region_name"] == "auto"
+    sync_seen = {}
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: sync_seen.update(k) or object())
+    sync._make_r2_client()
+    assert "config" not in sync_seen                      # the startup sync keeps boto3's defaults
+
+
+def test_a_timeout_is_not_found_and_cached_as_a_miss():
+    class Timeout(Exception):
+        pass
+
+    calls = []
+
+    def fetch(key):
+        calls.append(key)
+        raise Timeout("Read timeout on endpoint URL")
+
+    clock = Clock()
+    r = tier_eo_reader.TierEOReader(fetch=fetch, prefix=lambda: "", clock=clock)
+    assert r.read(SEASON, 12) is None
+    n = len(calls)
+    assert r.read(SEASON, 12) is None and len(calls) == n          # cached miss: no second GET
+    clock.t += tier_eo_reader.MISS_TTL_S + 1
+    r.read(SEASON, 12)
+    assert len(calls) == n + 1                                      # retried after MISS_TTL_S
+
+
+def test_the_r2_fetch_uses_the_reader_client(monkeypatch):
+    from fpl_grounded_assistant import owned_store_sync as sync
+
+    class Client:
+        def get_object(self, **kw):
+            raise TimeoutError("read timeout")
+
+    monkeypatch.setattr(tier_eo_reader, "_get_client", lambda: Client())
+    monkeypatch.setenv(sync.ENV_R2_BUCKET, "b")
+    r = tier_eo_reader.TierEOReader(prefix=lambda: "")           # default fetch = _r2_fetch
+    assert r.read(SEASON, 12) is None
+
+
+def test_latest_cached_never_fetches():
+    store = Store()
+    put(store, 12)
+    r = tier_eo_reader.TierEOReader(fetch=store, prefix=lambda: "", clock=Clock())
+    assert r.latest_cached(SEASON, 12) is None and store.gets == []
+    assert r.latest(SEASON, 12) is not None
+    n = len(store.gets)
+    assert r.latest_cached(SEASON, 12)["gw"] == 12 and r.latest_cached(SEASON, 13)["gw"] == 12  # one gw back
+    assert len(store.gets) == n
