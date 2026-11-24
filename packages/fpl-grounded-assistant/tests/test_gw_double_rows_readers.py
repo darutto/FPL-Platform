@@ -95,4 +95,31 @@ def test_season_points_gws_played_counts_gameweeks_not_rows(double_store):
     s = get_player_season_points("Doubler", SEASON)["summary"]
     # GW5 (two rows with minutes) counts once; GW6 (0' + 90') counts once.
     assert s["gws_played"] == 2
-    assert s["points_per_game"] == round(14 / 2, 2)
+
+
+def test_points_per_game_is_per_match_played(double_store):
+    s = get_player_season_points("Doubler", SEASON)["summary"]
+    # Matches with minutes: GW5 x2 (both fixtures) + GW6 x1 (the 0' fixture does not count) = 3.
+    assert s["points_per_game"] == round(14 / 3, 2)
+
+
+def test_points_per_game_double_with_minutes_in_both_vs_one(tmp_path, monkeypatch):
+    root = tmp_path / "historical"
+    _store(root, [
+        _row(1, 5, 6, 90, fixture=501), _row(1, 5, 6, 90, fixture=502),   # double, minutes in both
+        _row(2, 5, 12, 90, fixture=503), _row(2, 5, 0, 0, fixture=504),   # double, minutes in one only
+    ])
+    monkeypatch.setenv("FPL_HISTORICAL_ROOT", str(root))
+    both = get_player_season_points("Doubler", SEASON)["summary"]
+    one = get_player_season_points("Single", SEASON)["summary"]
+    assert (both["gws_played"], both["points_per_game"]) == (1, 6.0)   # 12 pts / 2 matches, not / 1 gameweek
+    assert (one["gws_played"], one["points_per_game"]) == (1, 12.0)    # 12 pts / 1 match
+
+
+def test_points_per_game_incremental_aggregate_counts_as_one_match(tmp_path, monkeypatch):
+    root = tmp_path / "historical"
+    # Null-fixture aggregate row for a double: 12 pts, 180 min in ONE row -> one match, cannot be split.
+    _store(root, [_row(1, 5, 12, 180, source="incremental", fixture=float("nan"))])
+    monkeypatch.setenv("FPL_HISTORICAL_ROOT", str(root))
+    s = get_player_season_points("Doubler", SEASON)["summary"]
+    assert (s["gws_played"], s["points_per_game"]) == (1, 12.0)

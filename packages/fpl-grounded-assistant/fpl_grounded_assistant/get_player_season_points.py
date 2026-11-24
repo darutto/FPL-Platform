@@ -447,23 +447,21 @@ def get_player_season_points(
     total_assists = _col_sum("assists")
     total_clean_sheets = _col_sum("clean_sheets")
     total_bonus = _col_sum("bonus")
-    # gws_played counts GAMEWEEKS with minutes, not rows: a double gameweek is
-    # two per-fixture rows for one event_id and must count once. Sum minutes per
-    # event first (a player with 0' in one fixture of a double still played).
-    gws_played = (
-        int(
-            (
-                pd.to_numeric(player_rows["minutes"], errors="coerce")
-                .fillna(0)
-                .groupby(player_rows["event_id"])
-                .sum()
-                > 0
-            ).sum()
-        )
-        if "minutes" in player_rows.columns and "event_id" in player_rows.columns
-        else 0
-    )
-    points_per_game = round(total_points / gws_played, 2) if gws_played > 0 else 0.0
+    # Two different denominators, kept apart on purpose:
+    #   gws_played       = GAMEWEEKS with minutes. A double gameweek is two
+    #                    per-fixture rows for one event_id and counts once
+    #                    (a player on 0' in one fixture of a double still played).
+    #   points_per_game  = total_points / MATCHES played (rows with minutes > 0),
+    #                    FPL's own definition, so doubles do not inflate it.
+    # A row is one match. An incremental per-GW aggregate row for a double has a
+    # NULL fixture and cannot be split, so it counts as ONE match.
+    if "minutes" in player_rows.columns and "event_id" in player_rows.columns:
+        _mins = pd.to_numeric(player_rows["minutes"], errors="coerce").fillna(0)
+        gws_played = int((_mins.groupby(player_rows["event_id"]).sum() > 0).sum())
+        matches_played = int((_mins > 0).sum())
+    else:
+        gws_played = matches_played = 0
+    points_per_game = round(total_points / matches_played, 2) if matches_played > 0 else 0.0
 
     return {
         "status": "ok",
