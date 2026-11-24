@@ -68,7 +68,7 @@ jest.mock('../components/intents/FixturesBoard', () => ({ FixturesBoard: () => n
 
 import ChatShell from '../components/chat/ChatShell';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
-import { MAIN_LEAGUE_LS_KEY } from '@/lib/main-league';
+import { mainLeagueKey } from '@/lib/main-league';
 
 const reply = {
   final_text: 'ok',
@@ -145,7 +145,7 @@ describe('league chips', () => {
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
     expect(ask.mock.calls[0][0]).toMatchObject({ team_id: 555, main_league_id: null });
     expect(ask.mock.calls[1][0]).toMatchObject({ question: 'EO en Work Mates', team_id: 555, main_league_id: 77 });
-    expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBe('77');
+    expect(localStorage.getItem(mainLeagueKey(555))).toBe('77');
     await send(user, 'otra vez');
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(3));
     expect(ask.mock.calls[2][0]).toMatchObject({ main_league_id: 77 });
@@ -163,8 +163,8 @@ describe('league chips', () => {
     expect(ask.mock.calls[1][0].selected_player_id).toBeUndefined();
   });
 
-  test('a stored league is replaced by the one picked, and disconnecting still clears it', async () => {
-    localStorage.setItem(MAIN_LEAGUE_LS_KEY, '42');
+  test('a stored league is replaced by the one picked, and disconnecting keeps it for that team', async () => {
+    localStorage.setItem(mainLeagueKey(555), '42');
     ask.mockResolvedValueOnce(pickerReply);
     const user = userEvent.setup();
     renderShell('es');
@@ -172,9 +172,9 @@ describe('league chips', () => {
     await send(user, 'EO en mi liga');
     await user.click(await screen.findByRole('button', { name: 'Work Mates' }));
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
-    expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBe('77');
+    expect(localStorage.getItem(mainLeagueKey(555))).toBe('77');
     await user.click(screen.getByText('disconnect-team'));
-    expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBeNull();
+    expect(localStorage.getItem(mainLeagueKey(555))).toBe('77'); // only the in-memory value is dropped
   });
 });
 
@@ -199,7 +199,7 @@ describe('EO switch chip', () => {
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
     expect(ask.mock.calls[1][0]).toMatchObject({ question: 'EO cerca de tu puesto', team_id: 555 });
     expect(ask.mock.calls[1][0].selected_player_id).toBeUndefined();
-    expect(localStorage.getItem(MAIN_LEAGUE_LS_KEY)).toBeNull(); // not a league pick: nothing is stored
+    expect(localStorage.getItem(mainLeagueKey(555))).toBeNull(); // not a league pick: nothing is stored
   });
 
   test('the title in English', async () => {
