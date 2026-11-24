@@ -3356,7 +3356,6 @@ def _try_session_orchestration_response(
     intent_hint: str | None,
     locale: Locale = DEFAULT_LOCALE,
     raw_question: str | None = None,
-    prior_context: bool = False,
 ) -> FinalResponse | None:
     """Route a session turn through the unified ``ask_v2()`` pipeline.
 
@@ -3422,9 +3421,8 @@ def _try_session_orchestration_response(
         _enrich_existing_intents=False,
         locale=locale,
         # Brief 0a: the user's text untouched (``user_message`` may be the
-        # session resolver's rewrite) and whether earlier turns precede it.
+        # session resolver's rewrite).
         raw_question=raw_question,
-        prior_context=prior_context,
     )
 
     routing_trace: dict[str, Any] = dict(result.get("routing_trace") or {})
@@ -3614,7 +3612,6 @@ def respond(
     _session_orchestration: bool = False,
     locale: Locale = DEFAULT_LOCALE,
     _raw_question: str | None = None,
-    _prior_context: bool = False,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -3729,7 +3726,6 @@ def respond(
             intent_hint=intent_hint,
             locale=locale,
             raw_question=_raw_question if _raw_question is not None else user_message,
-            prior_context=_prior_context,
         )
         if orchestration_response is not None:
             return orchestration_response

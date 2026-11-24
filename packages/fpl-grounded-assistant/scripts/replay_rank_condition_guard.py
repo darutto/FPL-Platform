@@ -9,7 +9,7 @@ matters, not the rows:
   after   the handler with the guard, fed the question as the user's raw text
 
 and reports, by DISTINCT question, every call whose status changed (a refusal)
-and every call whose position the new rule would drop. A refusal on a question
+A refusal on a question
 that does not name a condition is a FALSE REFUSAL and is listed first.
 
 Sources (same set as the planner's Appendix B, E1):
@@ -24,7 +24,7 @@ so there is no saved call to resolve).
 
 Run from the repo root (or any worktree)::
 
-    python -I packages/fpl-grounded-assistant/scripts/replay_rank_condition_guard.py --ref origin/main
+    python -I packages/fpl-grounded-assistant/scripts/replay_rank_condition_guard.py --ref origin/main --root C:/Users/thera/fpl-platform
 
 Prints counts and the lists; writes nothing.
 """
@@ -57,7 +57,7 @@ def _git(*args: str, cwd: str) -> str:
     return subprocess.check_output(["git", *args], cwd=cwd).decode("utf-8", "replace")
 
 
-def _sources(repo: str, ref: str) -> list[tuple[str, str]]:
+def _sources(repo: str, ref: str, root: str) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for name in _git("ls-tree", "-r", "--name-only", ref, cwd=repo).splitlines():
         if name.endswith((".jsonl", ".ndjson")):
@@ -65,8 +65,8 @@ def _sources(repo: str, ref: str) -> list[tuple[str, str]]:
     audit = "packages/fpl-grounded-assistant/audit_logs/*.ndjson"
     patterns = [
         r"C:/Users/thera/wt-jev-pilot/**/*.jsonl",
-        os.path.join(repo, ".worktrees", "*", audit),
-        os.path.join(repo, audit),
+        os.path.join(root, ".worktrees", "*", audit),
+        os.path.join(root, audit),
         r"C:/Users/thera/fpl-audit/*.ndjson",
     ]
     for pattern in patterns:
@@ -92,10 +92,10 @@ def _walk(obj, question, found):
             _walk(value, question, found)
 
 
-def collect(repo: str, ref: str) -> list[tuple[str, dict, str]]:
+def collect(repo: str, ref: str, root: str) -> list[tuple[str, dict, str]]:
     seen: set[str] = set()
     calls: list[tuple[str, dict, str]] = []
-    for label, text in _sources(repo, ref):
+    for label, text in _sources(repo, ref, root):
         for line in text.splitlines():
             if TOOL not in line or line in seen:
                 continue
@@ -113,16 +113,20 @@ def collect(repo: str, ref: str) -> list[tuple[str, dict, str]]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="origin/main")
-    ap.add_argument("--repo", default=os.getcwd())
+    ap.add_argument("--repo", default=os.getcwd(), help="a checkout to read <ref> from (git ls-tree / show)")
+    ap.add_argument(
+        "--root", default=None,
+        help="the MAIN checkout that holds .worktrees and audit_logs (default: --repo). "
+             "From a worktree this must be given, or the local audit logs are not found.",
+    )
     ns = ap.parse_args()
 
     os.environ.pop("FPL_RANK_SUPPRESS", None)
     os.environ.pop("FPL_RANK_CONDITION_GUARD", None)
-    calls = collect(ns.repo, ns.ref)
+    calls = collect(ns.repo, ns.ref, ns.root or ns.repo)
     print(f"saved ranking calls: {len(calls)}; distinct questions: {len({q for q, _a, _s in calls})}")
 
     refused: dict[tuple[str, str], list] = collections.defaultdict(list)
-    dropped: set[tuple[str, str]] = set()
     unchanged = 0
     for question, args, label in calls:
         before = run_tool(TOOL, dict(args), {**EMPTY, guard.OPT_OUT_KEY: True})
@@ -132,18 +136,12 @@ def main() -> int:
             refused[key].append((label, after.get("conditions")))
         else:
             unchanged += 1
-        if args.get("position") and guard.position_to_drop(args, {guard.QUESTION_KEY: question, guard.RAW_QUESTION_KEY: question}):
-            dropped.add((question, str(args.get("position"))))
 
     print(f"unchanged calls: {unchanged}; refused (distinct question+metric): {len(refused)}; "
           f"distinct refused questions: {len({q for q, _m in refused})}")
     print("\n== refused, by distinct question (a refusal with a condition in the text is the intent) ==")
     for (question, metric), where in sorted(refused.items()):
         print(f"- {question!r} metric={metric!r} kinds={where[0][1]} calls={len(where)} e.g. {where[0][0]}")
-    print(f"\n== position the new rule would drop: {len(dropped)} distinct (question, position) ==")
-    for question, position in sorted(dropped):
-        print(f"- {question!r} position={position!r}")
-
     try:
         from tool_routing_corpus import CORPUS  # type: ignore[import-not-found]
     except Exception as exc:  # noqa: BLE001

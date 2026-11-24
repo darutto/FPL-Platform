@@ -579,7 +579,6 @@ def ask_v2(
     team_id: int | None = None,
     league_id: int | None = None,
     raw_question: str | None = None,
-    prior_context: bool = False,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -1335,10 +1334,9 @@ def ask_v2(
                 _eval_client=_eval_client,
                 locale=locale,
                 # Brief 0a: the user's text untouched (``question`` may already
-                # be a rewrite) and whether earlier turns precede this one. A
+                # be a rewrite). A
                 # caller that does not pass it gets ``question`` as the raw text.
                 raw_question=raw_question if raw_question is not None else question,
-                prior_context=prior_context,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"

@@ -36,7 +36,6 @@ CODE_SEASON_ONLY = "season_ranking_only"
 #: Bootstrap keys (per-turn shallow copy, see orchestrator.QUESTION_CONTEXT_KEY).
 QUESTION_KEY = "_question"
 RAW_QUESTION_KEY = "_raw_question"
-PRIOR_CONTEXT_KEY = "_prior_context"
 #: Explicit opt-out for internal callers (batteries, scripts). Never a default.
 OPT_OUT_KEY = "_rank_guard_internal"
 #: A per-turn list the orchestrator puts in its bootstrap copy; every refusal
@@ -60,6 +59,14 @@ REASON_SUPPRESSED = "suppressed"
 AUDIT_KINDS: frozenset[str] = frozenset(CONDITION_KINDS) | {
     REASON_NO_TEXT, REASON_GUARD_ERROR, REASON_SUPPRESSED,
 }
+
+#: Tools that only anchor a turn on a gameweek. A call to one of these returning
+#: ok is NOT an answer: with the ranking refused beside it the model would have
+#: no data and could list players from memory. Pinned equal to
+#: ``final_response.GAMEWEEK_CONTEXT_TOOLS`` by a test. ``get_my_squad`` is NOT
+#: here on purpose: it hands the model the user's own squad, which it can
+#: answer from without any ranking rows.
+CONTEXT_ONLY_TOOLS: frozenset[str] = frozenset({"get_current_gameweek", "get_gameweek_context"})
 
 #: Fields that really are about the current gameweek, so "esta jornada" is
 #: not a condition for them (transfer momentum).
@@ -115,7 +122,9 @@ def fold(text: str) -> str:
 _W_SING = r"(?:jornada|fecha|gameweek|game ?week|gw|matchweek|mw)"
 _W_PL = r"(?:jornadas|fechas|gameweeks|game ?weeks|gws|matchweeks|mws)"
 _W = r"(?:jornadas?|fechas?|gameweeks?|game ?weeks?|gws?|matchweeks?|mws?)"
-_UNITS_PL = rf"(?:{_W_PL}|partidos|encuentros|games|matches)"
+_UNITS_PL = rf"(?:{_W_PL}|partidos|encuentros|games|matches|semanas|weeks)"
+_ORD_ES = r"(?:primera|primer|segunda|tercera|cuarta|quinta|sexta|septima|octava|novena|decima)"
+_ORD_EN = r"(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)"
 _NUM2 = r"(\d{1,2})"
 # A second number that is a price ("4.5") is not a gameweek.
 _NUM2_NOT_PRICE = r"(\d{1,2})(?!\d|[.,]\d)"
@@ -127,10 +136,18 @@ _SINGLE_GW = [
     re.compile(rf"\b(?:ultima|pasada|anterior|previa|proxima|siguiente)\s+{_W_SING}\b"),
     re.compile(rf"\b{_W_SING}\s+(?:pasada|anterior|previa|ultima|proxima|siguiente)\b"),
     re.compile(r"\b(?:last|previous|prior|latest|next|upcoming)\s+(?:gameweek|game ?week|gw|matchweek)\b"),
+    # a past/next WEEK is a gameweek for this product (Latin American "semana")
+    re.compile(r"\b(?:semana|week)\s+(?:pasada|anterior|previa|proxima|siguiente)\b"),
+    re.compile(r"\b(?:ultima|pasada|proxima|siguiente)\s+semana\b"),
+    re.compile(r"\b(?:last|previous|prior|next|upcoming)\s+week\b"),
+    # ordinals: "la primera jornada", "the third gameweek"
+    re.compile(rf"\b{_ORD_ES}\s+{_W_SING}\b"),
+    re.compile(rf"\b{_ORD_EN}\s+(?:gameweek|game ?week|gw|matchweek)\b"),
 ]
 _CURRENT_GW = re.compile(
-    r"\b(?:esta|actual|presente)\s+jornada\b|\bjornada\s+(?:actual|en curso)\b"
-    r"|\b(?:this|current)\s+(?:gameweek|game ?week|gw|matchweek)\b|\bgw\s+actual\b"
+    r"\b(?:esta|actual|presente)\s+(?:jornada|fecha|semana)\b"
+    r"|\b(?:jornada|fecha|semana)\s+(?:actual|en curso)\b"
+    r"|\b(?:this|current)\s+(?:gameweek|game ?week|gw|matchweek|week)\b|\bgw\s+actual\b"
 )
 _LAST_N = [
     re.compile(rf"\b(?:ultim[oa]s?|recientes?|last|past|previous|prior|latest|recent)\s+(?:(?:the|las|los|la)\s+)?{_NUM2}\b"),
@@ -148,9 +165,16 @@ _RANGE = [
         rf"(?:la\s+|the\s+)?{_W}\s*{_NUM2}\b"
     ),
 ]
+#: "first five gameweeks" and "next 5 gameweeks": a season table is just as wrong
+#: there, and they are reported as a range.
+_RANGE.extend([
+    re.compile(rf"\b(?:primeras|primeros)\s+(?:{_NUM2}\s+)?{_UNITS_PL}\b"),
+    re.compile(rf"\bfirst\s+(?:{_NUM2}\s+)?{_UNITS_PL}\b"),
+    re.compile(rf"\b(?:proximas|proximos|siguientes|next|upcoming|coming)\s+(?:{_NUM2}\s+)?(?:{_UNITS_PL}|fixtures)\b"),
+])
 _VENUE = re.compile(
     r"\bfuera de casa\b|\bde visitante\b|\bcomo visitante\b|\bde visita\b|\bvisitantes?\b"
-    r"|\ben casa\b|\bde local\b|\bcomo local\b|\bat home\b|\bhome\b|\baway\b(?! from)"
+    r"|\ben casa\b|\bde local(?:es)?\b|\bcomo local(?:es)?\b|\bat home\b|\bhome\b|\baway\b(?! from)"
     r"|\bon the road\b|\broad games?\b"
 )
 _PER_MILLION = re.compile(
@@ -189,29 +213,6 @@ def detect_conditions(text: "str | None", *, field: "str | None" = None) -> tupl
     if _PER_MILLION.search(s):
         kinds.append(KIND_PER_MILLION)
     return tuple(kinds)
-
-
-# ---------------------------------------------------------------------------
-# Position the user did not name
-# ---------------------------------------------------------------------------
-
-_POSITION_WORDS = re.compile(
-    r"\b(?:portero|porteros|arquero|arqueros|guardameta|guardametas|porteria"
-    r"|defensa|defensas|defensor|defensores|zaguero|zagueros|central|centrales"
-    r"|lateral|laterales|carrilero|carrileros|mediocampista|mediocampistas"
-    r"|centrocampista|centrocampistas|mediocentro|mediocentros|mediapunta|mediapuntas"
-    r"|volante|volantes|medio|medios|extremo|extremos|delantero|delanteros"
-    r"|atacante|atacantes|punta|puntas|goleador|goleadores"
-    r"|goalkeeper|goalkeepers|goalie|goalies|keeper|keepers|gk|gkp"
-    r"|defender|defenders|def|back|backs|fullback|fullbacks|centre-back|center-back"
-    r"|centre-backs|center-backs|midfielder|midfielders|mid|mids|winger|wingers"
-    r"|forward|forwards|fwd|striker|strikers|attacker|attackers|wing-back|wingbacks"
-    r"|position|positions|posicion|posiciones)\b"
-)
-
-
-def names_a_position(text: "str | None") -> bool:
-    return bool(isinstance(text, str) and _POSITION_WORDS.search(fold(text)))
 
 
 # ---------------------------------------------------------------------------
@@ -294,22 +295,6 @@ def rewrite_only_conditions(bootstrap: dict[str, Any], field: "str | None") -> b
             and not detect_conditions(raw, field=field)
             and detect_conditions(rewritten, field=field)
         )
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def position_to_drop(args: dict[str, Any], bootstrap: dict[str, Any]) -> bool:
-    """True when the model's ``position`` was never named by the user.
-
-    Only on a turn with no prior context (a session follow-up may inherit a
-    position), only when there is user text, and only when NO text names a
-    position in any form.
-    """
-    try:
-        if not args.get("position") or bootstrap.get(PRIOR_CONTEXT_KEY):
-            return False
-        texts = _texts(bootstrap)
-        return bool(texts) and not any(names_a_position(x) for x in texts)
     except Exception:  # noqa: BLE001
         return False
 

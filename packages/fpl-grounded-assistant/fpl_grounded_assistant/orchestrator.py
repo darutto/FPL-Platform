@@ -83,7 +83,7 @@ from fpl_tool_runner import TOOL_REGISTRY
 
 from .rank_condition_guard import (
     CODE_SEASON_ONLY,  # noqa: F401
-    PRIOR_CONTEXT_KEY,
+    CONTEXT_ONLY_TOOLS,
     EVENTS_KEY,
     RAW_QUESTION_KEY,
     STATUS_CONDITION_NOT_APPLIED,
@@ -1647,7 +1647,8 @@ def _guard_owns_turn(
 
     ``executed`` is the round just run; ``trace`` is every call of the turn so
     far (this round included). The line owns the turn when a ranking was
-    refused and no OTHER call in the turn returned ``ok``.
+    refused and no OTHER call in the turn returned ``ok``, not counting calls
+    that only anchor the gameweek (``CONTEXT_ONLY_TOOLS``).
     """
     guarded = [item for item in executed if _is_guarded_call(item[1], item[3])]
     if not guarded:
@@ -1656,8 +1657,8 @@ def _guard_owns_turn(
         if not isinstance(entry, dict):
             continue
         out = entry.get("output")
-        if _is_guarded_call(entry.get("name"), out):
-            continue
+        if _is_guarded_call(entry.get("name"), out) or entry.get("name") in CONTEXT_ONLY_TOOLS:
+            continue  # a refused ranking and a gameweek anchor never answer
         if isinstance(out, dict) and out.get("status") == "ok":
             return None
     return guarded[-1]
@@ -2666,7 +2667,6 @@ def ask_orchestrated(
     _eval_client: Any = None,
     locale: Locale = DEFAULT_LOCALE,
     raw_question: str | None = None,
-    prior_context: bool = False,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2695,7 +2695,6 @@ def ask_orchestrated(
         _eval_client=_eval_client,
         locale=locale,
         raw_question=raw_question,
-        prior_context=prior_context,
         _guard_events=_guard_events,
     )
     # Brief 0a: a ranking refused beside another answer adds its line, after
@@ -2840,7 +2839,6 @@ def _ask_orchestrated_impl(
     _eval_client: Any = None,
     locale: Locale = DEFAULT_LOCALE,
     raw_question: str | None = None,
-    prior_context: bool = False,
     _guard_events: "list[Any] | None" = None,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
@@ -2945,8 +2943,6 @@ def _ask_orchestrated_impl(
     # Absent raw text falls back to ``question`` in the ranking guard.
     if isinstance(raw_question, str) and raw_question.strip():
         actual_bootstrap[RAW_QUESTION_KEY] = raw_question
-    if prior_context:
-        actual_bootstrap[PRIOR_CONTEXT_KEY] = True
     if _guard_events is not None:
         actual_bootstrap[EVENTS_KEY] = _guard_events
 
@@ -3415,6 +3411,7 @@ def _ask_orchestrated_impl(
         # for prose again. See _run_synthesis_extra_round for the measurement
         # this is built on and the reasons the cap is structural.
         # ------------------------------------------------------------------
+        _trace_before_extra = len(_trace)
         _extra_text, _x_in, _x_out, _x_cache = _run_synthesis_extra_round(
             prior_messages=follow_up_messages,
             second_response=_second_response,
@@ -3440,6 +3437,18 @@ def _ask_orchestrated_impl(
         _prim_in    += _x_in
         _prim_out   += _x_out
         _prim_cache += _x_cache
+        # Brief 0a: the extra round is a round like any other. A refused season
+        # ranking that is now the turn's only answer ends the turn with the line.
+        _extra_items = [
+            (e.get("tool_call_id"), e.get("name"), e.get("args") or {}, e.get("output") or {})
+            for e in _trace[_trace_before_extra:]
+        ]
+        _owner = _guard_owns_turn(_extra_items, _trace)
+        if _owner is not None:
+            return _condition_guard_result(
+                question=question, guarded=_owner, trace=_trace, locale=locale,
+                model=model, prim_in=_prim_in, prim_out=_prim_out, prim_cache=_prim_cache,
+            )
         if _extra_text:
             tool_status = raw_output.get("status")
             outcome = OUTCOME_OK if tool_status == "ok" else OUTCOME_TOOL_RESULT_ERROR

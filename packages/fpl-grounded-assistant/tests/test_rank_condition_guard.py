@@ -77,6 +77,29 @@ POSITIVES = [
     ("puntos en casa", guard.KIND_VENUE),
     ("home goals", guard.KIND_VENUE),
     ("goles como local", guard.KIND_VENUE),
+    ("goles como locales", guard.KIND_VENUE),
+    ("goles de visitantes", guard.KIND_VENUE),
+    ("goals away from home", guard.KIND_VENUE),
+    # current / past / next week and ordinals (Latin American "fecha"/"semana")
+    ("goles esta fecha", guard.KIND_SINGLE_GW),
+    ("más puntos esta semana", guard.KIND_SINGLE_GW),
+    ("puntos la semana pasada", guard.KIND_SINGLE_GW),
+    ("most points last week", guard.KIND_SINGLE_GW),
+    ("most points this week", guard.KIND_SINGLE_GW),
+    ("puntos en la primera jornada", guard.KIND_SINGLE_GW),
+    ("goles en la tercera fecha", guard.KIND_SINGLE_GW),
+    ("most points in the first gameweek", guard.KIND_SINGLE_GW),
+    ("most goals in the third gw", guard.KIND_SINGLE_GW),
+    # first N / next N: reported as a range
+    ("puntos en las primeras 5 jornadas", guard.KIND_RANGE),
+    ("puntos en las primeras cinco jornadas", guard.KIND_RANGE),
+    ("points in the first five gameweeks", guard.KIND_RANGE),
+    ("puntos en las próximas 5 jornadas", guard.KIND_RANGE),
+    ("más puntos en las próximas cinco fechas", guard.KIND_RANGE),
+    ("points over the next 5 gameweeks", guard.KIND_RANGE),
+    ("xg in the next three gws", guard.KIND_RANGE),
+    ("puntos en las próximas jornadas", guard.KIND_RANGE),
+    ("puntos en las últimas 5 semanas", guard.KIND_LAST_N),
     # per million
     ("puntos por millón", guard.KIND_PER_MILLION),
     ("puntos por millon", guard.KIND_PER_MILLION),
@@ -120,6 +143,9 @@ NEGATIVES = [
     "jugadores con más de 5 asistencias",
     "who has the most minutes",
     "garra",
+    "las próximas fichajes baratos",          # no gameweek/week/games noun after "próximas"
+    "top 5 first-choice goalkeepers",
+    "the first name on the team sheet by xg",
 ]
 
 
@@ -129,7 +155,10 @@ def test_detector_stays_quiet(text):
 
 
 def test_current_gameweek_words_are_allowed_only_for_current_gw_metrics():
-    for text in ("transferencias esta jornada", "transfers in this gameweek", "más fichados esta jornada"):
+    for text in (
+        "transferencias esta jornada", "transfers in this gameweek", "más fichados esta jornada",
+        "más fichados esta fecha", "más fichados esta semana", "most transferred in this week",
+    ):
         assert guard.detect_conditions(text, field="transfers_in_event") == ()
         assert guard.detect_conditions(text, field="transfers_out_event") == ()
         assert guard.KIND_SINGLE_GW in guard.detect_conditions(text, field="total_points")
@@ -141,9 +170,12 @@ def test_a_price_is_not_a_gameweek():
     assert guard.KIND_RANGE not in kinds
 
 
-KNOWN_MISSES = [  # listed in the PR: the closed list does not chase typos
+KNOWN_MISSES = [  # listed in the PR: the closed list does not chase typos, months or bare numbers
     "puntos en la jornda 3",
     "ultmias 5 jornadas",
+    "goles en la 3",
+    "goles en octubre",
+    "goals in october",
 ]
 
 
@@ -283,45 +315,22 @@ def test_a_guard_that_raises_never_produces_the_season_table(monkeypatch):
     assert out["conditions"] == [guard.REASON_GUARD_ERROR]
 
 
-# -- the position the user did not name ------------------------------------
-
-def test_a_position_the_user_did_not_name_is_dropped_on_a_fresh_turn():
-    out = run_tool(
-        "rank_players_by_metric",
-        {"metric": "total_points", "position": "DEF"},
-        _bs("¿Quiénes tienen más puntos?"),
-    )
-    assert out["status"] == "ok"
-    assert out["position_filter"] is None and out["position_dropped"] == "DEF"
-    assert len({e["position"] for e in out["ranked"]}) > 1 or len(out["ranked"]) >= 1
-
+# -- the position is never touched by the guard ----------------------------
 
 @pytest.mark.parametrize("text", [
-    "los mejores defensas por puntos", "mejores porteros", "laterales con más xg", "mejores zagueros",
-    "extremos con más puntos", "best goalies", "top strikers by xg", "best wingers", "top backs",
-    "atacantes baratos", "mediapuntas con más xgi", "centrales con más puntos",
+    "¿Quiénes tienen más puntos?", "Mejores MED por xG", "top DEL por goles", "mejores FWDs",
+    "the best in defence", "mejores defenzas", "¿y por xG?",
 ])
-def test_a_named_position_in_any_form_is_kept(text):
+def test_the_models_position_is_never_dropped(text):
+    # Dropping a position the text "did not name" turned a miss of the position
+    # detector into a silent all-positions ranking; the guard leaves it alone.
     out = run_tool("rank_players_by_metric", {"metric": "total_points", "position": "DEF"}, _bs(text))
-    assert out["status"] == "ok" and out["position_filter"] == "DEF" and "position_dropped" not in out
+    assert out["status"] == "ok" and out["position_filter"] == "DEF"
+    assert "position_dropped" not in out
 
 
-def test_a_position_is_kept_when_a_session_turn_has_prior_context():
-    out = run_tool(
-        "rank_players_by_metric",
-        {"metric": "expected_goals", "position": "DEF"},
-        _bs("¿y por xG?", **{guard.PRIOR_CONTEXT_KEY: True}),
-    )
-    assert out["position_filter"] == "DEF" and "position_dropped" not in out
-
-
-def test_a_position_is_kept_when_there_is_no_user_text():
-    out = run_tool(
-        "rank_players_by_metric",
-        {"metric": "total_points", "position": "DEF"},
-        _bs(**{guard.OPT_OUT_KEY: True}),
-    )
-    assert out["position_filter"] == "DEF"
+def test_no_position_detector_or_drop_remains():
+    assert not hasattr(guard, "position_to_drop") and not hasattr(guard, "names_a_position")
 
 
 # ---------------------------------------------------------------------------
@@ -402,15 +411,18 @@ def test_a_plain_ranking_is_unchanged(flow):
     assert client.calls == 2
 
 
+ANSWER = ("get_injury_list", {})
+
+
 def test_beside_another_answer_the_other_tool_keeps_the_slot_and_code_appends_the_line(flow):
     client = _Client(
-        _tool_use(("get_gameweek_context", {}), RANK),
-        _text("La jornada actual es la 5."),
+        _tool_use(ANSWER, RANK),
+        _text("Estos son los lesionados."),
     )
-    result = _ask("partidos del Fulham y puntos en las últimas 5 jornadas", client)
-    assert result.outcome == OUTCOME_OK and result.tool_chosen == "get_gameweek_context"
+    result = _ask("lesionados y puntos en las últimas 5 jornadas", client)
+    assert result.outcome == OUTCOME_OK and result.tool_chosen == "get_injury_list"
     line = guard.guard_line({"conditions": [guard.KIND_LAST_N]}, "es")
-    assert result.answer_text == f"La jornada actual es la 5.\n\n{line}"
+    assert result.answer_text == f"Estos son los lesionados.\n\n{line}"
     guarded = [e for e in result.tool_calls_trace if e["name"] == RANK[0]]
     assert guarded and all(e["output"]["status"] == STATUS and "ranked" not in e["output"] for e in guarded)
     assert "Haaland" not in json.dumps(result.tool_calls_trace, default=str)
@@ -420,7 +432,7 @@ def test_an_extra_round_that_asks_for_the_ranking_again_meets_the_same_guard(flo
     # Round 1 answers with another tool; the synthesis then asks for the ranking
     # (a no-text response carrying a tool call buys one bounded extra round).
     client = _Client(
-        _tool_use(("get_gameweek_context", {})),
+        _tool_use(ANSWER),
         _tool_use(RANK),
         _text("Resumen."),
         default=_text("Resumen."),
@@ -438,8 +450,8 @@ def test_an_evaluator_retry_that_calls_the_ranking_meets_the_same_guard(flow, mo
                                retry_feedback="Incluye el ranking.", tokens_used=5)
     monkeypatch.setattr(orch_mod, "evaluate_response", lambda **kw: verdict)
     client = _Client(
-        _tool_use(("get_gameweek_context", {})),
-        _text("La jornada actual es la 5."),
+        _tool_use(ANSWER),
+        _text("Estos son los lesionados."),
         _tool_use(RANK),                      # the retry asks for the ranking
         _text("Aquí va el ranking: 1. Haaland."),
         default=_text("Aquí va el ranking: 1. Haaland."),
@@ -453,12 +465,46 @@ def test_an_evaluator_retry_that_calls_the_ranking_meets_the_same_guard(flow, mo
 def test_a_ranking_used_as_a_support_call_for_a_fixture_question_is_not_ended_by_the_guard(flow):
     # "...para la fecha 6": the ranking is support, the other tool answers.
     client = _Client(
-        _tool_use(("get_gameweek_context", {}), RANK),
-        _text("Jornada 6 en camino."),
+        _tool_use(ANSWER, RANK),
+        _text("Lesionados del Fulham."),
     )
     result = _ask("jugadores del Fulham para la fecha 6", client)
-    assert result.outcome == OUTCOME_OK and result.tool_chosen == "get_gameweek_context"
-    assert "Jornada 6 en camino." in result.answer_text
+    assert result.outcome == OUTCOME_OK and result.tool_chosen == "get_injury_list"
+    assert "Lesionados del Fulham." in result.answer_text
+
+
+@pytest.mark.parametrize("anchor", ["get_current_gameweek", "get_gameweek_context"])
+def test_a_gameweek_anchor_is_not_an_answer_the_line_owns_the_turn(flow, anchor):
+    # Anchor + refused ranking used to go to synthesis with no data, where the
+    # model could list players from memory. The anchor does not answer.
+    client = _Client(_tool_use((anchor, {}), RANK), default=_text("1. Haaland 2. Salah"))
+    result = _ask("jornada actual y puntos en las últimas 5 jornadas", client)
+    assert client.calls == 1
+    assert result.outcome == OUTCOME_CONDITION_NOT_APPLIED
+    assert "Haaland" not in result.answer_text
+
+
+def test_an_anchor_in_an_earlier_round_does_not_keep_the_turn_either(flow):
+    client = _Client(_tool_use(("get_gameweek_context", {})), _tool_use(RANK), default=_text("1. Haaland"))
+    result = _ask("jornada actual y puntos en las últimas 5 jornadas", client)
+    assert result.outcome == OUTCOME_CONDITION_NOT_APPLIED
+    assert "Haaland" not in result.answer_text
+
+
+def test_get_my_squad_is_an_answer_it_hands_the_model_the_users_own_squad(flow):
+    # Not context-only on purpose (see CONTEXT_ONLY_TOOLS): with a squad the
+    # model answers from it; there are no ranking rows for it to leak.
+    client = _Client(_tool_use(("get_my_squad", {}), RANK), _text("Tu plantilla."))
+    result = _ask("mi plantilla y puntos en las últimas 5 jornadas", client)
+    names = [e["name"] for e in result.tool_calls_trace]
+    assert "get_my_squad" in names
+    assert result.outcome != OUTCOME_CONDITION_NOT_APPLIED or client.calls == 1
+
+
+def test_the_context_only_set_matches_the_ones_the_harness_already_knows():
+    from fpl_grounded_assistant.final_response import GAMEWEEK_CONTEXT_TOOLS
+
+    assert guard.CONTEXT_ONLY_TOOLS == GAMEWEEK_CONTEXT_TOOLS
 
 
 def test_the_loop_and_legacy_flows_agree_on_the_honest_turn(monkeypatch):
@@ -612,22 +658,22 @@ def test_ask_route_hands_ask_v2_the_question_exactly_as_typed(server, fake_model
     assert seen["raw"] == "puntos en las últimas 5 jornadas"
 
 
-def test_session_route_hands_ask_v2_the_raw_text_and_the_prior_context_flag(server, fake_model, monkeypatch):
+def test_session_route_hands_ask_v2_the_raw_text(server, fake_model, monkeypatch):
     from fpl_grounded_assistant import harness
 
     seen = []
     real = harness.ask_v2
 
     def _spy(question, bootstrap, **kw):
-        seen.append((question, kw.get("raw_question"), kw.get("prior_context")))
+        seen.append((question, kw.get("raw_question")))
         return real(question, bootstrap, **kw)
 
     monkeypatch.setattr(harness, "ask_v2", _spy)
     sid = server.post("/session").json()["session_id"]
     server.post(f"/session/{sid}/ask", json={"question": "puntos en las últimas 5 jornadas"}, headers={"X-User-Id": "g-p1"})
     server.post(f"/session/{sid}/ask", json={"question": "¿y los defensas?"}, headers={"X-User-Id": "g-p1"})
-    assert [(raw, prior) for _q, raw, prior in seen][:1] == [("puntos en las últimas 5 jornadas", False)]
-    assert seen[-1][1] == "¿y los defensas?" and seen[-1][2] is True
+    assert seen[0][1] == "puntos en las últimas 5 jornadas"
+    assert seen[-1][1] == "¿y los defensas?"
 
 
 def test_a_session_follow_up_fires_on_the_resolvers_rewrite(server, fake_model):
@@ -638,7 +684,6 @@ def test_a_session_follow_up_fires_on_the_resolvers_rewrite(server, fake_model):
         "puntos en las últimas 5 jornadas de los defensas",   # what the resolver produced
         copy.deepcopy(STANDARD_BOOTSTRAP),
         raw_question="¿y los defensas?",                      # what the user typed
-        prior_context=True,
     )
     assert result["outcome"] == "condition_not_applied"
     assert "ranked" not in result["raw_output"]

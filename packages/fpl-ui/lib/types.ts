@@ -31,6 +31,9 @@ export type { EvidenceItem } from './evidence';
 export type Outcome =
   | 'ok'
   | 'unsupported_intent'
+  // The season ranking refused a conditioned question (one gameweek, last N, home/away, per million):
+  // `final_text` is the honest line, no card. Rendered as plain text like any non-ok outcome.
+  | 'condition_not_applied'
   | 'not_found'
   | 'ambiguous'
   | 'missing_arguments'

@@ -1019,14 +1019,10 @@ def _rank_players_by_metric_handler(
                 "message":       "metric is required.",
                 "valid_metrics": _VALID_METRICS,
             }
-        position = args.get("position")
-        dropped_position = None
-        if guard.position_to_drop(args, bootstrap):
-            dropped_position, position = position, None
         result = rank_players_by_metric(
             metric      = metric,
             top_n       = args.get("top_n", 10),
-            position    = position,
+            position    = args.get("position"),
             min_minutes = args.get("min_minutes", 0),
             min_price   = args.get("min_price"),
             max_price   = args.get("max_price"),
@@ -1038,9 +1034,6 @@ def _rank_players_by_metric_handler(
         refusal = guard.evaluate(bootstrap, result.get("metric"))
         if refusal is not None:
             return guard.note_refusal(bootstrap, refusal)
-        if dropped_position is not None:
-            result = dict(result)
-            result["position_dropped"] = str(dropped_position)
         return result
     except Exception as exc:  # noqa: BLE001
         return {
