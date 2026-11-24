@@ -24,7 +24,7 @@
  *
  * Auth gating deferred to Phase 3.
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, eoWarm, apiErrorText, FplApiError } from '@/lib/api';
 import { ChatAskProvider } from '@/lib/chat-ask';
@@ -175,10 +175,25 @@ export default function ChatShell() {
     onReady: handleEoReady,
   });
 
+  // A REAL team change is A -> B or A -> none (not none -> A on mount/reconnect, not A -> A): what was built for
+  // team A must not outlive it. The league picker would store A's league under B, an EO poll would go on with B's
+  // team id and A's league id (an in-flight A reply is dropped with it), and A's plan_to_sign state would ride B's
+  // next question.
+  const teamIdRef = useRef<number | null>(null);
+  teamIdRef.current = teamId;
   const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
+    const previous = teamIdRef.current;
+    teamIdRef.current = id;
     setTeamId(id);
     setTeamName(name);
     adoptTeamLeague(id); // that team's stored league, or none; a disconnect only empties the in-memory value
+    if (previous != null && previous !== id) {
+      cancelEoPoll();
+      setPlayerPickWizard(null);
+      setMessages((prev) =>
+        prev.map((m) => (m.response?.plan_state != null ? { ...m, response: { ...m.response, plan_state: null } } : m)),
+      );
+    }
     if (id == null) {
       cancelEoPoll();
       setGw(null);
