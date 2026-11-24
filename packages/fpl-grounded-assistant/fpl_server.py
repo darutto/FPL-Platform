@@ -2180,6 +2180,7 @@ class EoPollRequest(BaseModel):
     team_id: StrictInt = Field(gt=0, lt=eo_poll.MAX_ID)
     league_id: StrictInt | None = Field(default=None, gt=0, lt=eo_poll.MAX_ID)
     locale: str | None = Field(default=None, max_length=8)
+    league_name: str | None = Field(default=None, max_length=eo_poll.MAX_LEAGUE_NAME)
 
 
 _EO_POLL_GATE = eo_poll.RateGate(eo_poll.POLL_MIN_INTERVAL_S)
@@ -2201,7 +2202,7 @@ def eo_poll_route(req: EoPollRequest, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=429, detail="Too Many Requests", headers={"Retry-After": "2"})
     if _bootstrap is None:
         raise HTTPException(status_code=503, detail="not ready")
-    return eo_poll.poll(req.tool, req.team_id, req.league_id, _bootstrap, req.locale)
+    return eo_poll.poll(req.tool, req.team_id, req.league_id, _bootstrap, req.locale, req.league_name)
 
 
 class EoWarmRequest(BaseModel):

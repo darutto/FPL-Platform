@@ -138,7 +138,12 @@ export default function ChatShell() {
           : m,
       ),
     );
-  }, []);
+    // Several leagues: the poll ends with the picker, armed exactly as on a normal "which league?" turn.
+    const leaguePicks = (reply.suggestions ?? []).filter(isLeaguePickSuggestion);
+    if (reply.status === 'needs_league' && leaguePicks.length > 0) {
+      setPlayerPickWizard({ options: leaguePicks, sessionId });
+    }
+  }, [sessionId]);
   // Start the EO jobs as soon as a team (and main league) is known, so the first EO question finds them done.
   // Debounced so the league restored from storage right after the team lands in ONE call; the backend memoises
   // per user and gameweek and rate-limits, and every failure is ignored.

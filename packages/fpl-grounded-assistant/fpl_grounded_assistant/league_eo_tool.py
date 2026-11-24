@@ -110,6 +110,9 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
         return {"status": "unavailable", "reason": "no_gameweek"}
     stored = boot.get("_my_league_id")
     service = get_service()
+    # The league this call is about, when it is known: the stored one (a name, if given, wins over it), the user's
+    # only league, but never a stored id the user no longer belongs to. Echoed on ``computing`` so the UI can poll.
+    resolved: int | None = int(stored) if stored and not league_name else None
 
     def ask(league_id: int | None, name: str | None) -> dict[str, Any]:
         return service.status(season, gw, int(team_id), league_id, league_name=name, valid_until=valid_until)
@@ -118,6 +121,7 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
         result = ask(int(stored) if stored else None, league_name)
         if result.get("reason") == "not_a_member" and not league_name:
             result = ask(None, None)  # a stale stored league: fall back to the picker
+            resolved = None  # and never echo the stale id
         if result["status"] == "ready" and "leagues" in result["data"]:
             leagues = result["data"]["leagues"]
             if not leagues:
@@ -129,7 +133,8 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
                         "message": ("Ask the user which league; the league names are shown to them as buttons. "
                                     "Then call again with league_name."),
                         "leagues": [{"league_id": lg["id"], "name": lg["name"], "size": lg["size"]} for lg in leagues]}
-            result = ask(leagues[0]["id"], None)  # exactly one: it is the one
+            resolved = int(leagues[0]["id"])
+            result = ask(resolved, None)  # exactly one: it is the one
     except Exception:  # noqa: BLE001  (a tool never raises into the turn)
         return {"status": "unavailable", "reason": "error"}
     if result["status"] == "ready":
@@ -139,10 +144,17 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
             squad = None
         return shape_result(result["data"], boot, list(player_names or []), squad)
     if result["status"] == "computing":
-        return {"status": "computing", "tier": "league", "eta_s": result["eta_s"],
-                "league_id": int(stored) if stored else None,  # echoed: the UI polls for exactly this league
-                "message": ("Being calculated in the background (up to about 30 seconds). Tell the user it is "
-                            "not ready yet and that they can ask again shortly; do not guess numbers.")}
+        out: dict[str, Any] = {
+            "status": "computing", "tier": "league", "eta_s": result["eta_s"],
+            # echoed: the UI polls for exactly this league. While only the leagues LIST is loading it may be unknown
+            # (None): then the name the user gave, if any, is echoed instead and the poll resolves it itself.
+            "league_id": resolved,
+            "message": ("Being calculated in the background (up to about 30 seconds). Tell the user it is "
+                        "not ready yet and that they can ask again shortly; do not guess numbers."),
+        }
+        if resolved is None and league_name:
+            out["league_name"] = league_name
+        return out
     return {"status": "unavailable", "reason": result.get("reason", "error")}
 
 

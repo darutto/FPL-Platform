@@ -3,7 +3,7 @@
 /**
  * Automatic retry of a "computing" EO answer.
  *
- * The backend marks such a reply with `pending` ({tool, league_id?, eta_s, poll_s, max_s}). This hook then
+ * The backend marks such a reply with `pending` ({tool, league_id?, league_name?, eta_s, poll_s, max_s}). This hook then
  * calls POST /eo/poll every `poll_s` seconds (no model, no quota turn) until the card is ready, hands it to
  * `onReady`, and gives up after `max_s` seconds, when the chat offers «Reintentar».
  *
@@ -74,12 +74,13 @@ export function useEoPoll({ teamId, locale, onReady }: Options) {
           tool: marker.tool,
           team_id: team,
           ...(marker.league_id != null ? { league_id: marker.league_id } : {}),
+          ...(marker.league_name ? { league_name: marker.league_name } : {}),
           locale: localeRef.current,
         });
         if (cancelled) return;
         if (reply.status === 'computing') {
           wait(reply.poll_s ?? marker.poll_s);
-        } else if (reply.status === 'ready') {
+        } else if (reply.status === 'ready' || reply.status === 'needs_league') {
           onReadyRef.current(state.messageId, reply);
           setState(null);
         } else {
