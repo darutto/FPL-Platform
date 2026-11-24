@@ -195,10 +195,25 @@ export default function ChatShell() {
     onReady: handleEoReady,
   });
 
+  // A REAL team change is A -> B or A -> none (not none -> A on mount/reconnect, not A -> A): what was built for
+  // team A must not outlive it. The league picker would store A's league under B, an EO poll would go on with B's
+  // team id and A's league id (an in-flight A reply is dropped with it), and A's plan_to_sign state would ride B's
+  // next question.
+  const teamIdRef = useRef<number | null>(null);
+  teamIdRef.current = teamId;
   const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
+    const previous = teamIdRef.current;
+    teamIdRef.current = id;
     setTeamId(id);
     setTeamName(name);
     adoptTeamLeague(id); // that team's stored league, or none; a disconnect only empties the in-memory value
+    if (previous != null && previous !== id) {
+      cancelEoPoll();
+      setPlayerPickWizard(null);
+      setMessages((prev) =>
+        prev.map((m) => (m.response?.plan_state != null ? { ...m, response: { ...m.response, plan_state: null } } : m)),
+      );
+    }
     if (id == null) {
       cancelEoPoll();
       setGw(null);
@@ -240,6 +255,7 @@ export default function ChatShell() {
     // A league the user has just picked: it goes on THIS request, before the state update lands.
     leagueIdOverride?: number | null,
   ) => {
+    const teamAtSend = teamIdRef.current; // the team this question is asked for
     const trimmed = rawInput.trim();
     if (!trimmed || loading) return;
 
@@ -365,6 +381,11 @@ export default function ChatShell() {
         response = await ask(requestBody);
       }
 
+      // The answer took seconds: if the team changed meanwhile, keep its text and card but not what belongs to the
+      // old team (chips that arm a picker, an EO poll marker, the plan state for the next turn).
+      if (teamIdRef.current !== teamAtSend) {
+        response = { ...response, suggestions: null, pending: null, plan_state: null };
+      }
       const assistantMessage: Message = {
         id: generateId(),
         role: 'assistant',
