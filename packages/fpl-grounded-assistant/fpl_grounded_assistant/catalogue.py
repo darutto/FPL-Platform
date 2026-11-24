@@ -267,6 +267,8 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "league_eo.col.captain": {"en": "Capt. %", "es": "Cap. %"},
     "league_eo.group.risk": {"en": "League has him", "es": "La liga lo tiene"},
     "league_eo.group.diff": {"en": "Your differential", "es": "Tu diferencial"},
+    "league_eo.avail.out": {"en": "out", "es": "fuera"},
+    "league_eo.avail.doubtful": {"en": "doubt", "es": "duda"},
     "league_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
     "league_eo.footer": {"en": "EO counts captains double.", "es": "La EO cuenta al capit\u00e1n doble."},
     # -- near-rank EO card (get_near_rank_eo): same shape as the league card.

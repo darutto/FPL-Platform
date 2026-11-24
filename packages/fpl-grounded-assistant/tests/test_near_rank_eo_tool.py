@@ -162,7 +162,8 @@ def test_ready_returns_top_players_and_the_named_ones(monkeypatch):
     assert out["status"] == "ok" and out["approx"] is True and out["label"] == "approx., n=125"
     assert [r["player"] for r in out["top_players"]] == ["Alpha", "Beta", "Gamma"]
     assert out["top_players"][0] == {"player": "Alpha", "team": "AAA", "eo": 130.0, "owned_pct": 80.0, "captain_pct": 50.0,
-                                     "user_owns": None}  # no squad in this test
+                                     "user_owns": None,
+        "minutes_played_season": None, "status": None, "chance_of_playing_next_round": None}  # no squad; synthetic elements carry no availability
     assert [r["player"] for r in out["named_players"]] == ["Gamma"]
     assert out["user_rank"] == 1234 and "entry" not in str(out)
 
