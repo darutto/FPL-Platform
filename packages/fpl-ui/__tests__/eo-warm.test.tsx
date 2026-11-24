@@ -59,6 +59,7 @@ jest.mock('../components/chat/SquadContextPanel', () => ({
   default: ({ onTeamIdChange }: { onTeamIdChange?: (id: number | null, name: string | null) => void }) => (
     <div>
       <button onClick={() => onTeamIdChange?.(555, 'Synthetic FC')}>connect-team</button>
+      <button onClick={() => onTeamIdChange?.(556, 'Other FC')}>connect-team-b</button>
       <button onClick={() => onTeamIdChange?.(null, null)}>disconnect-team</button>
     </div>
   ),
@@ -70,7 +71,7 @@ jest.mock('../components/intents/FixturesBoard', () => ({ FixturesBoard: () => n
 
 import ChatShell from '../components/chat/ChatShell';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
-import { MAIN_LEAGUE_LS_KEY } from '@/lib/main-league';
+import { mainLeagueKey } from '@/lib/main-league';
 
 function renderShell() {
   return render(
@@ -114,13 +115,30 @@ describe('EO warm-up', () => {
   });
 
   test('a stored main league goes in the same single call', async () => {
-    localStorage.setItem(MAIN_LEAGUE_LS_KEY, '77');
+    localStorage.setItem(mainLeagueKey(555), '77');
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderShell();
     await user.click(screen.getByText('connect-team'));
     await tick(2000);
     expect(eoWarm).toHaveBeenCalledTimes(1);
     expect(eoWarm).toHaveBeenLastCalledWith({ team_id: 555, league_id: 77 });
+  });
+
+  test('switching team never warms a mixed pair: the other team gets its own league (or none)', async () => {
+    localStorage.setItem(mainLeagueKey(555), '77');
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell();
+    await user.click(screen.getByText('connect-team'));
+    await tick(2000);
+    await user.click(screen.getByText('connect-team-b'));
+    await tick(2000);
+    await user.click(screen.getByText('connect-team'));
+    await tick(2000);
+    expect(eoWarm.mock.calls.map(([b]) => b)).toEqual([
+      { team_id: 555, league_id: 77 },
+      { team_id: 556, league_id: null },
+      { team_id: 555, league_id: 77 },
+    ]);
   });
 
   test('disconnecting before the debounce ends cancels the call', async () => {

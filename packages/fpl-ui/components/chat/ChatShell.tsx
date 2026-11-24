@@ -53,7 +53,7 @@ import CommandPanel from './CommandPanel';
 import TopBar from './TopBar';
 import SquadPitch from '@/components/squad/SquadPitch';
 import { FixturesBoard } from '@/components/intents/FixturesBoard';
-import { readMainLeagueId, writeMainLeagueId } from '@/lib/main-league';
+import { migrateLegacyMainLeague, readMainLeagueFor, writeMainLeagueFor } from '@/lib/main-league';
 import { useEoPoll } from '@/lib/use-eo-poll';
 import { validateTeamId } from '@/lib/squad-context';
 import type { EoPollResponse } from '@/lib/types';
@@ -104,18 +104,28 @@ export default function ChatShell() {
   const [insert, setInsert] = useState<InsertRequest | null>(null);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
-  // The user's main mini-league (EO of "my league"): a per-browser preference kept next to the
-  // team id. Read after mount (SSR-safe), sent every turn, dropped when the team is disconnected.
-  const [mainLeagueId, setMainLeagueId] = useState<number | null>(null);
+  // The user's main mini-league (EO of "my league"): a per-browser preference kept PER TEAM (lib/main-league.ts).
+  // Held with the team it belongs to and only used while that team is the connected one, so a league is never
+  // paired with another team's id, not even in the render between two updates. Disconnecting drops the
+  // in-memory value only; the stored one comes back with its team.
+  const [mainLeague, setMainLeague] = useState<{ teamId: number; leagueId: number } | null>(null);
+  const mainLeagueId = mainLeague != null && mainLeague.teamId === teamId ? mainLeague.leagueId : null;
+  const adoptTeamLeague = useCallback((team: number | null) => {
+    const leagueId = readMainLeagueFor(team);
+    setMainLeague(team != null && leagueId != null ? { teamId: team, leagueId } : null);
+  }, []);
   useEffect(() => {
-    setMainLeagueId(readMainLeagueId());
+    migrateLegacyMainLeague();
     // The stored team id is usable at once: a question sent before the squad panel's reconnect finishes
     // must still carry team_id (the panel confirms or clears it through onTeamIdChange).
     try {
       const stored = validateTeamId(localStorage.getItem('fpl_team_id') ?? '');
-      if (stored != null) setTeamId((cur) => cur ?? stored);
+      if (stored != null) {
+        setTeamId((cur) => cur ?? stored);
+        adoptTeamLeague(stored);
+      }
     } catch { /* storage unavailable */ }
-  }, []);
+  }, [adoptTeamLeague]);
   const [gw, setGw] = useState<number | null>(null);
 
   // A "computing" EO answer is polled for on its own (no model): when the card is ready it replaces the
@@ -163,13 +173,12 @@ export default function ChatShell() {
   const handleTeamIdChange = useCallback((id: number | null, name: string | null) => {
     setTeamId(id);
     setTeamName(name);
+    adoptTeamLeague(id); // that team's stored league, or none; a disconnect only empties the in-memory value
     if (id == null) {
       cancelEoPoll();
       setGw(null);
-      setMainLeagueId(null);
-      writeMainLeagueId(null);
     }
-  }, [cancelEoPoll]);
+  }, [cancelEoPoll, adoptTeamLeague]);
 
   // Drop text into the chat input and snap back to the chat screen.
   // `placeholder` (e.g. "p.ej. Haaland") hints the required argument when
@@ -445,8 +454,10 @@ export default function ChatShell() {
   const handlePlayerPick = useCallback((suggestion: Suggestion) => {
     if (isLeaguePickSuggestion(suggestion)) {
       // "Make this my league": remember it (per browser, next to the team id) and answer for it now.
-      writeMainLeagueId(suggestion.league_id);
-      setMainLeagueId(suggestion.league_id);
+      if (teamId != null) {
+        writeMainLeagueFor(teamId, suggestion.league_id);
+        setMainLeague({ teamId, leagueId: suggestion.league_id });
+      }
       sendMessage(suggestion.send_text, undefined, null, suggestion.league_id);
       return;
     }
@@ -456,7 +467,7 @@ export default function ChatShell() {
     }
     if (suggestion.player_id == null) return;
     sendMessage(suggestion.label, suggestion.player_id, playerPickWizard?.sessionId ?? null);
-  }, [playerPickWizard, sendMessage]);
+  }, [playerPickWizard, sendMessage, teamId]);
 
   // Quick commands ("Vistas rápidas") are complete queries — send immediately
   // and jump to the chat screen, skipping the edit step.
