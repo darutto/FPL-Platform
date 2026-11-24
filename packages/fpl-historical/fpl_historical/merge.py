@@ -216,6 +216,79 @@ def _build_incremental_gw_stats(
 
 
 # ---------------------------------------------------------------------------
+# player_gw_stats: winner selection + PK validation (CONTRACT §10.4 / §5)
+# ---------------------------------------------------------------------------
+
+#: ``source`` values allowed to carry a NULL ``fixture``: an incremental
+#: ``event-live`` row is one per-GW aggregate (no fixture id), and the
+#: vaastav-imported historical seasons have no fixture id at all.  A baseline
+#: row always carries the FPL ``fixture`` id.
+NULL_FIXTURE_SOURCES = frozenset({"incremental", "vaastav"})
+
+_GW_KEY = ["player_id", "event_id"]
+
+
+def _dedup_player_gw_rows(combined: pd.DataFrame) -> pd.DataFrame:
+    """Pick one winning snapshot per (player_id, event_id), keep ALL its rows.
+
+    The winner is the row group with the newest ``source_captured_at``; ties go
+    to ``incremental`` (CONTRACT §10.4).  A double gameweek is two baseline rows
+    for one (player_id, event_id) — one per ``fixture`` — so the winning
+    snapshot's rows are all kept; collapsing to one row per (player_id,
+    event_id) silently drops the second fixture.  Rows from losing snapshots
+    are dropped whole, so an incremental per-GW aggregate and a baseline's
+    per-fixture rows never both survive for one key.  A true duplicate (same
+    fixture twice inside the winning snapshot) still collapses.
+    """
+    ordered = combined.assign(_sort_source=(combined["source"] == "baseline").astype(int))
+    ordered = ordered.sort_values(
+        by=["source_captured_at", "_sort_source"],
+        ascending=[False, True],   # newest first; incremental (0) before baseline (1)
+        kind="stable",
+    )
+    grp = ordered.groupby(_GW_KEY, sort=False)
+    win_source = grp["source"].transform("first")
+    win_captured = grp["source_captured_at"].transform("first")
+    kept = ordered[(ordered["source"] == win_source) & (ordered["source_captured_at"] == win_captured)]
+    kept = kept.drop(columns=["_sort_source"])
+    if "fixture" in kept.columns:
+        kept = kept.drop_duplicates(subset=_GW_KEY + ["fixture"], keep="first")
+    else:
+        kept = kept.drop_duplicates(keep="first")
+    return kept.reset_index(drop=True)
+
+
+def validate_player_gw_stats(df: pd.DataFrame) -> None:
+    """Enforce the player_gw_stats PK (player_id, event_id, fixture).
+
+    Raises ``ValueError`` listing every violated rule:
+      1. (player_id, event_id, fixture) is unique (a NULL fixture counts as a value).
+      2. All rows of one (player_id, event_id) come from ONE source snapshot —
+         an incremental aggregate must never sit beside baseline per-fixture rows.
+      3. ``fixture`` is NULL only for sources in ``NULL_FIXTURE_SOURCES``.
+    Tables with no rows, or without ``fixture`` and without ``source``, pass
+    rule 1 on the (player_id, event_id) key alone.
+    """
+    problems: list[str] = []
+    if df.empty:
+        return
+    key = _GW_KEY + (["fixture"] if "fixture" in df.columns else [])
+    n_dupe = int(df.duplicated(subset=key).sum())
+    if n_dupe:
+        problems.append(f"{n_dupe} duplicate {tuple(key)} row(s)")
+    if {"source", "source_captured_at"}.issubset(df.columns):
+        n_mixed = int((df.groupby(_GW_KEY)[["source", "source_captured_at"]].nunique(dropna=False).max(axis=1) > 1).sum())
+        if n_mixed:
+            problems.append(f"{n_mixed} (player_id, event_id) key(s) mix rows from different source snapshots")
+        if "fixture" in df.columns:
+            bad = df[df["fixture"].isna() & ~df["source"].isin(NULL_FIXTURE_SOURCES)]
+            if len(bad):
+                problems.append(f"{len(bad)} row(s) with NULL fixture from a source other than {sorted(NULL_FIXTURE_SOURCES)}")
+    if problems:
+        raise ValueError("player_gw_stats PK violation: " + "; ".join(problems))
+
+
+# ---------------------------------------------------------------------------
 # Relative-path helper
 # ---------------------------------------------------------------------------
 
@@ -345,18 +418,8 @@ def build_merged_parquet(season: str) -> dict:
     all_gw_dfs.extend(incremental_gw_dfs)
 
     if all_gw_dfs:
-        combined = pd.concat(all_gw_dfs, ignore_index=True)
-
-        # Dedup by (player_id, event_id): most recent source_captured_at wins;
-        # ties go to incremental.  Add a sort key where incremental=0, baseline=1
-        # so that ascending sort puts incremental first within tied timestamps.
-        combined["_sort_source"] = (combined["source"] == "baseline").astype(int)
-        combined = combined.sort_values(
-            by=["source_captured_at", "_sort_source"],
-            ascending=[False, True],   # newest captured_at first; incremental (0) before baseline (1)
-        ).drop_duplicates(subset=["player_id", "event_id"], keep="first")
-        combined = combined.drop(columns=["_sort_source"])
-        combined = combined.reset_index(drop=True)
+        combined = _dedup_player_gw_rows(pd.concat(all_gw_dfs, ignore_index=True))
+        validate_player_gw_stats(combined)
     else:
         combined = pd.DataFrame(columns=[
             "player_id", "event_id", "total_points", "minutes",

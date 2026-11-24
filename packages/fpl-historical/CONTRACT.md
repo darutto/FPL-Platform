@@ -139,7 +139,16 @@ All tables include a `captured_at` column (UTC ISO string, same value across the
 | `teams` | `bootstrap.teams[]` | `team_id` (renamed from `id`), `name`, `short_name`, `strength`, `strength_overall_home`, `strength_overall_away` | `team_id` |
 | `events` | `bootstrap.events[]` | `event_id` (renamed from `id`), `deadline_time`, `is_current`, `is_next`, `finished`, `data_checked`, `average_entry_score` | `event_id` |
 | `fixtures` | `fixtures.json` (top-level list) | `fixture_id` (renamed from `id`), `event` (renamed `event_id`), `team_h`, `team_a`, `team_h_score`, `team_a_score`, `team_h_difficulty`, `team_a_difficulty`, `finished`, `kickoff_time` | `fixture_id` |
-| `player_gw_stats` | for each `element-summary/{id}.json`, iterate `history[]`; inject `player_id` from the filename | `player_id`, `event` (renamed `event_id`), `total_points`, `minutes`, `goals_scored`, `assists`, `clean_sheets`, `goals_conceded`, `bonus`, `bps`, `expected_goals`, `expected_assists`, `expected_goal_involvements`, `value`, `was_home`, `opponent_team` | `(player_id, event_id)` |
+| `player_gw_stats` | for each `element-summary/{id}.json`, iterate `history[]`; inject `player_id` from the filename | `player_id`, `event` (renamed `event_id`), `total_points`, `minutes`, `goals_scored`, `assists`, `clean_sheets`, `goals_conceded`, `bonus`, `bps`, `expected_goals`, `expected_assists`, `expected_goal_involvements`, `value`, `was_home`, `opponent_team` | `(player_id, event_id, fixture)` — see §5.1 |
+
+### 5.1 `player_gw_stats` grain (amended after the double-gameweek row-loss fix)
+
+One row per player **per fixture**, not per gameweek. In a double gameweek FPL's `element-summary.history` carries two rows with the same `round` and different `fixture` ids; both are rows of this table. Consequences:
+
+- PK is `(player_id, event_id, fixture)`. `fixture` is the FPL fixture id (baseline rows always carry it).
+- `fixture` is NULL only for (a) incremental `event-live` rows, which are one per-GW **aggregate** (no fixture id), and (b) `source = "vaastav"` rows of the imported historical seasons (no fixture id; their double-GW rows are already stored as two rows).
+- For one `(player_id, event_id)` all rows come from **one** source snapshot: never an incremental aggregate beside baseline per-fixture rows (§10.4).
+- Readers must not assume one row per player-GW. Additive counts (points, minutes, goals, ...) are summed per `(player_id, event_id)` before ranking or counting gameweeks; per-GW state (`value`, `selected`, `transfers_*`) and "appearances / last N games" are never summed across the rows of one GW. `fpl_historical.merge.validate_player_gw_stats` enforces the PK and is run on every merge.
 
 Passthrough policy: keep every other top-level field from the source as-is; do not drop unknown columns. The PK and renamed columns above are the only hard guarantees.
 
@@ -334,13 +343,15 @@ Inputs to the merge are selected as follows:
 ### 10.3 Per-table merge semantics
 
 - `players`, `teams`, `events`, `fixtures`: sourced from the **latest `captured_at`** snapshot across `{baseline} ∪ {chosen incrementals}`. These are season-state tables — there is no row-level merge, only "newest wins as a whole table." Provenance is preserved by the existing `captured_at` column on every row (§5), which tells the operator which snapshot contributed.
-- `player_gw_stats`: the merge target. Dedup key is the composite `(player_id, event_id)`. See §10.4.
+- `player_gw_stats`: the merge target. Winner selection is per `(player_id, event_id)`; the PK of the result is `(player_id, event_id, fixture)` (§5.1). See §10.4.
 
 ### 10.4 `player_gw_stats` dedup rule (canonical)
 
-For each `(player_id, event_id)` pair across baseline rows (from `element-summary[*].history[]`) and incremental rows (from each chosen `complete` incremental's `event-live.elements[*].stats`, with `player_id` taken from `elements[*].id` and `event_id` from the snapshot's `gameweek`), exactly one row survives:
+For each `(player_id, event_id)` pair across baseline rows (from `element-summary[*].history[]`) and incremental rows (from each chosen `complete` incremental's `event-live.elements[*].stats`, with `player_id` taken from `elements[*].id` and `event_id` from the snapshot's `gameweek`), exactly one **snapshot** wins, and **all rows of the winning snapshot survive**:
 
-> **Winner is the row with the most recent `captured_at` value.** ISO-8601 lexicographic comparison is well-defined for the `%Y-%m-%dT%H-%M-%SZ` format both layers use (§3 and §9.1). Ties (identical `captured_at` to the second) are broken by preferring the **incremental** row — incremental captures are GW-targeted and run after `data_checked`, so they are the more authoritative source for that single GW.
+> **Winner is the snapshot with the most recent `captured_at` value** for that `(player_id, event_id)`. ISO-8601 lexicographic comparison is well-defined for the `%Y-%m-%dT%H-%M-%SZ` format both layers use (§3 and §9.1). Ties (identical `captured_at` to the second) are broken by preferring the **incremental** snapshot — incremental captures are GW-targeted and run after `data_checked`, so they are the more authoritative source for that single GW.
+
+A baseline snapshot contributes one row per fixture (two in a double gameweek); an incremental snapshot contributes one per-GW aggregate row with NULL `fixture`. Rows of losing snapshots are dropped whole, so an incremental aggregate and baseline per-fixture rows never both survive for one key. A true duplicate (the same `fixture` twice inside the winning snapshot) collapses to one row. The earlier rule "exactly one row survives per `(player_id, event_id)`" dropped the second fixture of every double gameweek (409 rows / 471 points in 2025-2026) and is withdrawn.
 
 Two new columns are added to `player_gw_stats` (and only this table) for inspectability:
 

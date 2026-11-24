@@ -24,7 +24,7 @@ from conftest import (
     MINIMAL_FIXTURES,
 )
 from fpl_historical.manifest import Manifest, write_manifest
-from fpl_historical.merge import build_merged_parquet
+from fpl_historical.merge import build_merged_parquet, validate_player_gw_stats
 from fpl_historical.paths import (
     merged_parquet_dir,
     owned_latest_pointer_path,
@@ -540,3 +540,98 @@ class TestPointerCorrectness:
         ptr = build_merged_parquet(SEASON)
         on_disk = json.loads(owned_latest_pointer_path(SEASON).read_text(encoding="utf-8"))
         assert ptr == on_disk
+
+
+# ---------------------------------------------------------------------------
+# (viii) Double gameweek — one row per FIXTURE must survive (CONTRACT §5.1/§10.4)
+# ---------------------------------------------------------------------------
+
+def _hist_row(fixture: int, rnd: int, pts: int, mins: int = 90, goals: int = 0) -> dict:
+    row = dict(MINIMAL_ELEMENT_SUMMARY["history"][0])
+    row.update({"fixture": fixture, "round": rnd, "total_points": pts, "minutes": mins, "goals_scored": goals})
+    return row
+
+
+def _double_summary(rnd: int = 37) -> dict:
+    """Player history for a double gameweek: two fixtures share `round`."""
+    return {"history": [_hist_row(371, rnd, 7, goals=1), _hist_row(372, rnd, 5)], "fixtures": []}
+
+
+def _merged() -> pd.DataFrame:
+    return pd.read_parquet(merged_parquet_dir(SEASON) / "player_gw_stats.parquet")
+
+
+class TestDoubleGameweek:
+    def test_both_fixture_rows_survive(self, tmp_historical_root):
+        _write_baseline_complete(tmp_historical_root, element_summary=_double_summary())
+        build_merged_parquet(SEASON)
+        rows = _merged()
+        p1 = rows[(rows.player_id == 1) & (rows.event_id == 37)]
+        assert sorted(p1.fixture.tolist()) == [371, 372], "second fixture of a double GW must not be dropped"
+
+    def test_merged_points_equal_raw_history_sum(self, tmp_historical_root):
+        """Invariant: per-player merged points == sum of that player's raw history."""
+        summary = {"history": [_hist_row(371, 37, 7), _hist_row(372, 37, 5), _hist_row(381, 38, 2)], "fixtures": []}
+        _write_baseline_complete(tmp_historical_root, element_summary=summary)
+        build_merged_parquet(SEASON)
+        got = _merged().groupby("player_id").total_points.sum()
+        expected = sum(r["total_points"] for r in summary["history"])
+        assert (got == expected).all() and len(got) == len(MINIMAL_BOOTSTRAP["elements"])
+
+    def test_true_duplicate_still_collapses(self, tmp_historical_root):
+        summary = {"history": [_hist_row(371, 37, 7), _hist_row(371, 37, 7)], "fixtures": []}  # same fixture twice
+        _write_baseline_complete(tmp_historical_root, element_summary=summary)
+        build_merged_parquet(SEASON)
+        p1 = _merged()
+        assert len(p1[(p1.player_id == 1) & (p1.event_id == 37)]) == 1
+
+    def test_newer_incremental_aggregate_replaces_both_baseline_rows(self, tmp_historical_root):
+        _write_baseline_complete(tmp_historical_root, captured_at="2026-05-25T10-00-00Z", element_summary=_double_summary(38))
+        el = {"id": 1, "stats": {"minutes": 180, "goals_scored": 1, "total_points": 12}, "explain": [], "modified": False}
+        _write_incremental_complete(tmp_historical_root, gw=38, captured_at="2026-05-25T18-00-00Z",
+                                    event_live={"elements": [el]})
+        build_merged_parquet(SEASON)
+        rows = _merged()
+        p1 = rows[(rows.player_id == 1) & (rows.event_id == 38)]
+        assert len(p1) == 1 and p1.iloc[0].source == "incremental" and p1.iloc[0].fixture != p1.iloc[0].fixture  # NaN fixture
+        assert p1.iloc[0].total_points == 12
+
+    def test_newer_baseline_keeps_both_rows_and_no_incremental(self, tmp_historical_root):
+        _write_baseline_complete(tmp_historical_root, captured_at="2026-05-25T18-00-00Z", element_summary=_double_summary(38))
+        el = {"id": 1, "stats": {"minutes": 180, "goals_scored": 1, "total_points": 12}, "explain": [], "modified": False}
+        _write_incremental_complete(tmp_historical_root, gw=38, captured_at="2026-05-25T10-00-00Z",
+                                    event_live={"elements": [el]})
+        build_merged_parquet(SEASON)
+        rows = _merged()
+        p1 = rows[(rows.player_id == 1) & (rows.event_id == 38)]
+        assert sorted(p1.fixture.tolist()) == [371, 372]
+        assert (p1.source == "baseline").all(), "an incremental aggregate must never sit beside per-fixture rows"
+        assert p1.total_points.sum() == 12
+
+    def test_rerun_is_idempotent_with_doubles(self, tmp_historical_root):
+        _write_baseline_complete(tmp_historical_root, element_summary=_double_summary())
+        build_merged_parquet(SEASON)
+        first = _merged()
+        build_merged_parquet(SEASON)
+        pd.testing.assert_frame_equal(first, _merged())
+
+
+class TestValidatePlayerGwStats:
+    def _df(self, rows):
+        return pd.DataFrame(rows, columns=["player_id", "event_id", "fixture", "source", "source_captured_at"])
+
+    def test_valid_double_passes(self):
+        validate_player_gw_stats(self._df([(1, 5, 51, "baseline", "T1"), (1, 5, 52, "baseline", "T1"),
+                                           (2, 5, None, "incremental", "T2"), (3, 5, None, "vaastav", "T0")]))
+
+    def test_duplicate_pk_rejected(self):
+        with pytest.raises(ValueError, match="duplicate"):
+            validate_player_gw_stats(self._df([(1, 5, 51, "baseline", "T1"), (1, 5, 51, "baseline", "T1")]))
+
+    def test_mixed_sources_for_one_key_rejected(self):
+        with pytest.raises(ValueError, match="mix rows"):
+            validate_player_gw_stats(self._df([(1, 5, 51, "baseline", "T1"), (1, 5, None, "incremental", "T2")]))
+
+    def test_null_fixture_only_for_incremental_or_vaastav(self):
+        with pytest.raises(ValueError, match="NULL fixture"):
+            validate_player_gw_stats(self._df([(1, 5, None, "baseline", "T1")]))

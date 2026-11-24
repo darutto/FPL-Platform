@@ -447,9 +447,20 @@ def get_player_season_points(
     total_assists = _col_sum("assists")
     total_clean_sheets = _col_sum("clean_sheets")
     total_bonus = _col_sum("bonus")
+    # gws_played counts GAMEWEEKS with minutes, not rows: a double gameweek is
+    # two per-fixture rows for one event_id and must count once. Sum minutes per
+    # event first (a player with 0' in one fixture of a double still played).
     gws_played = (
-        int((pd.to_numeric(player_rows["minutes"], errors="coerce").fillna(0) > 0).sum())
-        if "minutes" in player_rows.columns
+        int(
+            (
+                pd.to_numeric(player_rows["minutes"], errors="coerce")
+                .fillna(0)
+                .groupby(player_rows["event_id"])
+                .sum()
+                > 0
+            ).sum()
+        )
+        if "minutes" in player_rows.columns and "event_id" in player_rows.columns
         else 0
     )
     points_per_game = round(total_points / gws_played, 2) if gws_played > 0 else 0.0
