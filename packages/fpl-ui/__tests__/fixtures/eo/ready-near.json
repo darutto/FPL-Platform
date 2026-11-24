@@ -36,20 +36,14 @@
     "rows": [
       [
         "Cerca de ti lo tienen",
-        "P2 (T3)",
-        "140.0",
-        "50.0"
-      ],
-      [
-        "Cerca de ti lo tienen",
         "P1 (T2)",
         "95.0",
         ""
       ],
       [
         "Tu diferencial",
-        "P5 (T2)",
-        "0.0",
+        "P2 (T3)",
+        "12.0",
         ""
       ]
     ],
@@ -64,5 +58,5 @@
       "send_text": "EO en Friends"
     }
   ],
-  "text": "Listo: EO cerca de tu puesto · GW 12"
+  "text": "Cúbrete con P1; tu diferencial: P2."
 }

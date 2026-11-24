@@ -182,6 +182,13 @@ class LeagueEOService(JobService):
         return self._lookup_or_start(("league", season, gw, league["id"]),
                                      self._league_work(league, season, gw), valid_until)
 
+    def cached_leagues(self, entry_id: int) -> list[dict[str, Any]] | None:
+        """The user's private leagues if their list is already cached (no request, never starts a job), else None."""
+        listed = self._peek(("leagues", entry_id))
+        if listed is None or listed.get("status") != "ready":
+            return None
+        return list(listed["data"]["leagues"])
+
     def _league_work(self, league: dict[str, Any], season: str, gw: int):
         def work(api: _Api) -> dict[str, Any]:
             return compute_league_eo(league, season, gw, api, workers=self._workers)

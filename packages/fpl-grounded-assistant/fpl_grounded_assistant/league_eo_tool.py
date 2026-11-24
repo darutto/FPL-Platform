@@ -66,8 +66,48 @@ def set_service(service: _core.LeagueEOService | None) -> None:
     _SERVICE = service
 
 
+def other_eligible_leagues(service: _core.LeagueEOService, team_id: int, current_league_id: Any) -> list[dict[str, Any]]:
+    """The user's other private leagues that can be read, from the CACHED list only (no FPL request).
+
+    Non-empty means the user has 2+ eligible leagues, so the card can offer «Change league»."""
+    cached_of = getattr(service, "cached_leagues", None)  # a test double may not have it
+    cached = (cached_of(team_id) if callable(cached_of) else None) or []
+    return [{"league_id": lg["id"], "name": lg["name"], "size": lg["size"]} for lg in cached
+            if lg["id"] != current_league_id and _core.check_size(lg["size"]) is None]
+
+
+def league_picker(bootstrap: dict[str, Any] | None, now: datetime | None = None) -> dict[str, Any] | None:
+    """The league picker for «Change league»: the user's OTHER readable leagues, or ``None`` when there is
+    nothing to pick (flag off, no team, fewer than 2 eligible leagues, any problem): the caller falls through."""
+    if not is_league_eo_enabled():
+        return None
+    boot = bootstrap or {}
+    team_id = boot.get("_my_team_id")
+    if not team_id:
+        return None
+    now = now or datetime.now(timezone.utc)
+    gw, valid_until = gw_and_valid_until(boot.get("events") or [], now)
+    season = _season(boot)
+    if gw is None or season is None:
+        return None
+    try:
+        listed = get_service().status(season, gw, int(team_id), None, valid_until=valid_until)
+    except Exception:  # noqa: BLE001
+        return None
+    if listed.get("status") != "ready" or "leagues" not in listed.get("data", {}):
+        return None  # still loading, or unavailable
+    stored = boot.get("_my_league_id")
+    eligible = [lg for lg in listed["data"]["leagues"] if _core.check_size(lg["size"]) is None]
+    others = [lg for lg in eligible if not stored or lg["id"] != int(stored)]
+    if len(eligible) < 2 or not others:
+        return None
+    return {"status": "ok", "stage": "needs_league", "message": "Pick a league.",
+            "leagues": [{"league_id": lg["id"], "name": lg["name"], "size": lg["size"]} for lg in others]}
+
+
 def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: list[str],
-                 squad: dict[str, Any] | None = None) -> dict[str, Any]:
+                 squad: dict[str, Any] | None = None,
+                 other_leagues: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """The compact answer for the model: the top EO players, any the user named, and the squad comparison."""
     by_id, teams = _name_index(bootstrap)
     players = data["players"]
@@ -83,6 +123,7 @@ def shape_result(data: dict[str, Any], bootstrap: dict[str, Any], player_names: 
                 named_ids.append(element_id)
     own = owned_ids(squad)
     return {
+        **({"other_leagues": other_leagues} if other_leagues else {}),
         "status": "ok", "tier": "league", "gw": data["gw"],
         "league_id": data["league_id"], "league_name": data["league_name"], "league_size": data["league_size"],
         "exact": data["exact"], "approx": data["approx"], "n_sampled": data["n_sampled"], "label": data["label"],
@@ -142,7 +183,8 @@ def get_league_eo(bootstrap: dict[str, Any] | None, *, league_name: str | None =
             squad = load_linked_squad(boot, gw)  # one small FPL call (the user's own picks); None if it fails
         except Exception:  # noqa: BLE001
             squad = None
-        return shape_result(result["data"], boot, list(player_names or []), squad)
+        return shape_result(result["data"], boot, list(player_names or []), squad,
+                            other_eligible_leagues(service, int(team_id), result["data"].get("league_id")))
     if result["status"] == "computing":
         out: dict[str, Any] = {
             "status": "computing", "tier": "league", "eta_s": result["eta_s"],

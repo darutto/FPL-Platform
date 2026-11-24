@@ -35,13 +35,13 @@
     "position_pitch": null,
     "rows": [
       [
-        "Mayor EO",
+        "La liga lo tiene",
         "Alpha (AAA)",
         "140.0",
         "50.0"
       ],
       [
-        "Mayor EO",
+        "Tu diferencial",
         "Beta (BBB)",
         "20.0",
         ""
@@ -56,7 +56,12 @@
       "kind": "eo_switch",
       "label": "EO cerca de tu puesto",
       "send_text": "EO cerca de tu puesto"
+    },
+    {
+      "kind": "eo_switch",
+      "label": "Cambiar de liga",
+      "send_text": "Cambiar de liga"
     }
   ],
-  "text": "Listo: EO en Friends · GW 11"
+  "text": "Cúbrete con Alpha; tu diferencial: Beta."
 }

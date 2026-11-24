@@ -17,6 +17,7 @@ import time
 from typing import Any, Callable, Mapping
 
 from .catalogue import t
+from .eo_line import eo_one_line
 from .locale_types import DEFAULT_LOCALE, Locale
 
 POLL_TOOLS = ("get_league_eo", "get_near_rank_eo")
@@ -125,7 +126,7 @@ def poll(tool: str, team_id: int, league_id: int | None, bootstrap: dict[str, An
         return {"status": "unavailable", "reason": str(raw.get("reason") or raw.get("stage") or raw.get("code") or "error")}
     return {
         "status": "ready",
-        "text": t("eo_poll.ready", loc, title=card.title, gw=raw.get("gw")),
+        "text": eo_one_line(raw, loc) or t("eo_poll.ready", loc, title=card.title, gw=raw.get("gw")),
         "generic_card": generic_card_to_dict(card),
         "suggestions": _eo_switch_chips(tool, raw, loc),
     }
