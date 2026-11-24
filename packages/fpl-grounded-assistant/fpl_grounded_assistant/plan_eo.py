@@ -37,6 +37,18 @@ TARGET_TOP_COVER_PCT: float = 40.0
 #: Selling a premium "does not expose" the user when no more than this share near their rank owns him.
 SOLD_NO_EXPOSURE_PCT: float = 10.0
 
+# -- the "differential" line: DISPLAY conditions, not predictors ---------------------------------------------------
+# The low-ownership backtest did NOT show a predictive edge: nothing here says a low-owned player will do well, and
+# nobody should reword the line into a forecast ("will score", "great pick"). The line only states facts the card can
+# back: few managers own him (so IF he scores the user gains on those who do not), and the existing PlanSignals say he
+# is a regular starter with a favourable run and an xGI/90 in the top of his position. Missing data: no line.
+#: Few own him: at most this share (near your rank first, the top 10K when near-rank has no data).
+LOW_OWNED_PCT: float = 10.0
+#: Favourable run: at least this many fixtures in the window, an average FDR band at or under the cap, few hard ones.
+FIXTURE_MIN_GAMES: int = 3
+FIXTURE_MAX_AVG_BAND: float = 3.0
+FIXTURE_MAX_HARD: int = 1
+
 
 def _pct(players: dict[str, Any], pid: int) -> int | None:
     """Ownership in a group's data: 0 when the player is absent from the sample, None when his row is unusable."""
@@ -57,6 +69,27 @@ def _reference(players: Any, target_id: int, sold_ids: set[int]) -> dict[str, An
     if target is None:
         return None
     return {"target": target, "sold": {str(pid): _pct(players, pid) for pid in sorted(sold_ids)}}
+
+
+def target_signals(signals: Any, pid: int) -> dict[str, bool]:
+    """The target's display conditions from the existing ``PlanSignals`` (no new score, no xPts).
+
+    ``nailed``: available and a regular starter (availability tier 2: not out, not doubtful, not a rotation risk).
+    ``fixtures``: a favourable run (see the constants above). ``xgi_top``: his minutes-shrunk xGI/90 is in the top of
+    his position (the same "xgi" reason as the top status; early in the season there is no cut-off, so it is False).
+    Anything missing or failing is False.
+    """
+    try:
+        nailed = signals.availability(pid)["tier"] == 2
+        fx = signals.fixtures(pid)
+        band = fx.get("avg_band")
+        fixtures = (fx.get("games", 0) >= FIXTURE_MIN_GAMES and band is not None and band <= FIXTURE_MAX_AVG_BAND
+                    and fx.get("hard", 99) <= FIXTURE_MAX_HARD)
+        xgi_top = "xgi" in signals.top(pid)["reasons"]
+        return {"nailed": bool(nailed), "fixtures": bool(fixtures), "xgi_top": bool(xgi_top)}
+    except Exception:  # noqa: BLE001  (a missing signal is "no line", never an error)
+        _LOG.warning("plan_eo target_signals failed", exc_info=True)
+        return {"nailed": False, "fixtures": False, "xgi_top": False}
 
 
 def read(bootstrap: dict[str, Any], target_id: int, sold_ids: set[int], now: datetime | None = None) -> dict[str, Any] | None:

@@ -16,7 +16,9 @@ At most :data:`MAX_CONCLUSIONS` short lines, first rule wins:
 One more line, from cached ownership numbers (``plan_eo``; never present without them): when the target is owned by
 many near the user's rank (or in the top 10K) AND the option sells no one owned as much, "signing him covers you";
 else when the plan sells a premium almost nobody near the user's rank owns and nobody else widely owned,
-"selling him does not expose you". Both are checked on the hero option itself. It has a RESERVED slot (the others are cut to
+"selling him does not expose you"; else, when few own the target and the existing signals back him (regular
+starter, favourable run, xGI/90 in the top of his position), the facts-only "differential" line (not a forecast: see
+``plan_eo``). The first two are checked on the hero option itself. It has a RESERVED slot (the others are cut to
 :data:`MAX_CONCLUSIONS` - 1) and yields only to a sold player who is out or doubtful.
 
 ``focus`` (1-based, set when the user taps an option chip) picks which option is the hero; the others
@@ -28,7 +30,7 @@ from typing import Any
 
 from .catalogue import t
 from .locale_types import DEFAULT_LOCALE, Locale
-from .plan_eo import SOLD_NO_EXPOSURE_PCT, TARGET_NEAR_COVER_PCT, TARGET_TOP_COVER_PCT
+from .plan_eo import LOW_OWNED_PCT, SOLD_NO_EXPOSURE_PCT, TARGET_NEAR_COVER_PCT, TARGET_TOP_COVER_PCT
 
 MAX_CONCLUSIONS: int = 3
 #: Hard fixtures in the next five worth a line (same bar as the trend rule).
@@ -95,6 +97,31 @@ def _cover_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Loca
     return None
 
 
+def _differential_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
+    """Few own the target and the existing signals say he is a regular starter with a favourable run and an xGI/90 in
+    the top of his position: "if he scores, you gain on almost everyone" (about the TARGET alone, so no net-exposure
+    check). A display line, NOT a prediction -- see ``plan_eo`` (the backtest showed no predictive edge).
+
+    Reference: near your rank first; the top 10K only when near-rank has no data. The "almost everyone" claim names
+    the reference shown, so it is never wider than the number behind it. Below 1 % it reads "less than 1 %".
+    """
+    own = raw_output.get("ownership") or {}
+    signals = own.get("target_signals") or {}
+    if not (signals.get("nailed") and signals.get("fixtures") and signals.get("xgi_top")):
+        return None
+    name = (raw_output.get("target") or {}).get("web_name", "")
+    for key, kind in (("near_rank_owned_pct", "near"), ("top10k_owned_pct", "top")):
+        ref = own.get(key)
+        if not ref:
+            continue
+        pct = ref.get("target")
+        if not isinstance(pct, int) or isinstance(pct, bool) or pct > LOW_OWNED_PCT:
+            return None  # the first reference with data decides; a wider near-rank number is not overridden by the top 10K
+        lead = t("plan_to_sign.eo_lead_under_one" if pct < 1 else "plan_to_sign.eo_lead", locale, pct=pct)
+        return t(f"plan_to_sign.concl_eo_differential_{kind}", locale, name=name, lead=lead)
+    return None
+
+
 def _no_exposure_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
     """A premium the option sells that almost nobody near the user's rank owns: selling him costs no cover.
 
@@ -118,7 +145,7 @@ def _no_exposure_line(raw_output: dict[str, Any], option: dict[str, Any], locale
 
 
 #: The EO line kinds, tried in order: the first that applies is THE line (at most one per card).
-_EO_LINES = (_cover_line, _no_exposure_line)
+_EO_LINES = (_cover_line, _differential_line, _no_exposure_line)
 
 
 def _eo_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
