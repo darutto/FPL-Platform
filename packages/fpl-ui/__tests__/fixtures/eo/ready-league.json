@@ -1,0 +1,62 @@
+{
+  "generic_card": {
+    "accent": "turquoise",
+    "badge_tones": {
+      "La liga lo tiene": "neutral",
+      "Mayor EO": "neutral",
+      "Tu diferencial": "good"
+    },
+    "columns": [
+      {
+        "align": "left",
+        "header": "",
+        "kind": "badge"
+      },
+      {
+        "align": "left",
+        "header": "Jugador",
+        "kind": "text"
+      },
+      {
+        "align": "right",
+        "header": "EO liga %",
+        "kind": "mono"
+      },
+      {
+        "align": "right",
+        "header": "Cap. %",
+        "kind": "mono"
+      }
+    ],
+    "footer": "La EO cuenta al capitán doble.",
+    "hero": null,
+    "involvement_compare": null,
+    "pills": [],
+    "position_pitch": null,
+    "rows": [
+      [
+        "Mayor EO",
+        "Alpha (AAA)",
+        "140.0",
+        "50.0"
+      ],
+      [
+        "Mayor EO",
+        "Beta (BBB)",
+        "20.0",
+        ""
+      ]
+    ],
+    "subtitle": "exacto, n=12",
+    "title": "EO en Friends"
+  },
+  "status": "ready",
+  "suggestions": [
+    {
+      "kind": "eo_switch",
+      "label": "EO cerca de tu puesto",
+      "send_text": "EO cerca de tu puesto"
+    }
+  ],
+  "text": "Listo: EO en Friends · GW 11"
+}
