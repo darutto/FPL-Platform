@@ -13,6 +13,12 @@ At most :data:`MAX_CONCLUSIONS` short lines, first rule wins:
 4. a sold player with a hard run (3+ hard fixtures in the next 5);
 5. a sold player with few starts this season (never "rotating": the figure is season-long).
 
+One more line, from cached ownership numbers (``plan_eo``; never present without them): when the target is owned by
+many near the user's rank (or in the top 10K) AND the option sells no one owned as much, "signing him covers you";
+else when the plan sells a premium almost nobody near the user's rank owns and nobody else widely owned,
+"selling him does not expose you". Both are checked on the hero option itself. It has a RESERVED slot (the others are cut to
+:data:`MAX_CONCLUSIONS` - 1) and yields only to a sold player who is out or doubtful.
+
 ``focus`` (1-based, set when the user taps an option chip) picks which option is the hero; the others
 become chips.
 """
@@ -22,6 +28,7 @@ from typing import Any
 
 from .catalogue import t
 from .locale_types import DEFAULT_LOCALE, Locale
+from .plan_eo import SOLD_NO_EXPOSURE_PCT, TARGET_NEAR_COVER_PCT, TARGET_TOP_COVER_PCT
 
 MAX_CONCLUSIONS: int = 3
 #: Hard fixtures in the next five worth a line (same bar as the trend rule).
@@ -49,6 +56,79 @@ def _availability_line(option: dict[str, Any], sold: dict[str, Any], locale: Loc
     if sold["availability"] == "doubt" and isinstance(chance, (int, float)) and not isinstance(chance, bool):
         return t("plan_to_sign.concl_doubt", locale, name=sold["web_name"], chance=int(chance))
     return t("plan_to_sign.concl_out", locale, name=sold["web_name"])
+
+
+def _ref(raw_output: dict[str, Any], key: str) -> dict[str, Any]:
+    return (raw_output.get("ownership") or {}).get(key) or {}
+
+
+def _sold_ids(option: dict[str, Any]) -> list[int]:
+    ids = [s["id"] for s in option.get("sold") or []]
+    return ids or [tr["out"]["id"] for tr in option.get("transfers") or []]
+
+
+def _sold_pcts(ref: dict[str, Any], option: dict[str, Any]) -> list[int | None]:
+    return [(ref.get("sold") or {}).get(str(pid)) for pid in _sold_ids(option)]
+
+
+def _net_cover(ref: dict[str, Any], option: dict[str, Any]) -> bool:
+    """Signing the target covers the user in this reference only if NO player this option sells is owned as much
+    as him or more (selling a 50 % player to buy a 30 % one does not cover). Unknown numbers: no claim."""
+    target = ref.get("target")
+    pcts = _sold_pcts(ref, option)
+    return target is not None and bool(pcts) and all(isinstance(p, int) and p < target for p in pcts)
+
+
+def _cover_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
+    """The target is widely owned by the managers near the user's rank (and/or the top 10K) and the option does not
+    sell someone owned as much: signing him covers. Checked per option (the hero changes with ``focus``)."""
+    name = (raw_output.get("target") or {}).get("web_name", "")
+    near_ref, top_ref = _ref(raw_output, "near_rank_owned_pct"), _ref(raw_output, "top10k_owned_pct")
+    near = near_ref.get("target") if _net_cover(near_ref, option) else None
+    top = top_ref.get("target") if _net_cover(top_ref, option) else None
+    if near is not None and near >= TARGET_NEAR_COVER_PCT:
+        if top is not None and top >= 1:
+            return t("plan_to_sign.concl_eo_cover", locale, name=name, near=near, top=top)
+        return t("plan_to_sign.concl_eo_cover_near", locale, name=name, near=near)
+    if top is not None and top >= TARGET_TOP_COVER_PCT:
+        return t("plan_to_sign.concl_eo_cover_top", locale, name=name, top=top)
+    return None
+
+
+def _no_exposure_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
+    """A premium the option sells that almost nobody near the user's rank owns: selling him costs no cover.
+
+    One line, naming the player (an option may sell several): the rarest premium sold, the lowest id on a tie.
+    No line when any other player the option sells is widely owned near the user's rank (the plan as a whole then
+    does expose) or when a sold player's number is unknown.
+    """
+    ref = _ref(raw_output, "near_rank_owned_pct")
+    sold = ref.get("sold") or {}
+    pcts = {pid: sold.get(str(pid)) for pid in _sold_ids(option)}
+    if not pcts or any(not isinstance(p, int) for p in pcts.values()):
+        return None
+    rare = [(pcts[top["id"]], top["id"], top["web_name"]) for top in option.get("tops_sold") or []
+            if pcts.get(top.get("id")) is not None and pcts[top["id"]] <= SOLD_NO_EXPOSURE_PCT]
+    if not rare:
+        return None
+    pct, pid, name = min(rare)
+    if any(p >= TARGET_NEAR_COVER_PCT for other, p in pcts.items() if other != pid):
+        return None
+    return t("plan_to_sign.concl_eo_no_exposure", locale, name=name)
+
+
+#: The EO line kinds, tried in order: the first that applies is THE line (at most one per card).
+_EO_LINES = (_cover_line, _no_exposure_line)
+
+
+def _eo_line(raw_output: dict[str, Any], option: dict[str, Any], locale: Locale) -> str | None:
+    if not raw_output.get("ownership"):
+        return None
+    for kind in _EO_LINES:
+        line = kind(raw_output, option, locale)
+        if line:
+            return line
+    return None
 
 
 def plan_conclusions(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> list[str]:
@@ -104,7 +184,14 @@ def plan_conclusions(raw_output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
         if sold["id"] not in explained and sold.get("availability") == "rotation":
             lines.append(t("plan_to_sign.concl_few_starts", locale, name=sold["web_name"]))
             explained.add(sold["id"])
-    return lines[:MAX_CONCLUSIONS]
+    eo_line = _eo_line(raw_output, option, locale)
+    if eo_line is None:
+        return lines[:MAX_CONCLUSIONS]
+    # The EO line has a reserved slot; it yields only to a sold player who is out or doubtful.
+    sold_unavailable = any(s.get("availability") in ("unavailable", "doubt") for s in option.get("sold") or [])
+    if sold_unavailable:
+        return (lines + [eo_line])[:MAX_CONCLUSIONS]
+    return lines[:MAX_CONCLUSIONS - 1] + [eo_line]
 
 
 def target_pick_suggestions(candidates: Any, locale: Locale = DEFAULT_LOCALE) -> "tuple[Any, ...] | None":
