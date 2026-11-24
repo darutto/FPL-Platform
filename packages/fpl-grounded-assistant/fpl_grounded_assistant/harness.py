@@ -963,6 +963,55 @@ def ask_v2(
             _telemetry.record(routing_trace)
             return result
 
+    # An EO chip tap ("EO cerca de tu puesto", "EO top 10K", "EO en <liga>", "Cambiar de liga"): the chip's own text,
+    # matched exactly, answers from the same tool without a model. Anything else, or any non-answer, goes on.
+    if selected_player_id is None:
+        from .eo_taps import eo_tap as _eo_tap, run_eo_tap as _run_eo_tap  # noqa: PLC0415
+
+        _eo = _eo_tap(question)
+        _eo_run = _run_eo_tap(_eo, actual_bootstrap, locale) if _eo is not None else None
+        if _eo_run is not None:
+            _eo_raw = _eo_run["raw"]
+            routing_trace = {
+                "branch": "route",
+                "decision_kind": "eo_tap",
+                "decision_outcome": "ok",
+                "router_hit": True,
+                "classifier_called": False,
+                "classifier_confidence": None,
+                "classifier_intent": None,
+                "orchestrator_called": False,
+                "orchestrator_tool_calls": None,
+                "orchestrator_outcome": None,
+                "grounded": True,
+                "tool_call_count": None,
+                "synthesis_turn": None,
+                "feature_flag_orch_enabled": is_orch_enabled(),
+                "feature_flag_football_intelligence_enabled": is_football_intelligence_enabled(),
+            }
+            result = {
+                "selected_tool": _eo_run["tool"],
+                "tool_input": _eo_run["args"],
+                "raw_output": _eo_raw,
+                # "calculating" is a complete, deterministic answer (the text and the pending marker); the poll's ready
+                # answer then replaces it with the card
+                "answer_text": _eo_run["text"],
+                "outcome": "ok" if _eo_run["pending"] is not None else _outcome_from_status(_eo_raw),
+                "kind": "text",
+                "routing_trace": routing_trace,
+                **_meta(_eo_run["tool"], _eo_raw),
+            }
+            if _eo_run["card"] is not None:
+                result["generic_card"] = _eo_run["card"]
+            if _eo_run["chips"] is not None:
+                result["player_suggestions"] = _eo_run["chips"]
+            if _eo_run["pending"] is not None:
+                result["pending"] = _eo_run["pending"]
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)
+            return result
+
     decision = decide(question, actual_bootstrap, locale=locale)
     kind = decision["kind"]
     outcome = decision["outcome"]
@@ -1689,6 +1738,8 @@ def _eo_switch_chips(tool_name: str | None, raw_output: dict[str, Any], locale: 
         texts.append(t("near_eo.title", locale))
     if tool_name in {"get_league_eo", "get_near_rank_eo"} and is_tier_eo_enabled():
         texts.append(t("tier_eo.title", locale))  # read from the published file: only offered when the reader is on
+    if tool_name == "get_league_eo" and raw_output.get("tier") == "league" and raw_output.get("other_leagues"):
+        texts.append(t("league_eo.change_chip", locale))  # only with 2+ readable leagues (the cached list)
     if not texts:
         return None
     return suggestions_to_list(tuple(Suggestion(label=x, send_text=x, kind=KIND_EO_SWITCH) for x in texts))

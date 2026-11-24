@@ -42,10 +42,43 @@ def _ready(monkeypatch, tool_name, raw):
     return eo_poll.poll(tool_name, 555, 42 if tool_name == "get_league_eo" else None, dict(STANDARD_BOOTSTRAP), "es")
 
 
+def _tap(monkeypatch, question, tool_results, picker=None):
+    """The /ask JSON of an EO chip tap answered without a model (tool results canned)."""
+    monkeypatch.setattr("fpl_grounded_assistant.tool_dispatch.run_tool", lambda name, args, boot: tool_results[name])
+    monkeypatch.setattr("fpl_grounded_assistant.league_eo_tool.league_picker", lambda boot, now=None: picker)
+
+    class Cached:  # the user's league list as the service has it cached (a tap checks a league name against it)
+        def cached_leagues(self, entry_id):
+            return [{"id": 42, "name": "Friends", "size": 12}, {"id": 77, "name": "Work Mates", "size": 48}]
+
+    monkeypatch.setattr(league_eo_tool, "_SERVICE", Cached())  # restored by monkeypatch after the test
+    d = harness.ask_v2(question, dict(STANDARD_BOOTSTRAP), team_id=555, locale="es")
+    assert d["routing_trace"]["decision_kind"] == "eo_tap"
+    return to_ask_response(d, fpl_server.AskRequest(question=question, team_id=555), dict(STANDARD_BOOTSTRAP), "es").model_dump(mode="json")
+
+
+def _near_with_squad():
+    """A real ok near-rank result where the user's squad was compared (so the one line has content)."""
+    from fpl_grounded_assistant import near_rank_eo_tool as tool
+    from test_eo_poll import _stats
+
+    boot = {"teams": [{"id": t, "short_name": f"T{t}"} for t in range(1, 5)],
+            "elements": [{"id": i, "web_name": f"P{i}", "second_name": f"S{i}", "team": (i % 4) + 1} for i in range(1, 21)]}
+    data = {"gw": 12, "user_rank": 1000, "n_sampled": 100, "players": {"1": _stats(90.0, 95.0), "2": _stats(10.0, 12.0, 0.0)}}
+    return tool.shape_result(data, boot, [], {"status": "ok", "players": [{"id": 2}]})
+
+
 def _fixtures(monkeypatch):
-    league_ok = league_eo_tool.shape_result(LEAGUE_DATA, LEAGUE_BOOT, [], None)
-    near_ok = {**CARD_OK, "main_league": {"id": 42, "name": "Friends"}}
+    others = [{"league_id": 77, "name": "Work Mates", "size": 48}]
+    squad = {"status": "ok", "players": [{"id": 2}]}
+    league_ok = league_eo_tool.shape_result(LEAGUE_DATA, LEAGUE_BOOT, [], squad, others)
+    near_ok = {**_near_with_squad(), "main_league": {"id": 42, "name": "Friends"}}
+    picker = {"status": "ok", "stage": "needs_league", "message": "x", "leagues": others}
     return {
+        "tap-ready-league.json": _tap(monkeypatch, "EO en Friends", {"get_league_eo": league_ok}),
+        "tap-computing-league.json": _tap(monkeypatch, "EO en Friends", {
+            "get_league_eo": {"status": "computing", "tier": "league", "eta_s": 30, "league_id": 42}}),
+        "tap-change-league.json": _tap(monkeypatch, "Cambiar de liga", {}, picker),
         "computing-league.json": _computing_turn(
             monkeypatch, "get_league_eo", {"status": "computing", "tier": "league", "eta_s": 30, "league_id": 42}),
         "computing-near.json": _computing_turn(

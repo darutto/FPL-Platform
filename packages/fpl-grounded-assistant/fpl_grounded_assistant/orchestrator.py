@@ -690,6 +690,8 @@ _MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
     # The cached ownership numbers behind one card line (plan_eo): the model has nothing to say about them and,
     # shown, "owned 31 %" invites an "EO 31 %" it cannot ground. The card words the line.
     "plan_to_sign": frozenset({"ownership"}),
+    # The user's other readable leagues, only to decide the «Change league» chip: UI only.
+    "get_league_eo": frozenset({"other_leagues"}),
 }
 
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({

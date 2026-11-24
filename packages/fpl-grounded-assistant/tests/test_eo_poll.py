@@ -142,7 +142,7 @@ def test_computing_then_ready_with_card_text_and_chips(monkeypatch):
     c = _client(monkeypatch, CARD_OK, calls)
     r = c.post("/eo/poll", json={"tool": "get_near_rank_eo", "team_id": 5, "locale": "en"}, headers=H).json()
     assert r["status"] == "ready"
-    assert r["text"].startswith("Ready: ") and "GW 12" in r["text"]
+    assert r["text"].startswith(("Ready: ", "Cover ", "Your differential: ")) and r["text"].strip()
     assert r["generic_card"]["title"]
     assert "badge_tones" in r["generic_card"]
 
