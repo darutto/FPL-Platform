@@ -1125,6 +1125,23 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "{name} has had few starts this season.",
         "es": "{name}: pocos minutos de titular esta temporada.",
     },
+    # EO lines (cached numbers; one per card). Integers; ES keeps the space before "%".
+    "plan_to_sign.concl_eo_cover": {
+        "en": "{name}: {near}% near your rank and {top}% of the top 10K have him; signing him covers you.",
+        "es": "{name}: lo tiene el {near} % cerca de tu puesto y el {top} % del top 10K: ficharlo te cubre.",
+    },
+    "plan_to_sign.concl_eo_cover_near": {
+        "en": "{name}: {near}% near your rank have him; signing him covers you.",
+        "es": "{name}: lo tiene el {near} % cerca de tu puesto: ficharlo te cubre.",
+    },
+    "plan_to_sign.concl_eo_cover_top": {
+        "en": "{name}: {top}% of the top 10K have him; signing him moves you toward them.",
+        "es": "{name}: lo tiene el {top} % del top 10K: ficharlo te acerca a ellos.",
+    },
+    "plan_to_sign.concl_eo_no_exposure": {
+        "en": "Selling {name} doesn't expose you: almost nobody near your rank has him.",
+        "es": "Vender a {name} no te expone: casi nadie cerca de tu puesto lo tiene.",
+    },
     "plan_to_sign.concl_hits_no_better": {
         "en": "Hits don't give a better plan.", "es": "Con hits no hay un plan mejor.",
     },

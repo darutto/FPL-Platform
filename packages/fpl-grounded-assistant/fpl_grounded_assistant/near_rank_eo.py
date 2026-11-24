@@ -334,6 +334,11 @@ class JobService:
                 del self._cache[key]
             return None
 
+    def peek_ready(self, key: Any) -> dict[str, Any] | None:
+        """The data of a cached, unexpired READY result for *key*, else None. Never starts a job, never waits."""
+        hit = self._peek(key)
+        return hit["data"] if hit is not None and hit.get("status") == "ready" else None
+
     def _claim(self, key: Any) -> bool:
         """Mark *key* in flight; False if it already is (single-flight)."""
         with self._lock:
@@ -393,3 +398,7 @@ class NearRankEOService(JobService):
             return compute_near_rank_eo(entry_id, season, gw, api, workers=self._workers)
 
         return self._lookup_or_start((season, gw, entry_id), work, valid_until)
+
+    def peek(self, season: str, gw: int, entry_id: int) -> dict[str, Any] | None:
+        """The ready near-rank data for this user and gameweek if it is already cached, else None (no job)."""
+        return self.peek_ready((season, gw, entry_id))
