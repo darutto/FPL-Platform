@@ -23,6 +23,7 @@ POLL_TOOLS = ("get_league_eo", "get_near_rank_eo")
 POLL_S = 4              # the UI's interval between polls
 MAX_WAIT_S = 60         # the UI stops after this long and offers «Reintentar»
 POLL_MIN_INTERVAL_S = 2.0   # per user: at most one poll every 2 s
+MAX_LEAGUE_NAME = 100       # an FPL league name is far shorter; the poll body is bounded to the same
 MAX_ID = 10 ** 10           # an FPL entry / league id is far below this
 _MAX_TRACKED_USERS = 5000
 
@@ -30,8 +31,9 @@ _MAX_TRACKED_USERS = 5000
 def pending_marker(tool_name: str | None, raw_output: dict[str, Any]) -> dict[str, Any] | None:
     """The marker for a ``computing`` answer of one of the two tools, or ``None``.
 
-    A league answer needs its resolved ``league_id`` (the tool echoes it); without one a poll could not name
-    what it is waiting for, so there is no marker and the model's text stands.
+    A league marker carries the ``league_id`` the tool resolved, or, while only the leagues list is loading, the
+    ``league_name`` the user gave; with neither, the poll resolves the user's only league (or asks which) itself.
+    Every ``computing`` answer gets a marker, so the chat always shows the pending line.
     """
     if tool_name not in POLL_TOOLS or raw_output.get("status") != "computing":
         return None
@@ -39,9 +41,12 @@ def pending_marker(tool_name: str | None, raw_output: dict[str, Any]) -> dict[st
                               "poll_s": POLL_S, "max_s": MAX_WAIT_S}
     if tool_name == "get_league_eo":
         league_id = raw_output.get("league_id")
-        if not isinstance(league_id, int) or isinstance(league_id, bool) or league_id < 1:
-            return None
-        marker["league_id"] = league_id
+        if isinstance(league_id, int) and not isinstance(league_id, bool) and league_id >= 1:
+            marker["league_id"] = league_id
+        else:
+            name = raw_output.get("league_name")
+            if isinstance(name, str) and name.strip():
+                marker["league_name"] = name.strip()[:MAX_LEAGUE_NAME]
     return marker
 
 
@@ -87,11 +92,12 @@ def _locale(value: str | None) -> Locale:
 
 
 def poll(tool: str, team_id: int, league_id: int | None, bootstrap: dict[str, Any] | None,
-         locale: str | None = None) -> dict[str, Any]:
-    """One poll: ``computing`` | ``ready`` (card + text + chips) | ``unavailable`` | ``disabled``."""
+         locale: str | None = None, league_name: str | None = None) -> dict[str, Any]:
+    """One poll: ``computing`` | ``ready`` (card + text + chips) | ``needs_league`` (picker text + chips) |
+    ``unavailable`` | ``disabled``."""
     from .atomic_tool_cards import maybe_atomic_tool_card  # noqa: PLC0415
     from .generic_card import generic_card_to_dict  # noqa: PLC0415
-    from .harness import _eo_switch_chips  # noqa: PLC0415
+    from .harness import _eo_switch_chips, _league_pick_chips  # noqa: PLC0415
     from .league_eo_tool import get_league_eo  # noqa: PLC0415
     from .near_rank_eo_tool import get_near_rank_eo  # noqa: PLC0415
 
@@ -102,12 +108,18 @@ def poll(tool: str, team_id: int, league_id: int | None, bootstrap: dict[str, An
     boot["_my_team_id"] = team_id
     if league_id is not None:
         boot["_my_league_id"] = league_id
-    raw = get_league_eo(boot) if tool == "get_league_eo" else get_near_rank_eo(boot)
+    name = (league_name or "").strip()[:MAX_LEAGUE_NAME] or None
+    raw = get_league_eo(boot, league_name=name) if tool == "get_league_eo" else get_near_rank_eo(boot)
     status = raw.get("status")
     if status == "disabled":
         return {"status": "disabled"}
     if status == "computing":
         return {"status": "computing", "eta_s": int(raw.get("eta_s") or 20), "poll_s": POLL_S}
+    if status == "ok" and raw.get("stage") == "needs_league":
+        # Several leagues: the poll ends here with the question and the pick chips, as a normal picker turn would.
+        chips = _league_pick_chips(tool, raw, loc)
+        if chips:
+            return {"status": "needs_league", "text": t("eo_poll.pick_league", loc), "suggestions": chips}
     card = maybe_atomic_tool_card(tool, raw, None, loc) if status == "ok" and not raw.get("stage") else None
     if card is None:
         return {"status": "unavailable", "reason": str(raw.get("reason") or raw.get("stage") or raw.get("code") or "error")}

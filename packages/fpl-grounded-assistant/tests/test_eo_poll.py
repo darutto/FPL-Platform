@@ -77,7 +77,12 @@ def test_marker_for_the_two_tools_only():
         "tool": "get_near_rank_eo", "eta_s": 25, "poll_s": 4, "max_s": 60}
     m = eo_poll.pending_marker("get_league_eo", {"status": "computing", "eta_s": 25, "league_id": 77})
     assert m["league_id"] == 77 and m["tool"] == "get_league_eo"
-    assert eo_poll.pending_marker("get_league_eo", {"status": "computing", "eta_s": 25, "league_id": None}) is None
+    # no league known yet (only the leagues list is loading): still a marker, so the chat polls; the poll resolves it
+    bare = eo_poll.pending_marker("get_league_eo", {"status": "computing", "eta_s": 25, "league_id": None})
+    assert bare == {"tool": "get_league_eo", "eta_s": 25, "poll_s": 4, "max_s": 60}
+    named = eo_poll.pending_marker("get_league_eo", {"status": "computing", "league_id": None, "league_name": " Friends "})
+    assert named["league_name"] == "Friends" and "league_id" not in named
+    assert eo_poll.pending_marker("get_league_eo", {"status": "computing", "league_id": 77, "league_name": "x"})["league_id"] == 77
     assert eo_poll.pending_marker("get_tier_eo", {"status": "computing"}) is None
     assert eo_poll.pending_marker("get_near_rank_eo", {"status": "ok"}) is None
 

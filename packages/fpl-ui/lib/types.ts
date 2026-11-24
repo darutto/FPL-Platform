@@ -223,6 +223,8 @@ export interface AskRequest {
 export interface EoPending {
   tool: 'get_league_eo' | 'get_near_rank_eo';
   league_id?: number;
+  /** Set instead of `league_id` while only the leagues list was loading and the user named a league. */
+  league_name?: string;
   eta_s: number;
   poll_s: number;
   max_s: number;
@@ -230,7 +232,8 @@ export interface EoPending {
 
 /** The answer of POST /eo/poll. `ready` carries the card, the one-line text and the "another view" chips. */
 export interface EoPollResponse {
-  status: 'computing' | 'ready' | 'unavailable' | 'disabled';
+  /** `needs_league`: several leagues, so the poll ends with the question (`text`) and the pick chips (`suggestions`). */
+  status: 'computing' | 'ready' | 'needs_league' | 'unavailable' | 'disabled';
   eta_s?: number;
   poll_s?: number;
   text?: string;

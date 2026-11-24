@@ -80,6 +80,7 @@ export async function eoPoll(body: {
   tool: 'get_league_eo' | 'get_near_rank_eo';
   team_id: number;
   league_id?: number | null;
+  league_name?: string | null;
   locale?: string;
 }): Promise<EoPollResponse> {
   const res = await fetch('/api/eo-poll', {

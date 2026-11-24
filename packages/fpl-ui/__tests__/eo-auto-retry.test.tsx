@@ -251,4 +251,45 @@ describe('EO auto-retry', () => {
     await tick(10000);
     expect(eoPoll).not.toHaveBeenCalled();
   });
+
+  test('a marker without league_id (no stored league) is polled with just the tool and the team', async () => {
+    ask.mockResolvedValue({ ...reply, pending: { tool: 'get_league_eo', eta_s: 20, poll_s: 4, max_s: 60 } });
+    await startPending();
+    expect(screen.getByText('Calculando el EO de tu liga… (~20 s)')).toBeInTheDocument();
+    await tick(4000);
+    expect(eoPoll).toHaveBeenLastCalledWith({ tool: 'get_league_eo', team_id: 555, locale: 'es' });
+  });
+
+  test('a marker with league_name sends the name and no league_id', async () => {
+    ask.mockResolvedValue({ ...reply, pending: { tool: 'get_league_eo', league_name: 'Work Mates', eta_s: 20, poll_s: 4, max_s: 60 } });
+    await startPending();
+    await tick(4000);
+    expect(eoPoll).toHaveBeenLastCalledWith({ tool: 'get_league_eo', team_id: 555, league_name: 'Work Mates', locale: 'es' });
+  });
+
+  test('several leagues: the poll ends with the question and the pick chips, armed like a normal picker turn', async () => {
+    ask.mockResolvedValue({ ...reply, pending: { tool: 'get_league_eo', eta_s: 20, poll_s: 4, max_s: 60 } });
+    eoPoll.mockResolvedValue({
+      status: 'needs_league',
+      text: '¿De qué liga quieres el EO?',
+      suggestions: [
+        { label: 'Friends', send_text: 'EO en Friends', kind: 'league_pick', league_id: 42 },
+        { label: 'Work Mates', send_text: 'EO en Work Mates', kind: 'league_pick', league_id: 77 },
+      ],
+    });
+    const user = await startPending();
+    await tick(4000);
+    // the picker's own prompt, exactly as on a normal league_pick turn (the model/poll text is not shown above the chips)
+    expect(await screen.findByText('¿De cuál de tus ligas?')).toBeInTheDocument();
+    expect(screen.queryByTestId('eo-pending')).toBeNull();
+    expect(screen.queryByText(/pregunta de nuevo/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Friends' })).toBeInTheDocument();
+    await tick(20000);
+    expect(eoPoll).toHaveBeenCalledTimes(1); // terminal: no more polling
+    // tapping a chip re-asks with that league named, as the normal picker does
+    ask.mockClear().mockResolvedValue({ ...reply, pending: null });
+    await user.click(screen.getByRole('button', { name: 'Work Mates' }));
+    await waitFor(() => expect(ask).toHaveBeenCalled());
+    expect(ask.mock.calls[0][0]).toEqual(expect.objectContaining({ question: 'EO en Work Mates' }));
+  });
 });

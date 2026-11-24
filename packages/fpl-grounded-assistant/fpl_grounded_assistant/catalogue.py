@@ -284,6 +284,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "tier_eo.group.top": {"en": "Top EO", "es": "Mayor EO"},
     # -- auto-retry of a computing EO answer (eo_poll): the one line that replaces the pending bubble.
     "eo_poll.ready": {"en": "Ready: {title} · GW {gw}", "es": "Listo: {title} · GW {gw}"},
+    "eo_poll.pick_league": {"en": "Which league do you want the EO for?", "es": "¿De qué liga quieres el EO?"},
     "league_eo.chip_question": {"en": "EO in {league}", "es": "EO en {league}"},
     "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
     "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
