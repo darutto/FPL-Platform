@@ -94,13 +94,53 @@ def owned_ids(squad: dict[str, Any] | None) -> set[str] | None:
     return {str(p["id"]) for p in squad["players"] if p.get("id") is not None}
 
 
+#: FPL status codes that mean the player is not simply on the pitch: i injured, s suspended, u unavailable, n not in
+#: the squad. ``d`` (doubtful) is handled by its chance. Same reading as ``plan_to_sign._availability``.
+_OUT_STATUSES = frozenset({"i", "s", "u", "n"})
+
+AVAILABILITY_OUT = "out"
+AVAILABILITY_DOUBTFUL = "doubtful"
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return None if value is None else int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def availability_fields(element: dict[str, Any]) -> dict[str, Any]:
+    """The availability facts of one bootstrap element, for an EO row (no extra request).
+
+    ``minutes_played_season`` / ``status`` / ``chance_of_playing_next_round`` are the bootstrap values under the
+    names the other tools use. ``availability`` is derived and present ONLY when the player is not fully fit:
+    ``"out"`` (status i/s/u/n, or a 0 % chance) or ``"doubtful"`` (status d, or a chance below 100 %); a missing
+    key means fine. The chance is next round's, falling back to this round's (as ``plan_to_sign`` does).
+    An unknown element (not in the bootstrap) yields no flag: nothing is known about him.
+    """
+    status = element.get("status")
+    chance_next = _int_or_none(element.get("chance_of_playing_next_round"))
+    chance = chance_next if chance_next is not None else _int_or_none(element.get("chance_of_playing_this_round"))
+    out: dict[str, Any] = {
+        "minutes_played_season": _int_or_none(element.get("minutes")),
+        "status": status,
+        "chance_of_playing_next_round": chance_next,
+    }
+    if status in _OUT_STATUSES or chance == 0:
+        out["availability"] = AVAILABILITY_OUT
+    elif status == "d" or (chance is not None and chance < 100):
+        out["availability"] = AVAILABILITY_DOUBTFUL
+    return out
+
+
 def _row(element_id: str, stats: dict[str, float], by_id: dict[str, dict[str, Any]], teams: dict[int, str],
          own: set[str] | None = None) -> dict[str, Any]:
     """One player's row. ``user_owns`` says whether the USER owns him (None when the squad is unknown)."""
     element = by_id.get(element_id) or {}
     return {"player": element.get("web_name") or f"#{element_id}", "team": teams.get(element.get("team"), ""),
             "eo": stats["eo"], "owned_pct": stats["owned_pct"], "captain_pct": stats["captain_pct"],
-            "user_owns": None if own is None else element_id in own}
+            "user_owns": None if own is None else element_id in own,
+            **availability_fields(element)}
 
 
 #: "Most of the group has him": the share of the group (a league, or the managers near the user's rank)
@@ -124,6 +164,10 @@ def wording_note(has_him_en: str, has_him_es: str) -> str:
         f"name that group \"Your differential\" (ES: «Tu diferencial»). Present both as opportunities, never "
         f"as orders. Every row says `user_owns`: `group_has` rows have user_owns=false (the user does NOT own "
         f"them); `differentials` rows have user_owns=true (the user owns them). "
+        f"Rows carry `minutes_played_season`, `status`, `chance_of_playing_next_round` and, only when the player is "
+        f"not fully fit, `availability` (\"out\" or \"doubtful\"). A player who is out is never offered as cover "
+        f"(none is in `group_has`); if a row says `doubtful`, or a differential is flagged, say so in one neutral "
+        f"clause (\"…, though he is a doubt\"), never as a warning. "
         f"NEVER use threat words: {', '.join(THREAT_WORDS)} (nor hurts/daño). "
         f"Never write the field names `group_has` or `differentials` in the answer. "
         f"The card already shows every player and number, so write AT MOST 2 short conclusions and NO "
@@ -145,7 +189,11 @@ def squad_comparison(players: dict[str, dict[str, float]], squad: dict[str, Any]
     if not squad or not squad.get("players"):
         return {"squad_compared": False}
     own = owned_ids(squad) or set()
-    risk_ids = sorted((i for i, s in players.items() if i not in own and s["owned_pct"] >= RISK_MIN_OWNED_PCT),
+    # a player who is OUT is never offered as cover (covering him is bad advice); the five slots refill from the
+    # next candidates. A doubtful one stays, flagged on his row. His own differentials are kept either way.
+    risk_ids = sorted((i for i, s in players.items()
+                       if i not in own and s["owned_pct"] >= RISK_MIN_OWNED_PCT
+                       and availability_fields(by_id.get(i) or {}).get("availability") != AVAILABILITY_OUT),
                       key=lambda i: (-players[i]["eo"], int(i)))[:GROUP_SIZE]
     zero = {"eo": 0.0, "owned_pct": 0.0, "captain_pct": 0.0}
     # the SELECTION is by ownership (the rarest five), the DISPLAY order is by the EO the card shows

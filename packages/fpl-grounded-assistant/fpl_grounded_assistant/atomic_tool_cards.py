@@ -694,6 +694,10 @@ def _eo_card(raw_output: dict[str, Any], locale: Locale, *, title: str, label: s
             if not it.get("player"):
                 continue
             who = f"{it['player']} ({it['team']})" if it.get("team") else str(it["player"])
+            # a short marker only for an out / doubtful player; nothing for the rest
+            avail = it.get("availability")
+            if avail in ("out", "doubtful"):
+                who = f"{who} · {t('league_eo.avail.' + avail, locale)}"
             captain = _pct(it.get("captain_pct")) if with_captain and (it.get("captain_pct") or 0) > 0 else ""
             out.append((t(group_key, locale), who, _pct(it.get("eo")), captain))
         return out
