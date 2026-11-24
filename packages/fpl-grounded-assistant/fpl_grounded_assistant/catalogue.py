@@ -2005,6 +2005,21 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "Which {team} players can exploit {opp}'s weak zones?",
         "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
     },
+
+    # -- Brief 0a: the season ranking cannot apply a condition ------------
+    "rank_guard.kind.single_gw": {"en": "a single gameweek", "es": "una jornada concreta"},
+    "rank_guard.kind.last_n": {"en": "the last few gameweeks", "es": "las últimas jornadas"},
+    "rank_guard.kind.range": {"en": "a range of gameweeks", "es": "un rango de jornadas"},
+    "rank_guard.kind.venue": {"en": "home or away", "es": "casa o fuera"},
+    "rank_guard.kind.per_million": {"en": "per million", "es": "por millón"},
+    "rank_guard.line": {
+        "en": "I can't apply {conditions} to this ranking: it only covers the whole season. You can ask for the full-season ranking instead.",
+        "es": "No puedo aplicar {conditions} a este ranking: solo cubre la temporada completa. Puedes pedir el ranking de toda la temporada.",
+    },
+    "rank_guard.line_generic": {
+        "en": "I can't show this ranking right now. Try another question.",
+        "es": "No puedo mostrar este ranking ahora. Prueba con otra pregunta.",
+    },
 }
 
 

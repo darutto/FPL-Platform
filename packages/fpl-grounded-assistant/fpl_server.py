@@ -2493,6 +2493,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         locale=locale,
         team_id=req.team_id,  # i39: get_my_squad tool context
         league_id=req.main_league_id,  # get_league_eo tool context
+        # Brief 0a: the question exactly as the user sent it; ``effective_question``
+        # may be an intent_hint rewrite.
+        raw_question=req.question,
     )
 
     # ------------------------------------------------------------------

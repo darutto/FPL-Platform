@@ -262,9 +262,11 @@ def test_floor_reaches_the_tool_runner_handler(mixed_bootstrap):
         _rank_players_by_metric_handler,
     )
 
+    # Brief 0a: a direct handler call with no user text is an internal caller
+    # and says so explicitly (the guard fails closed without text).
     result = _rank_players_by_metric_handler(
         {"metric": "goles esperados en contra", "order": "asc", "top_n": 5},
-        mixed_bootstrap,
+        {**mixed_bootstrap, "_rank_guard_internal": True},
     )
 
     assert result["min_minutes_filter"] == _ASC_MIN_MINUTES_FLOOR

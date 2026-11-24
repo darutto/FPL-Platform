@@ -339,11 +339,14 @@ def snapshot() -> "dict[str, Any]":
         unsupported        = routing_branch_counts["unsupported"]
         orch_attempted     = routing_branch_counts["orchestrator_attempted"]
         orch_grounded      = routing_branch_counts["orchestrator_grounded"]
+        # Brief 0a: a turn answered by the season-ranking honest line. Not
+        # grounded, not a reject: its own counter, still one request.
+        cond_guard         = routing_branch_counts["orchestrator_condition_guard"]
 
         # total_primary: every exclusive primary-branch outcome (one per request)
         total_primary = (
             resource + prompt + route_ + classifier_rewrite
-            + orchestrator + unsupported
+            + orchestrator + unsupported + cond_guard
         )
         reject_rate = unsupported / total_primary if total_primary > 0 else 0.0
 
@@ -356,6 +359,7 @@ def snapshot() -> "dict[str, Any]":
             "unsupported":            unsupported,
             "orchestrator_attempted": orch_attempted,
             "orchestrator_grounded":  orch_grounded,
+            "orchestrator_condition_guard": cond_guard,
             "total_primary":          total_primary,
             "reject_rate":            reject_rate,
         }

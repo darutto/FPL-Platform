@@ -286,7 +286,7 @@ def to_ask_response(
     #   supported = dr.outcome not in (OUTCOME_UNSUPPORTED_INTENT, OUTCOME_NEEDS_CLARIFICATION)
     # All other outcomes (ok, not_found, ambiguous, error, missing_arguments) are "supported"
     # (the intent was within scope; the answer was limited by data or routing state).
-    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
+    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification", "condition_not_applied")
 
     # ------------------------------------------------------------------
     # 3b. Phase 2.7f parity: when outcome == needs_clarification, replace the
@@ -306,7 +306,7 @@ def to_ask_response(
     # not a full ladder miss.  False on unsupported / unsupported_intent branches.
     # "unsupported_intent" is the adapter-mapped value of step-4 "unsupported" text misses.
     review_passed: bool = routing_trace.get("grounded", False) or (
-        outcome not in ("unsupported", "unsupported_intent")
+        outcome not in ("unsupported", "unsupported_intent", "condition_not_applied")
     )
 
     # ------------------------------------------------------------------

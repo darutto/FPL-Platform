@@ -349,6 +349,10 @@ def tool_calls_from_ask_v2(result: dict[str, Any]) -> list[dict]:
                 "output_status": str(_e.get("output_status") or "unknown"),
                 "round":         _e.get("round"),
                 "retry":         bool(_e.get("retry", False)),
+                # Brief 0a: which condition kind(s) the season-ranking guard
+                # refused -- enum values only; absent on every other call.
+                **({"guard_conditions": list(_e["guard_conditions"])}
+                   if _e.get("guard_conditions") else {}),
             }
             for _e in trace
             if isinstance(_e, dict) and _e.get("name")

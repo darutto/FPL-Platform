@@ -1417,12 +1417,18 @@ class ConversationSession:
             if lookup_decision.terminal:
                 player_query = lookup_decision.query
 
+        # Brief 0a: the resolver may have rewritten the question, and a
+        # follow-up ("¿y los defensas?") carries its condition only in the
+        # earlier turns. The ranking guard reads BOTH the raw text and the
+        # rewrite; a position is only dropped on a turn with no prior context.
         response = _respond(
             rewritten,
             bootstrap,
             **kwargs,
             _resolver_debug=_resolver_debug,
             _session_orchestration=True,
+            _raw_question=question,
+            _prior_context=self.state.turn_count > 0,
         )
         self.last_tokens = response.total_tokens
         self.state.update_from_response(

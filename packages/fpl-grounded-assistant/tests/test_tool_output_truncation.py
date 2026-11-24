@@ -299,6 +299,9 @@ def _history_row(gw: int) -> dict[str, Any]:
 
 def _guard_bootstrap(base: dict[str, Any]) -> dict[str, Any]:
     bs = copy.deepcopy(base)
+    # Brief 0a: this is an internal caller with no user text. The season-ranking
+    # guard fails closed without text, so internal callers say so explicitly.
+    bs["_rank_guard_internal"] = True
     # Injected element summary: without it get_player_form/get_player_history
     # go to the live element-summary API. The injection path is checked first.
     bs["_element_summaries"] = {

@@ -1945,8 +1945,10 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SCHEMA = ToolSchema(
         "gameweek, current season included; an open gameweek returns "
         "gameweek_not_finished. NEVER for goals: 'maximo goleador', 'mas "
         "goles', 'goleador de la jornada' ask for GOALS, which this tool does "
-        "not have -- use rank_players_by_metric(goals_scored) instead, even "
-        "when a gameweek is named. Not fixtures/deadlines -- that is "
+        "not have. Goals over the WHOLE SEASON are "
+        "rank_players_by_metric(goals_scored). Goals in ONE gameweek, the last N "
+        "or a range have NO tool: say so plainly and never answer with points "
+        "instead. Not fixtures/deadlines -- that is "
         "get_gameweek_context."
     ),
     parameters={

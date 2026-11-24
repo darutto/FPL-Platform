@@ -100,7 +100,7 @@ def test_price_filter_reaches_core_handler_and_both_schema_surfaces():
     via_runner = run_tool(
         "rank_players_by_metric",
         {"metric": "total_points", "min_price": 7.0, "max_price": 7.5},
-        bootstrap,
+        {**bootstrap, "_rank_guard_internal": True},  # Brief 0a: internal caller, explicit opt-out
     )
     assert [player["id"] for player in via_runner["ranked"]] == [1, 2]
 

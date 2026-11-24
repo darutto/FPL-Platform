@@ -81,6 +81,15 @@ from typing import Any
 
 from fpl_tool_runner import TOOL_REGISTRY
 
+from .rank_condition_guard import (
+    CODE_SEASON_ONLY,  # noqa: F401
+    PRIOR_CONTEXT_KEY,
+    EVENTS_KEY,
+    RAW_QUESTION_KEY,
+    STATUS_CONDITION_NOT_APPLIED,
+    guard_line,
+)
+
 from .tool_dispatch import run_tool
 from .chip_two_part import (  # i108 E3: one source for the chip phrases
     chip_composition_rule,
@@ -178,11 +187,15 @@ OUTCOME_TOOL_ERROR:        str = "tool_error"
 OUTCOME_TOOL_RESULT_ERROR: str = "tool_result_error"
 #: Provider call skipped because the degradation gate is open (cooldown active).
 OUTCOME_COOLDOWN: str = "cooldown"
+#: Brief 0a: the only tool that answered was rank_players_by_metric, and the
+#: user's text carries a condition the season ranking cannot apply. The answer
+#: is the code-written line; nothing is grounded, reviewed or carded.
+OUTCOME_CONDITION_NOT_APPLIED: str = "condition_not_applied"
 
 _ALL_OUTCOMES: frozenset[str] = frozenset({
     OUTCOME_OK, OUTCOME_NO_CLIENT, OUTCOME_COOLDOWN, OUTCOME_LLM_ERROR,
     OUTCOME_NO_TOOL, OUTCOME_UNKNOWN_TOOL, OUTCOME_TOOL_ERROR,
-    OUTCOME_TOOL_RESULT_ERROR,
+    OUTCOME_TOOL_RESULT_ERROR, OUTCOME_CONDITION_NOT_APPLIED,
     # Phase P3.1: quota-exceeded pseudo-outcome (set by fpl_server, not by orchestrator)
     "quota_exceeded",
 })
@@ -1411,6 +1424,9 @@ _TRACE_FAILURE_STATUSES: frozenset[str] = frozenset({
     "error",
     "invalid_argument",
     "missing_argument",
+    # Brief 0a: a ranking that was refused carries no rows and is not an
+    # observation any later step may select, synthesise from or render.
+    STATUS_CONDITION_NOT_APPLIED,
 })
 
 
@@ -1591,6 +1607,124 @@ def _retry_trace_entry(**kwargs: Any) -> dict[str, Any]:
     entry = _trace_entry(**kwargs)
     entry["retry"] = True
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Brief 0a: a refused season ranking owns the turn (or, beside another answer,
+# adds its line) -- decided here, off the executed calls, never off model text.
+# ---------------------------------------------------------------------------
+
+_RANK_TOOL = "rank_players_by_metric"
+
+
+def _is_guarded_call(name: Any, output: Any) -> bool:
+    return (
+        name == _RANK_TOOL
+        and isinstance(output, dict)
+        and output.get("status") == STATUS_CONDITION_NOT_APPLIED
+    )
+
+
+def _guarded_conditions(entries: Any) -> dict[str, Any]:
+    """One merged ``condition_not_applied`` payload from the executed calls."""
+    merged: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        out = entry.get("output")
+        if _is_guarded_call(entry.get("name"), out):
+            for c in out.get("conditions") or []:
+                if c not in merged:
+                    merged.append(c)
+    return {"status": STATUS_CONDITION_NOT_APPLIED, "code": CODE_SEASON_ONLY, "conditions": merged}
+
+
+def _guard_owns_turn(
+    executed: Any,
+    trace: Any,
+) -> "tuple[str | None, str | None, dict[str, Any], dict[str, Any]] | None":
+    """The guarded ranking call when it is the turn's only answering tool.
+
+    ``executed`` is the round just run; ``trace`` is every call of the turn so
+    far (this round included). The line owns the turn when a ranking was
+    refused and no OTHER call in the turn returned ``ok``.
+    """
+    guarded = [item for item in executed if _is_guarded_call(item[1], item[3])]
+    if not guarded:
+        return None
+    for entry in trace:
+        if not isinstance(entry, dict):
+            continue
+        out = entry.get("output")
+        if _is_guarded_call(entry.get("name"), out):
+            continue
+        if isinstance(out, dict) and out.get("status") == "ok":
+            return None
+    return guarded[-1]
+
+
+def _condition_guard_result(
+    *,
+    question: str,
+    guarded: "tuple[str | None, str | None, dict[str, Any], dict[str, Any]]",
+    trace: Any,
+    locale: Locale,
+    model: str,
+    prim_in: int,
+    prim_out: int,
+    prim_cache: int,
+    rounds_used: int = 1,
+) -> OrchestratorResult:
+    """The turn answered by the honest line alone: no synthesis, no evaluator."""
+    _id, name, args, _output = guarded
+    payload = _guarded_conditions(trace)
+    return OrchestratorResult(
+        question=question,
+        tool_chosen=name,
+        tool_args=args,
+        tool_output=payload,
+        answer_text=guard_line(payload, locale),
+        llm_used=True,
+        model=model,
+        outcome=OUTCOME_CONDITION_NOT_APPLIED,
+        primary_input_tokens=prim_in,
+        primary_output_tokens=prim_out,
+        primary_cache_read_tokens=prim_cache,
+        total_tokens=prim_in + prim_out + prim_cache,
+        tool_calls_trace=tuple(trace),
+        tool_call_count=len(trace),
+        rounds_used=rounds_used,
+        synthesis_turn=False,
+    )
+
+
+def _apply_condition_line(
+    result: OrchestratorResult, locale: Locale, events: Any = (),
+) -> OrchestratorResult:
+    """Append the honest line when a ranking was refused beside another answer.
+
+    The guarded call returned no rows to anyone, so the model never saw the
+    season table. Here code adds the line AFTER any synthesis or retry, so no
+    model call can reword or drop it. A turn the line already owns is left as
+    is.
+    """
+    if result.outcome == OUTCOME_CONDITION_NOT_APPLIED:
+        return result
+    trace = [e for e in (result.tool_calls_trace or ()) if isinstance(e, dict)]
+    payload = _guarded_conditions(trace)
+    for conditions in events or ():       # refusals the trace does not show (loop-flow retry)
+        for c in conditions:
+            if c not in payload["conditions"]:
+                payload["conditions"].append(c)
+    if not payload["conditions"] and not any(
+        _is_guarded_call(e.get("name"), e.get("output")) for e in trace
+    ) and not events:
+        return result
+    line = guard_line(payload, locale)
+    if not line or line in (result.answer_text or ""):
+        return result
+    text = f"{result.answer_text}\n\n{line}" if result.answer_text else line
+    return replace(result, answer_text=text)
 
 
 def _attaches_tool_calls_trace(fn: Any) -> Any:
@@ -2402,6 +2536,17 @@ def _run_bounded_loop(
             0 if round_had_success else consecutive_failing_rounds + 1
         )
 
+        # Brief 0a: a refused season ranking that is the turn's only answer
+        # ends the turn HERE -- before the follow-up provider call, so no
+        # synthesis, evaluator retry or extra round can rewrite it.
+        _owner = _guard_owns_turn(round_executed, trace)
+        if _owner is not None:
+            return _result_with_observability(_condition_guard_result(
+                question=question, guarded=_owner, trace=trace, locale=locale,
+                model=model, prim_in=prim_in, prim_out=prim_out,
+                prim_cache=prim_cache, rounds_used=rounds_used,
+            ))
+
         # A third provider call cannot change the already-observed fact that
         # two consecutive tool rounds fully failed. Stop before paying for and
         # then discarding such a response.
@@ -2520,6 +2665,8 @@ def ask_orchestrated(
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
     locale: Locale = DEFAULT_LOCALE,
+    raw_question: str | None = None,
+    prior_context: bool = False,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2531,6 +2678,7 @@ def ask_orchestrated(
     succeeded (``llm_used``), and leaves it ``None`` otherwise. Done here,
     once, rather than at each of the body's ~20 return sites.
     """
+    _guard_events: list[Any] = []
     result = _ask_orchestrated_impl(
         question,
         bootstrap,
@@ -2546,7 +2694,13 @@ def ask_orchestrated(
         _orch_request_fn=_orch_request_fn,
         _eval_client=_eval_client,
         locale=locale,
+        raw_question=raw_question,
+        prior_context=prior_context,
+        _guard_events=_guard_events,
     )
+    # Brief 0a: a ranking refused beside another answer adds its line, after
+    # every synthesis and retry (and before the guards below see the text).
+    result = _apply_condition_line(result, locale, _guard_events)
     # i106: the final-text guard, applied HERE, once, to whatever any of the
     # body's return sites produced -- a render() that was the last word
     # (retry, normal, partial, no-text) or a synthesis that quoted HTML or an
@@ -2685,6 +2839,9 @@ def _ask_orchestrated_impl(
     _orch_request_fn: Any = None,
     _eval_client: Any = None,
     locale: Locale = DEFAULT_LOCALE,
+    raw_question: str | None = None,
+    prior_context: bool = False,
+    _guard_events: "list[Any] | None" = None,
 ) -> OrchestratorResult:
     """Run a single LLM tool-use cycle and return a grounded result.
 
@@ -2783,6 +2940,15 @@ def _ask_orchestrated_impl(
     # round alike. Tools that don't read it are unaffected.
     actual_bootstrap = dict(actual_bootstrap)
     actual_bootstrap[QUESTION_CONTEXT_KEY] = question
+    # Brief 0a: the user's text exactly as it arrived (``question`` may be a
+    # session or intent_hint rewrite), and whether this turn follows others.
+    # Absent raw text falls back to ``question`` in the ranking guard.
+    if isinstance(raw_question, str) and raw_question.strip():
+        actual_bootstrap[RAW_QUESTION_KEY] = raw_question
+    if prior_context:
+        actual_bootstrap[PRIOR_CONTEXT_KEY] = True
+    if _guard_events is not None:
+        actual_bootstrap[EVENTS_KEY] = _guard_events
 
     # ------------------------------------------------------------------
     # 2. Resolve client / credential pre-check
@@ -3138,6 +3304,15 @@ def _ask_orchestrated_impl(
             tool_args=_tool_args,
             raw_output=_raw_output,
         ))
+
+    # Brief 0a: same rule as the bounded loop -- a refused season ranking that
+    # is the only answer ends the turn before the synthesis call.
+    _owner = _guard_owns_turn(executed, _trace)
+    if _owner is not None:
+        return _condition_guard_result(
+            question=question, guarded=_owner, trace=_trace, locale=locale,
+            model=model, prim_in=_prim_in, prim_out=_prim_out, prim_cache=_prim_cache,
+        )
 
     # ------------------------------------------------------------------
     # 8b. Synthesis turn: send ALL tool_result blocks in a SINGLE

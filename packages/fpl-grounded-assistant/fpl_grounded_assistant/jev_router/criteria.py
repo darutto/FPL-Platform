@@ -221,7 +221,7 @@ CRITERIA: dict[str, dict[str, object]] = {
     },
     "get_historical_gameweek_top_scorer": {
         "what": "Which PLAYER scored the most FPL POINTS in one finished gameweek ('jugador de la jornada'), or the table of every round's top scorer for a season.",
-        "not_for": "Goals rather than FPL points (rank_players_by_metric); a player's season total (get_player_season_points); deadlines or fixtures (get_gameweek_context).",
+        "not_for": "Goals rather than FPL points (season goals: rank_players_by_metric; goals in one gameweek: no tool); a player's season total (get_player_season_points); deadlines or fixtures (get_gameweek_context).",
         "examples": [
             "¿quién fue el jugador de la jornada 12?",
             "el que más puntos hizo en la fecha pasada",
