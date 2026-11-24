@@ -1,0 +1,18 @@
+{
+  "status": "needs_league",
+  "suggestions": [
+    {
+      "kind": "league_pick",
+      "label": "Friends",
+      "league_id": 42,
+      "send_text": "EO en Friends"
+    },
+    {
+      "kind": "league_pick",
+      "label": "Work Mates",
+      "league_id": 77,
+      "send_text": "EO en Work Mates"
+    }
+  ],
+  "text": "¿De qué liga quieres el EO?"
+}

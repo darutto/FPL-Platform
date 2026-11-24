@@ -24,7 +24,7 @@
  *
  * Auth gating deferred to Phase 3.
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, eoWarm, apiErrorText, FplApiError } from '@/lib/api';
 import { ChatAskProvider } from '@/lib/chat-ask';
@@ -130,16 +130,31 @@ export default function ChatShell() {
 
   // A "computing" EO answer is polled for on its own (no model): when the card is ready it replaces the
   // bubble's text and card in place. At most one poll per conversation (lib/use-eo-poll.ts).
+  // The polled answer is a deterministic card, not the model's "not ready yet" turn it replaces: every field the
+  // bubble reads is set here (outcome gates the card in selectIntentView; llm_used / synthesis_turn drive the
+  // outline and the verdict band; supported / review_passed / degraded keep the response coherent).
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages;
   const handleEoReady = useCallback((messageId: string, reply: EoPollResponse) => {
+    const isLatest = messagesRef.current[messagesRef.current.length - 1]?.id === messageId;
     setMessages((prev) =>
       prev.map((m) =>
         m.id === messageId && m.response != null
           ? {
               ...m,
               text: reply.text ?? m.text,
+              outcome: 'ok',
+              llmUsed: false,
+              degraded: false,
               response: {
                 ...m.response,
                 final_text: reply.text ?? m.response.final_text,
+                outcome: 'ok',
+                supported: true,
+                review_passed: true,
+                llm_used: false,
+                synthesis_turn: null,
+                degraded: false,
                 generic_card: reply.generic_card ?? m.response.generic_card,
                 suggestions: reply.suggestions ?? null,
                 pending: null,
@@ -148,10 +163,15 @@ export default function ChatShell() {
           : m,
       ),
     );
-    // Several leagues: the poll ends with the picker, armed exactly as on a normal "which league?" turn.
+    // Chips are armed like on a normal turn, but only under the latest bubble: a late poll must not take the
+    // wizard from a newer turn.
+    if (!isLatest) return;
     const leaguePicks = (reply.suggestions ?? []).filter(isLeaguePickSuggestion);
+    const rewrites = (reply.suggestions ?? []).filter(isRewriteSuggestion);
     if (reply.status === 'needs_league' && leaguePicks.length > 0) {
       setPlayerPickWizard({ options: leaguePicks, sessionId });
+    } else if (rewrites.length > 0) {
+      setPlayerPickWizard({ options: rewrites, sessionId });
     }
   }, [sessionId]);
   // Start the EO jobs as soon as a team (and main league) is known, so the first EO question finds them done.
