@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-23T05:05:33Z",
+  "generatedAt": "2026-11-24T05:05:03Z",
   "season": "2026/27",
   "seasonStatus": "in_season",
   "gameweek": 10,
@@ -158,9 +158,9 @@
       "name": "Barry",
       "team": "EVE",
       "position": "FWD",
-      "xg": 7.29,
+      "xg": 7.41,
       "xa": 0.48,
-      "minutes": 851
+      "minutes": 919
     },
     {
       "name": "B.Fernandes",
