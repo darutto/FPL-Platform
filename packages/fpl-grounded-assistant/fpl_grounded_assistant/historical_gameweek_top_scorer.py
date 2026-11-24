@@ -116,6 +116,32 @@ def _normalize_season(raw: str) -> str | None:
     return None
 
 
+#: Per-fixture count columns that add up across the fixtures of a double
+#: gameweek. Everything else (value, selected, was_home, opponent_team,
+#: fixture, ...) is a per-row attribute and must NOT be summed.
+_ADDITIVE_GW_COLS = (
+    "total_points", "minutes", "goals_scored", "assists", "clean_sheets",
+    "goals_conceded", "own_goals", "penalties_saved", "penalties_missed",
+    "yellow_cards", "red_cards", "saves", "bonus", "bps",
+    "defensive_contribution", "starts",
+)
+
+
+def _aggregate_per_player_gw(df: "Any") -> "Any":
+    """One row per (event_id, player_id): additive columns summed, rest taken from the first row."""
+    if len(df) == 0 or not df.duplicated(["event_id", "player_id"]).any():
+        return df
+    import pandas as pd
+
+    sums = [c for c in _ADDITIVE_GW_COLS if c in df.columns]
+    agg: dict[str, str] = {c: "first" for c in df.columns if c not in ("event_id", "player_id")}
+    agg.update({c: "sum" for c in sums})
+    num = df.copy()
+    for c in sums:
+        num[c] = pd.to_numeric(num[c], errors="coerce").fillna(0)
+    return num.groupby(["event_id", "player_id"], as_index=False, sort=False).agg(agg)
+
+
 def _safe_int_stat(row: dict[str, Any], key: str) -> int:
     """Read an integer stat from a player_gw_stats record; 0 for missing/NaN.
 
@@ -369,6 +395,10 @@ def get_historical_gameweek_top_scorer(
     gw_stats_df = gw_stats_df[
         gw_stats_df["event_id"].isin(wanted_events) & gw_stats_df["player_id"].isin(valid_player_ids)
     ]
+    # A double gameweek is two per-fixture rows for one (event_id, player_id);
+    # the Player of the Gameweek is the best per-GW TOTAL, so sum the count
+    # columns per (event_id, player_id) first. Single-row GWs are unchanged.
+    gw_stats_df = _aggregate_per_player_gw(gw_stats_df)
     if len(gw_stats_df) > 0:
         idx = gw_stats_df.groupby("event_id")["total_points"].idxmax()
         for rec in gw_stats_df.loc[idx].to_dict(orient="records"):

@@ -26,8 +26,15 @@ EXPECTED = {
     "fixtures_rows": 380,
     "players_rows": 841,
     "teams_rows": 20,
+    # Row count of the 2025-2026 restore payload. 29747 is the PRE-fix store
+    # (merge collapsed double-gameweek rows to one per (player_id, event_id));
+    # 30156 is the store rebuilt with the per-fixture merge (29747 baseline
+    # per-fixture rows + 409 zero-filler incremental rows for blank GWs).
+    # Both are accepted so this gate neither blocks the old payload nor the
+    # rebuilt one; see EXPECTED_PLAYER_GW_STATS_ROWS.
     "player_gw_stats_rows": 29747,
 }
+EXPECTED_PLAYER_GW_STATS_ROWS = (29747, 30156)
 
 
 def main() -> int:
@@ -68,7 +75,10 @@ def main() -> int:
     }
     for key, expected in EXPECTED.items():
         actual = counts[key]
-        if actual != expected:
+        if key == "player_gw_stats_rows":
+            if actual not in EXPECTED_PLAYER_GW_STATS_ROWS:
+                failures.append(f"{key}: expected one of {EXPECTED_PLAYER_GW_STATS_ROWS}, got {actual}")
+        elif actual != expected:
             failures.append(f"{key}: expected {expected}, got {actual}")
 
     if "event_id" in pg.columns:
@@ -82,9 +92,20 @@ def main() -> int:
             failures.append(f"players.player_id has {len(players) - n_unique} duplicate id(s)")
 
     if {"player_id", "event_id"}.issubset(pg.columns):
-        n_dupe = int(pg.duplicated(["player_id", "event_id"]).sum())
+        # PK is (player_id, event_id, fixture): a double gameweek is two rows.
+        # fixture may be NULL only for incremental aggregates / vaastav rows.
+        key = ["player_id", "event_id"] + (["fixture"] if "fixture" in pg.columns else [])
+        n_dupe = int(pg.duplicated(key).sum())
         if n_dupe:
-            failures.append(f"player_gw_stats has {n_dupe} duplicate (player_id, event_id) row(s)")
+            failures.append(f"player_gw_stats has {n_dupe} duplicate {tuple(key)} row(s)")
+        if "fixture" in pg.columns and "source" in pg.columns:
+            n_bad_null = int((pg["fixture"].isna() & ~pg["source"].isin(["incremental", "vaastav"])).sum())
+            if n_bad_null:
+                failures.append(f"player_gw_stats has {n_bad_null} NULL-fixture row(s) from a non-incremental source")
+        if {"source", "source_captured_at"}.issubset(pg.columns):
+            mixed = int((pg.groupby(["player_id", "event_id"])[["source", "source_captured_at"]].nunique(dropna=False).max(axis=1) > 1).sum())
+            if mixed:
+                failures.append(f"player_gw_stats has {mixed} (player_id, event_id) key(s) mixing rows from different snapshots")
 
     if "minutes" in pg.columns:
         bad = int(((pg["minutes"] < 0) | (pg["minutes"] > 120)).sum())
