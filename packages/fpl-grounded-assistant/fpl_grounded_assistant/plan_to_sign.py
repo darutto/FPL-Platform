@@ -759,6 +759,9 @@ def plan_to_sign(
 
         ownership = read_eo(bootstrap, target_id, {tr["out"]["id"] for o in options for tr in o["transfers"]})
         if ownership is not None:
+            from .plan_eo import target_signals  # noqa: PLC0415
+
+            ownership["target_signals"] = target_signals(ctx.signals, target_id)  # display conditions of the differential line
             result["ownership"] = ownership
     return result
 

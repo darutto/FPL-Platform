@@ -423,7 +423,7 @@ def test_the_ownership_block_is_named_plainly_and_does_not_reach_the_model(stack
     mp.setenv(NEAR_RANK_EO_ENABLED_ENV, "1")
     put_near(stack.svc, {"100": stats(31.0)})
     res = _plan(mp, {"events": EVENTS, "_my_team_id": TEAM})
-    assert "eo" not in res and set(res["ownership"]) == {"near_rank_owned_pct"}       # explicit name, not "eo"
+    assert "eo" not in res and set(res["ownership"]) == {"near_rank_owned_pct", "target_signals"}       # explicit name, not "eo"
     seen = json.dumps(_truncate_tool_output(res, tool_name="plan_to_sign"))             # what the model is sent
     assert "ownership" not in seen and "owned_pct" not in seen and '"eo"' not in seen
     assert "ownership" in res and res["stage"] == "plan"                                # the real output keeps it
