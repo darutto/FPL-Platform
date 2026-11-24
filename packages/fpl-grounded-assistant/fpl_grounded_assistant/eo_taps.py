@@ -48,6 +48,30 @@ def eo_tap(question: Any) -> dict[str, Any] | None:
     return None
 
 
+def _exact_league(name: Any, bootstrap: dict[str, Any]) -> dict[str, Any] | None:
+    """The one league of the user's CACHED list whose name equals ``name`` (folded), as ``{name, exact}``.
+
+    ``exact`` is True when the name alone picks it; with several leagues of the same name it is False and the stored
+    main league (the id the chip carried) must be one of them. No cached list, no match, or no way to tell: ``None``."""
+    from .league_eo import _fold  # noqa: PLC0415
+    from .league_eo_tool import get_service  # noqa: PLC0415
+
+    team_id, wanted = bootstrap.get("_my_team_id"), _fold(str(name or ""))
+    if not team_id or not wanted:
+        return None
+    cached_of = getattr(get_service(), "cached_leagues", None)
+    cached = cached_of(int(team_id)) if callable(cached_of) else None
+    matches = [lg for lg in cached or [] if _fold(str(lg.get("name") or "")) == wanted]
+    if len(matches) == 1:
+        return {"name": str(matches[0]["name"]), "exact": True}
+    stored = bootstrap.get("_my_league_id")
+    if len(matches) > 1 and stored:
+        chosen = next((lg for lg in matches if lg.get("id") == int(stored)), None)
+        if chosen is not None:
+            return {"name": str(chosen["name"]), "exact": False}
+    return None
+
+
 def run_eo_tap(tap: dict[str, Any], bootstrap: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> dict[str, Any] | None:
     """Run a matched tap. ``{tool, args, raw, text, card, chips, pending}`` or ``None`` (fall through to the model)."""
     from .atomic_tool_cards import maybe_atomic_tool_card  # noqa: PLC0415
@@ -57,21 +81,30 @@ def run_eo_tap(tap: dict[str, Any], bootstrap: dict[str, Any], locale: Locale = 
     from .tool_dispatch import run_tool  # noqa: PLC0415
 
     kind = tap["kind"]
+    title: str | None = None  # the view's own title, the text of a "calculating" answer
     if kind == "change":
         tool, args = "get_league_eo", {}
         raw = league_picker(bootstrap)
         if raw is None:
             return None
     else:
-        tool, args = {"near": ("get_near_rank_eo", {}), "tier": ("get_tier_eo", {}),
-                      "league": ("get_league_eo", {"league_name": tap.get("league_name")})}[kind]
+        if kind == "league":
+            tool, league = "get_league_eo", _exact_league(tap.get("league_name"), bootstrap)
+            if league is None:
+                return None  # not exactly one of the user's own (cached) leagues: the model route answers
+            args = {"league_name": league["name"]} if league["exact"] else {}
+            title = t("league_eo.title", locale, league=league["name"])
+        else:
+            tool, args = {"near": ("get_near_rank_eo", {}), "tier": ("get_tier_eo", {})}[kind]
+            title = t("near_eo.title", locale) if kind == "near" else t("tier_eo.title", locale)
         raw = run_tool(tool, args, bootstrap)
     status = raw.get("status")
     if status == "computing":
         marker = pending_marker(tool, raw)
         if marker is None:
             return None  # nothing to poll for: the model words it
-        return {"tool": tool, "args": args, "raw": raw, "text": t("eo_tap.computing", locale), "card": None,
+        # the title names what is being calculated; the pending line under it does the talking
+        return {"tool": tool, "args": args, "raw": raw, "text": title or "", "card": None,
                 "chips": None, "pending": marker}
     if status != "ok":
         return None

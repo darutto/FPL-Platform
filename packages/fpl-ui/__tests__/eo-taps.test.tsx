@@ -136,6 +136,31 @@ describe('EO chip taps (real backend JSON)', () => {
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(3));
     expect(ask.mock.calls[2][0]).toMatchObject({ question: 'EO en Work Mates', team_id: 555, main_league_id: 77 });
     expect(localStorage.getItem(mainLeagueKey(555))).toBe('77');
+    // stored when the chip was tapped (before the answer): the next plain question already uses the new league
+    await tick(100); // the pick's turn finishes before the next question
+    ask.mockResolvedValueOnce(tapReady);
+    await send(user, '¿Qué EO hay en mi liga?');
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(4));
+    expect(ask.mock.calls[3][0]).toMatchObject({ team_id: 555, main_league_id: 77 });
+  });
+
+  test('a pick whose answer is still computing already counts as the main league', async () => {
+    ask.mockResolvedValueOnce(tapChange);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell();
+    await user.click(screen.getByText('connect-team'));
+    await send(user, 'Cambiar de liga');
+    const pick = await screen.findByRole('button', { name: 'Work Mates' });
+    ask.mockResolvedValueOnce(tapComputing);
+    await user.click(pick);
+    await screen.findByTestId('eo-pending');
+    expect(localStorage.getItem(mainLeagueKey(555))).toBe('77'); // not waiting for the answer
+    await tick(100);
+    ask.mockResolvedValueOnce(tapReady);
+    eoPoll.mockResolvedValue(readyLeague);
+    await send(user, '¿Qué EO hay en mi liga?');
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(3));
+    expect(ask.mock.calls[2][0]).toMatchObject({ team_id: 555, main_league_id: 77 });
   });
 
   test('the calculating answer shows its line and the pending line, then the poll swaps in the card and the content line', async () => {
@@ -145,12 +170,12 @@ describe('EO chip taps (real backend JSON)', () => {
     await user.click(screen.getByText('connect-team'));
     await send(user, 'EO en Friends');
     await screen.findByTestId('eo-pending');
-    expect(screen.getByText(tapComputing.final_text)).toBeInTheDocument();
+    expect(screen.getAllByText(tapComputing.final_text).length).toBeGreaterThan(0); // the view's title: EO en Friends
+    expect(tapComputing.final_text).toBe('EO en Friends');
     eoPoll.mockResolvedValue(readyLeague);
     await tick(4000);
     await waitFor(() => expect(screen.queryByTestId('eo-pending')).toBeNull());
     expect(screen.getByText(readyLeague.text)).toBeInTheDocument();
-    expect(screen.queryByText(tapComputing.final_text)).toBeNull();
     expect(screen.getAllByText(readyLeague.generic_card.title).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Cambiar de liga' })).toBeInTheDocument();
   });

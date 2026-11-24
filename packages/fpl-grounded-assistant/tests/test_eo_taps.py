@@ -29,7 +29,25 @@ def _no_model(monkeypatch):
     monkeypatch.setattr("fpl_grounded_assistant.harness._build_eval_client", lambda *a, **k: None)
 
 
-def _ask(question, monkeypatch, tool_results, *, team_id=555, locale="es"):
+class _Cached:
+    """A league service whose list is cached (or not): the only thing a tap may read for a league name."""
+
+    def __init__(self, leagues):
+        self._leagues = leagues
+
+    def cached_leagues(self, entry_id):
+        return self._leagues
+
+
+@pytest.fixture(autouse=True)
+def _cached_leagues():
+    """By default the user's list is cached with two leagues; tests change it."""
+    league_tool.set_service(_Cached([lt.L1, lt.L2]))
+    yield
+    league_tool.set_service(None)
+
+
+def _ask(question, monkeypatch, tool_results, *, team_id=555, locale="es", league=None):
     """ask_v2 with the EO tools replaced by canned results; returns (result, calls)."""
     calls = []
 
@@ -38,7 +56,7 @@ def _ask(question, monkeypatch, tool_results, *, team_id=555, locale="es"):
         return tool_results[name]
 
     monkeypatch.setattr("fpl_grounded_assistant.tool_dispatch.run_tool", fake_run_tool)
-    out = harness.ask_v2(question, dict(STANDARD_BOOTSTRAP), team_id=team_id, locale=locale)
+    out = harness.ask_v2(question, dict(STANDARD_BOOTSTRAP), team_id=team_id, locale=locale, league_id=league)
     return out, calls
 
 
@@ -85,17 +103,42 @@ def test_near_tap_returns_the_card_the_line_and_the_chips(monkeypatch):
     ("get_league_eo", "EO en Friends", {"status": "computing", "tier": "league", "eta_s": 30, "league_id": 42},
      {"tool": "get_league_eo", "league_id": 42, "eta_s": 30, "poll_s": 4, "max_s": 60}),
 ])
-def test_a_computing_tap_carries_pending_and_the_calculating_line(monkeypatch, tool, tap, raw, marker):
+def test_a_computing_tap_carries_pending_and_the_views_title_as_its_text(monkeypatch, tool, tap, raw, marker):
     d, _ = _ask(tap, monkeypatch, {tool: raw})
     assert d["pending"] == marker and d["outcome"] == "ok"
-    assert d["generic_card"] is None and d["answer_text"]
+    assert d["generic_card"] is None
+    assert d["answer_text"] == tap  # "EO cerca de tu puesto" / "EO en Friends": the pending line says the rest
 
 
-def test_league_tap_passes_the_name_and_an_unresolvable_one_falls_through(monkeypatch):
-    d, calls = _ask("EO en Work Mates", monkeypatch, {"get_league_eo": {**CARD_OK, "tier": "league", "league_name": "Work Mates"}})
-    assert calls == [("get_league_eo", {"league_name": "Work Mates"})]
-    d, _ = _ask("EO en mi liga", monkeypatch, {"get_league_eo": {"status": "unavailable", "reason": "league_not_found"}})
-    assert d["routing_trace"]["decision_kind"] != "eo_tap"  # the normal route answers
+OK_LEAGUE = {**CARD_OK, "tier": "league", "league_name": "Work Mates"}
+
+
+def test_league_tap_needs_an_exact_name_from_the_cached_list(monkeypatch):
+    d, calls = _ask("EO en work  MATES", monkeypatch, {"get_league_eo": OK_LEAGUE})
+    assert calls == [("get_league_eo", {"league_name": "Work Mates"})]  # the real name from the list
+    assert d["routing_trace"]["decision_kind"] == "eo_tap"
+
+
+@pytest.mark.parametrize("typed,cached", [
+    ("EO en liga", [{"id": 5, "name": "LA LIGA FPL", "size": 20}]),  # a substring of someone's league: not a tap
+    ("EO en mi liga", [lt.L1, lt.L2]),
+    ("EO en Work", [lt.L1, lt.L2]),
+    ("EO en Work Mates", None),  # no cached list: nothing to check the name against
+    ("EO en Work Mates", [{"id": 1, "name": "Work Mates", "size": 12}, {"id": 2, "name": "work mates", "size": 20}]),  # two, no id
+])
+def test_a_league_name_that_is_not_exactly_one_cached_league_goes_to_the_model(monkeypatch, typed, cached):
+    league_tool.set_service(_Cached(cached))
+    d, calls = _ask(typed, monkeypatch, {"get_league_eo": OK_LEAGUE})
+    assert calls == [] and d["routing_trace"]["decision_kind"] != "eo_tap"
+
+
+def test_two_leagues_with_the_same_name_use_the_id_the_chip_carried(monkeypatch):
+    twins = [{"id": 1, "name": "Work Mates", "size": 12}, {"id": 2, "name": "work mates", "size": 20}]
+    league_tool.set_service(_Cached(twins))
+    d, calls = _ask("EO en Work Mates", monkeypatch, {"get_league_eo": OK_LEAGUE}, league=2)
+    assert calls == [("get_league_eo", {})] and d["routing_trace"]["decision_kind"] == "eo_tap"  # the stored id (2) resolves it
+    d, calls = _ask("EO en Work Mates", monkeypatch, {"get_league_eo": OK_LEAGUE}, league=99)
+    assert calls == [] and d["routing_trace"]["decision_kind"] != "eo_tap"  # an id that is not one of the twins
 
 
 @pytest.mark.parametrize("raw", [
@@ -123,6 +166,14 @@ def test_the_change_chip_needs_other_readable_leagues():
     assert "Change league" in texts(with_others)
     assert "Change league" not in texts(without)
     assert texts(with_others, "es")[-1] == "Cambiar de liga"
+
+
+def test_the_model_does_not_see_other_leagues():
+    from fpl_grounded_assistant.orchestrator import _truncate_tool_output
+
+    raw = league_tool.shape_result(lt.DATA, lt.BOOT, [], None, [{"league_id": 77, "name": "Work Mates", "size": 48}])
+    assert "other_leagues" in raw
+    assert "other_leagues" not in _truncate_tool_output(raw, tool_name="get_league_eo")
 
 
 def test_other_leagues_come_from_the_cached_list_only():

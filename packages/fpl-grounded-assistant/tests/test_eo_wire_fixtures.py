@@ -46,6 +46,12 @@ def _tap(monkeypatch, question, tool_results, picker=None):
     """The /ask JSON of an EO chip tap answered without a model (tool results canned)."""
     monkeypatch.setattr("fpl_grounded_assistant.tool_dispatch.run_tool", lambda name, args, boot: tool_results[name])
     monkeypatch.setattr("fpl_grounded_assistant.league_eo_tool.league_picker", lambda boot, now=None: picker)
+
+    class Cached:  # the user's league list as the service has it cached (a tap checks a league name against it)
+        def cached_leagues(self, entry_id):
+            return [{"id": 42, "name": "Friends", "size": 12}, {"id": 77, "name": "Work Mates", "size": 48}]
+
+    monkeypatch.setattr(league_eo_tool, "_SERVICE", Cached())  # restored by monkeypatch after the test
     d = harness.ask_v2(question, dict(STANDARD_BOOTSTRAP), team_id=555, locale="es")
     assert d["routing_trace"]["decision_kind"] == "eo_tap"
     return to_ask_response(d, fpl_server.AskRequest(question=question, team_id=555), dict(STANDARD_BOOTSTRAP), "es").model_dump(mode="json")

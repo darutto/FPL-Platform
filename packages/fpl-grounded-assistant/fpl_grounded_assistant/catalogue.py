@@ -292,8 +292,7 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "eo_line.both": {"en": "Cover {cover}; your differential: {diff}.", "es": "Cúbrete con {cover}; tu diferencial: {diff}."},
     "eo_line.cover": {"en": "Cover {cover}.", "es": "Cúbrete con {cover}."},
     "eo_line.diff": {"en": "Your differential: {diff}.", "es": "Tu diferencial: {diff}."},
-    "eo_tap.computing": {"en": "Calculating the EO; it shows up here by itself when done.",
-                         "es": "Calculando el EO; se muestra solo cuando termine."},
+
     "gcard.form.title": {"en": "RECENT FORM", "es": "FORMA RECIENTE"},
     "gcard.form.hero": {"en": "POINTS \u00b7 {n} GW", "es": "PUNTOS \u00b7 {n} JOR"},
     "gcard.form.col_gw": {"en": "GW", "es": "JOR"},
