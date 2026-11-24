@@ -49,7 +49,7 @@ def test_few_own_him_near_your_rank_and_the_signals_hold():
     raw = diff_raw(5)
     assert last(raw, "es") == ("N.Jackson: solo lo tiene el 5 % cerca de tu puesto: si puntúa, subes frente a casi todos ellos. "
                                "Titular habitual y calendario favorable.")
-    assert last(raw, "en") == ("N.Jackson: only 5% near your rank have him: if he scores, you gain on almost all of them. "
+    assert last(raw, "en") == ("N.Jackson: only 5% near your rank have him: if he returns, you gain on almost all of them. "
                                "Regular starter with a favourable run.")
 
 
@@ -58,7 +58,7 @@ def test_the_top_10k_is_the_reference_only_when_near_rank_has_no_data():
     assert "near_rank_owned_pct" not in raw["ownership"]
     assert last(raw, "es") == ("N.Jackson: solo lo tiene el 8 % del top 10K: si puntúa, subes frente a casi todo el top 10K. "
                                "Titular habitual y calendario favorable.")
-    assert last(raw, "en") == ("N.Jackson: only 8% of the top 10K have him: if he scores, you gain on almost the whole top 10K. "
+    assert last(raw, "en") == ("N.Jackson: only 8% of the top 10K have him: if he returns, you gain on almost the whole top 10K. "
                                "Regular starter with a favourable run.")
 
 
@@ -74,10 +74,10 @@ def test_the_low_ownership_bar(pct, shown):
 def test_below_one_percent_reads_less_than_one_never_zero():
     near = diff_raw(0)
     assert last(near, "es").startswith("N.Jackson: lo tiene menos del 1 % cerca de tu puesto: si puntúa")
-    assert last(near, "en").startswith("N.Jackson: less than 1% near your rank have him: if he scores")
+    assert last(near, "en").startswith("N.Jackson: less than 1% near your rank have him: if he returns")
     topr = diff_raw(None, 0)
     assert last(topr, "es").startswith("N.Jackson: lo tiene menos del 1 % del top 10K: si puntúa")
-    assert last(topr, "en").startswith("N.Jackson: less than 1% of the top 10K have him: if he scores")
+    assert last(topr, "en").startswith("N.Jackson: less than 1% of the top 10K have him: if he returns")
     for raw in (near, topr):
         for locale in ("es", "en"):
             assert "0 %" not in last(raw, locale) and "0%" not in last(raw, locale)
@@ -126,7 +126,7 @@ def test_cover_comes_first_then_the_differential_then_no_exposure():
     assert "moves you toward them" in last(raw, "en")
     # without a cover (top 10K low) the differential beats no-exposure
     raw = diff_raw(5, 20, sold={13: 4}, top_sold={13: 5}, options=[_option("Isak", tops=[top(13, "Isak")])])
-    assert "if he scores" in last(raw, "en") and "expose" not in " ".join(plan_conclusions(raw, "en"))
+    assert "if he returns" in last(raw, "en") and "expose" not in " ".join(plan_conclusions(raw, "en"))
     # with the signals failing the no-exposure line is still there
     raw = diff_raw(5, 20, signals={**GOOD, "xgi_top": False}, sold={13: 4}, options=[_option("Isak", tops=[top(13, "Isak")])])
     assert "expose" in last(raw, "en")
@@ -137,7 +137,7 @@ def test_the_differential_line_is_one_line_and_has_the_reserved_slot():
     others = plan_conclusions(_raw(option), "en")
     assert len(others) == MAX_CONCLUSIONS
     lines = plan_conclusions(diff_raw(5, options=[option]), "en")
-    assert len(lines) == MAX_CONCLUSIONS and lines[:2] == others[:2] and "if he scores" in lines[2]
+    assert len(lines) == MAX_CONCLUSIONS and lines[:2] == others[:2] and "if he returns" in lines[2]
 
 
 def test_it_yields_to_an_unavailable_sold_player():
@@ -152,8 +152,11 @@ def test_it_yields_to_an_unavailable_sold_player():
 # -- the display conditions come from the existing PlanSignals ------------------------------------------------------------
 
 class Sig:
-    def __init__(self, tier=2, games=5, band=2.5, hard=0, reasons=("xgi",), boom=False):
+    def __init__(self, tier=2, games=5, band=2.5, hard=0, reasons=("xgi",), boom=False, starts=10, finished=10,
+                 early_season=False):
         self.tier, self.games, self.band, self.hard, self.reasons, self.boom = tier, games, band, hard, list(reasons), boom
+        self.finished, self.early_season = finished, early_season
+        self.elements = {100: {"id": 100} if starts is None else {"id": 100, "starts": starts}}
 
     def availability(self, pid):
         if self.boom:
@@ -174,7 +177,8 @@ def test_target_signals_all_good():
 @pytest.mark.parametrize("kw,failing", [
     ({"tier": 1}, "nailed"),                       # doubtful or a rotation risk
     ({"tier": 0}, "nailed"),                       # unavailable
-    ({"games": 2}, "fixtures"), ({"band": None}, "fixtures"), ({"band": 3.01}, "fixtures"), ({"hard": 2}, "fixtures"),
+    ({"games": 2}, "fixtures"), ({"band": None}, "fixtures"), ({"band": 2.61}, "fixtures"), ({"band": 3.0}, "fixtures"),
+    ({"hard": 2}, "fixtures"),
     ({"reasons": ()}, "xgi_top"), ({"reasons": ("price", "owned")}, "xgi_top"),
 ])
 def test_target_signals_each_condition(kw, failing):
@@ -183,7 +187,7 @@ def test_target_signals_each_condition(kw, failing):
 
 
 def test_target_signals_boundaries_are_inclusive():
-    assert plan_eo.target_signals(Sig(games=3, band=3.0, hard=1), 100)["fixtures"] is True
+    assert plan_eo.target_signals(Sig(games=3, band=2.6, hard=1), 100)["fixtures"] is True
 
 
 def test_a_failing_signal_source_is_all_false():
@@ -203,3 +207,52 @@ def test_plan_to_sign_attaches_the_conditions_with_the_numbers_and_hides_them_fr
     assert "target_signals" not in json.dumps(_truncate_tool_output(res, tool_name="plan_to_sign"))
     # no numbers cached: no ownership block at all, so no signals either (the card is today's)
     assert "ownership" not in _plan(mp, {"events": EVENTS, "_my_team_id": TEAM + 1})
+
+
+# -- «titular habitual» and «calendario favorable» must really hold ---------------------------------------------------------
+
+def test_a_neutral_run_is_not_a_favourable_one():
+    # the FDR band runs 1 (easiest) .. 5 (hardest) with 3 neutral: the bar is clearly below it
+    assert plan_eo.FIXTURE_MAX_AVG_BAND == 2.6
+    assert plan_eo.target_signals(Sig(band=2.6), 100)["fixtures"] is True
+    assert plan_eo.target_signals(Sig(band=2.61), 100)["fixtures"] is False
+    assert plan_eo.target_signals(Sig(band=3.0), 100)["fixtures"] is False
+
+
+@pytest.mark.parametrize("starts,finished,expected", [
+    (8, 10, True),          # exactly 80 %
+    (9, 10, True), (10, 10, True),
+    (7, 10, False),         # 70 %: a rotation risk is not "titular habitual"
+    (4, 5, True), (3, 5, False),
+    (12, 10, True),         # a double gameweek cannot push it past 100 %, nor break the share
+])
+def test_regular_starter_is_a_start_share_at_the_boundary(starts, finished, expected):
+    assert plan_eo.target_signals(Sig(starts=starts, finished=finished), 100)["nailed"] is expected
+
+
+def test_a_missing_starts_figure_never_prints_the_regular_starter_claim():
+    # PlanSignals.availability gives tier 2 when `starts` is missing; the line must not rely on that alone
+    assert Sig(starts=None).availability(100)["tier"] == 2
+    assert plan_eo.target_signals(Sig(starts=None), 100)["nailed"] is False
+    for bad in ("8", True, None):
+        sig = Sig(starts=bad if bad is not None else None)
+        if bad is not None:
+            sig.elements[100]["starts"] = bad
+        assert plan_eo.target_signals(sig, 100)["nailed"] is False
+
+
+def test_too_few_finished_gameweeks_is_not_a_regular_starter():
+    assert plan_eo.target_signals(Sig(starts=4, finished=4, early_season=True), 100)["nailed"] is False
+    assert plan_eo.target_signals(Sig(starts=0, finished=0), 100)["nailed"] is False        # no division by zero
+
+
+def test_the_shared_starts_bar_is_high_enough_for_the_claim():
+    from fpl_grounded_assistant.player_conclusions import STARTS_SHARE_FIRES
+
+    assert STARTS_SHARE_FIRES >= 0.75 and plan_eo.REGULAR_STARTER_MIN_SHARE == 0.75
+
+
+def test_the_english_line_says_returns_not_scores():
+    en = last(diff_raw(5), "en")
+    assert "if he returns" in en and "scores" not in en
+    assert "si puntúa" in last(diff_raw(5), "es")

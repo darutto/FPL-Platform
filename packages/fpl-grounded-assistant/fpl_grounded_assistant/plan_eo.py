@@ -44,10 +44,14 @@ SOLD_NO_EXPOSURE_PCT: float = 10.0
 # is a regular starter with a favourable run and an xGI/90 in the top of his position. Missing data: no line.
 #: Few own him: at most this share (near your rank first, the top 10K when near-rank has no data).
 LOW_OWNED_PCT: float = 10.0
-#: Favourable run: at least this many fixtures in the window, an average FDR band at or under the cap, few hard ones.
+#: Favourable run: at least this many fixtures in the window, an average FDR band CLEARLY below neutral (the official
+#: FDR band runs 1 = easiest .. 5 = hardest, 3 = neutral, so 3.0 would be a neutral run), few hard ones.
 FIXTURE_MIN_GAMES: int = 3
-FIXTURE_MAX_AVG_BAND: float = 3.0
+FIXTURE_MAX_AVG_BAND: float = 2.6
 FIXTURE_MAX_HARD: int = 1
+#: "Regular starter" needs a start share of the finished gameweeks at least the shared ``STARTS_SHARE_FIRES`` (0.8,
+#: set for "started 9 of 10"); a test pins it at 0.75 or more so lowering it elsewhere cannot weaken this claim.
+REGULAR_STARTER_MIN_SHARE: float = 0.75
 
 
 def _pct(players: dict[str, Any], pid: int) -> int | None:
@@ -74,13 +78,23 @@ def _reference(players: Any, target_id: int, sold_ids: set[int]) -> dict[str, An
 def target_signals(signals: Any, pid: int) -> dict[str, bool]:
     """The target's display conditions from the existing ``PlanSignals`` (no new score, no xPts).
 
-    ``nailed``: available and a regular starter (availability tier 2: not out, not doubtful, not a rotation risk).
-    ``fixtures``: a favourable run (see the constants above). ``xgi_top``: his minutes-shrunk xGI/90 is in the top of
+    ``nailed``: available (availability tier 2) AND a regular starter: his ``starts`` must be PRESENT and the share of
+    the finished gameweeks he started at least ``max(STARTS_SHARE_FIRES, REGULAR_STARTER_MIN_SHARE)``, with enough
+    gameweeks finished for a share to mean something. Tier 2 alone is not enough: it is also what a player with no
+    ``starts`` data gets. ``fixtures``: a favourable run (see the constants above). ``xgi_top``: his minutes-shrunk xGI/90 is in the top of
     his position (the same "xgi" reason as the top status; early in the season there is no cut-off, so it is False).
     Anything missing or failing is False.
     """
     try:
-        nailed = signals.availability(pid)["tier"] == 2
+        from .player_conclusions import STARTS_SHARE_FIRES  # noqa: PLC0415
+
+        element = signals.elements[pid]
+        finished = int(signals.finished)
+        starts = element.get("starts")
+        regular = (not signals.early_season and finished > 0 and isinstance(starts, (int, float))
+                   and not isinstance(starts, bool)
+                   and min(starts, finished) / finished >= max(STARTS_SHARE_FIRES, REGULAR_STARTER_MIN_SHARE))
+        nailed = signals.availability(pid)["tier"] == 2 and regular
         fx = signals.fixtures(pid)
         band = fx.get("avg_band")
         fixtures = (fx.get("games", 0) >= FIXTURE_MIN_GAMES and band is not None and band <= FIXTURE_MAX_AVG_BAND

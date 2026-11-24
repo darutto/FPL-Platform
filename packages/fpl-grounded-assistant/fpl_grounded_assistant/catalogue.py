@@ -1153,13 +1153,13 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
     "plan_to_sign.eo_lead": {"en": "only {pct}%", "es": "solo lo tiene el {pct} %"},
     "plan_to_sign.eo_lead_under_one": {"en": "less than 1%", "es": "lo tiene menos del 1 %"},
     "plan_to_sign.concl_eo_differential_near": {
-        "en": "{name}: {lead} near your rank have him: if he scores, you gain on almost all of them. "
+        "en": "{name}: {lead} near your rank have him: if he returns, you gain on almost all of them. "
               "Regular starter with a favourable run.",
         "es": "{name}: {lead} cerca de tu puesto: si puntúa, subes frente a casi todos ellos. "
               "Titular habitual y calendario favorable.",
     },
     "plan_to_sign.concl_eo_differential_top": {
-        "en": "{name}: {lead} of the top 10K have him: if he scores, you gain on almost the whole top 10K. "
+        "en": "{name}: {lead} of the top 10K have him: if he returns, you gain on almost the whole top 10K. "
               "Regular starter with a favourable run.",
         "es": "{name}: {lead} del top 10K: si puntúa, subes frente a casi todo el top 10K. "
               "Titular habitual y calendario favorable.",
