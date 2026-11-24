@@ -687,6 +687,9 @@ _MODEL_HIDDEN_FIELDS: dict[str, frozenset[str]] = {
     "get_player_snapshot": frozenset({"signals"}),
     # The fixture-cell answer's team zonal link (fixture_cell_zonal.py): UI only, same reason.
     "get_fixture_outlook": frozenset({"zonal_links"}),
+    # The cached ownership numbers behind one card line (plan_eo): the model has nothing to say about them and,
+    # shown, "owned 31 %" invites an "EO 31 %" it cannot ground. The card words the line.
+    "plan_to_sign": frozenset({"ownership"}),
 }
 
 _TRUNCATION_EXCLUDED_FIELDS: frozenset[tuple[str, str]] = frozenset({

@@ -754,12 +754,12 @@ def plan_to_sign(
         "needs_user_numbers": True,
     }
     if options:
-        # Cached EO numbers for one card line (cache-only: no job, no GET; absent when there is nothing to say).
+        # Cached ownership numbers for one card line (cache-only: no job, no GET; absent when there is nothing to say).
         from .plan_eo import read as read_eo  # noqa: PLC0415
 
-        eo = read_eo(bootstrap, target_id, {tr["out"]["id"] for o in options for tr in o["transfers"]})
-        if eo is not None:
-            result["eo"] = eo
+        ownership = read_eo(bootstrap, target_id, {tr["out"]["id"] for o in options for tr in o["transfers"]})
+        if ownership is not None:
+            result["ownership"] = ownership
     return result
 
 
