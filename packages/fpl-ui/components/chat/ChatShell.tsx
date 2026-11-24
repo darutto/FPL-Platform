@@ -235,6 +235,7 @@ export default function ChatShell() {
     // A league the user has just picked: it goes on THIS request, before the state update lands.
     leagueIdOverride?: number | null,
   ) => {
+    const teamAtSend = teamIdRef.current; // the team this question is asked for
     const trimmed = rawInput.trim();
     if (!trimmed || loading) return;
 
@@ -360,6 +361,11 @@ export default function ChatShell() {
         response = await ask(requestBody);
       }
 
+      // The answer took seconds: if the team changed meanwhile, keep its text and card but not what belongs to the
+      // old team (chips that arm a picker, an EO poll marker, the plan state for the next turn).
+      if (teamIdRef.current !== teamAtSend) {
+        response = { ...response, suggestions: null, pending: null, plan_state: null };
+      }
       const assistantMessage: Message = {
         id: generateId(),
         role: 'assistant',

@@ -242,3 +242,67 @@ describe('a real team change drops what was built for the old team', () => {
     expect(ask.mock.calls[3][0]).toMatchObject({ team_id: 556 });
   });
 });
+
+describe('an answer that arrives after the team changed', () => {
+  const late = {
+    ...pickerReply,
+    final_text: 'Respuesta lenta.',
+    pending: { tool: 'get_league_eo', league_id: 77, eta_s: 20, poll_s: 4, max_s: 60 },
+    plan_state: { target: 'synthetic', sold: [1, 2] },
+  };
+
+  async function sendSlow(user: ReturnType<typeof userEvent.setup>) {
+    let resolveAsk: (v: unknown) => void = () => {};
+    ask.mockReset().mockReturnValueOnce(new Promise((r) => { resolveAsk = r; }));
+    await send(user, 'EO en mi liga');
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(1));
+    return resolveAsk;
+  }
+
+  async function expectOldTeamStuffDropped(user: ReturnType<typeof userEvent.setup>) {
+    expect(screen.getByText('Respuesta lenta.')).toBeInTheDocument(); // the text stays
+    expect(screen.queryByRole('button', { name: 'Friends' })).toBeNull(); // no picker armed for the old team
+    expect(screen.queryByTestId('eo-pending')).toBeNull(); // no poll for it
+    await tick(20000);
+    expect(eoPoll).not.toHaveBeenCalled();
+    ask.mockResolvedValue(base);
+    await send(user, 'a quien mas vendo');
+    await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
+    expect(ask.mock.calls[1][0].plan_state).toBeUndefined(); // its plan state does not ride the next question
+  }
+
+  test('A -> B while the answer is in flight: text kept, picker / poll / plan state dropped', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell();
+    await user.click(screen.getByText('connect-team'));
+    const resolveAsk = await sendSlow(user);
+    await user.click(screen.getByText('connect-team-b'));
+    await act(async () => { resolveAsk(late); });
+    await expectOldTeamStuffDropped(user);
+    expect(localStorage.getItem(keyA)).toBeNull();
+    expect(localStorage.getItem(keyB)).toBeNull();
+  });
+
+  test('A -> none -> B while the answer is in flight: the same', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell();
+    await user.click(screen.getByText('connect-team'));
+    const resolveAsk = await sendSlow(user);
+    await user.click(screen.getByText('disconnect-team'));
+    await user.click(screen.getByText('connect-team-b'));
+    await act(async () => { resolveAsk(late); });
+    await expectOldTeamStuffDropped(user);
+  });
+
+  test('none -> A hydration: sent with the stored id, the panel then confirms the same id: nothing is dropped', async () => {
+    localStorage.setItem('fpl_team_id', '555');
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderShell(); // the stored team is in use at once
+    const resolveAsk = await sendSlow(user);
+    expect(ask.mock.calls[0][0]).toMatchObject({ team_id: 555 });
+    await user.click(screen.getByText('connect-team')); // the panel confirms the same team
+    await act(async () => { resolveAsk(late); });
+    expect(await screen.findByRole('button', { name: 'Friends' })).toBeInTheDocument(); // picker armed
+    expect(screen.getByTestId('eo-pending')).toBeInTheDocument(); // poll started
+  });
+});
