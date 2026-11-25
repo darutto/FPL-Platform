@@ -951,10 +951,11 @@ _EN_LOCALE_LINE: str = (
 #: byte-identical to before.
 _WEB_OFF_LINE: str = (
     "\n\nWEB_OFF: web access is OFF this turn. web_fetch and search_web are not available: ignore every "
-    "line above that tells you to fetch, search or open a page, or to offer to. If the question needs the "
-    "web or recent news, say so in ONE short sentence in the user's language (es: \"No puedo consultar la "
-    "web ahora.\" / en: \"I can't check the web right now.\"), then answer only from what the tools "
-    "returned. Never claim you checked a page."
+    "line above that tells you to fetch, search or open a page, or to offer to. ONLY when the question itself "
+    "needs the web, or recent news that no tool returned, say so in ONE short sentence in the user's language "
+    "(es: \"Enciende la web para consultarlo.\" / en: \"Turn on Web to check it.\"), then answer only from "
+    "what the tools returned. Never add that sentence to an answer the tools already covered, and never use it "
+    "as a closing line. Never claim you checked a page."
 )
 
 

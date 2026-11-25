@@ -529,6 +529,7 @@ class SessionAskResponse(BaseModel):
     resource_rows:        dict[str, Any] | None = None
     # A metric ranking's verdict: 0-3 {key, params, evidence} conclusions about the table; null when none fires.
     table_conclusions:    list[dict[str, Any]] | None = None
+    web_search:           dict[str, Any] | None = None   # sources of a turn where search_web ran (same as /ask)
     # Phase 2.7d: routing audit fields
     route_source:          str | None   = None             # which routing stage decided
     classifier_confidence: float | None = None             # LLM classifier confidence when attempted
@@ -2299,6 +2300,27 @@ def _is_deterministic_branch(ask_v2_dict: dict[str, Any]) -> bool:
     return branch in ("resource", "prompt")
 
 
+def _web_search_gate(requested: bool, tier: str, locale: str) -> "tuple[bool, str | None]":
+    """The ONE rule for a turn's web toggle, shared by ``/ask`` and ``/session/{id}/ask``.
+
+    Returns ``(enabled, gated_text)``. Not requested (absent or false) -> ``(False, None)``: web off.
+    Requested by a tier without the feature -> ``(False, <upgrade text>)``: the caller answers
+    ``feature_gated`` with no model call and no quota spend. Requested by an eligible tier ->
+    ``(True, None)``.
+    """
+    if not requested:
+        return False, None
+    if tier not in WEB_SEARCH_TIERS:
+        return False, (
+            "Web search is a premium feature. "
+            "Upgrade to Socio Junior or above on Patreon to turn it on."
+            if locale == "en" else
+            "La búsqueda web es una función premium. "
+            "Sube a Socio Junior o superior en Patreon para activarla."
+        )
+    return True, None
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest, request: Request) -> AskResponse:
     """Ask a FPL captaincy or player question.
@@ -2375,22 +2397,16 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
     # entitled, short-circuit with a Spanish upgrade prompt and zero model
     # calls — mirrors the World Cup assistant's wc_server.py gate.
     # ------------------------------------------------------------------
-    if req.web_search_requested and tier not in WEB_SEARCH_TIERS:
+    web_search_enabled, _web_gated_text = _web_search_gate(req.web_search_requested, tier, locale)
+    if _web_gated_text is not None:
         return AskResponse(
-            final_text=(
-                "Web search is a premium feature. "
-                "Upgrade to Socio Junior or above on Patreon to turn it on."
-                if locale == "en" else
-                "La búsqueda web es una función premium. "
-                "Sube a Socio Junior o superior en Patreon para activarla."
-            ),
+            final_text=_web_gated_text,
             outcome="feature_gated",
             supported=False,
             intent="unsupported",
             review_passed=False,
             llm_used=False,
         )
-    web_search_enabled = req.web_search_requested and tier in WEB_SEARCH_TIERS
 
     # ------------------------------------------------------------------
     # P3.f (F2 remediation): deterministic-prefix early-exit.
@@ -2710,6 +2726,23 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
     locale = resolve_locale(request, req)
     _question_lang = _note_locale_turn(locale, req.question)
 
+    # The web toggle: the same rule, gated response and (no) quota spend as /ask. A deterministic player
+    # pick (selected_player_id) is never a model turn: it is neither gated nor given the toggle.
+    if req.selected_player_id is None:
+        _sess_web_enabled, _sess_web_gated = _web_search_gate(req.web_search_requested, _sess_tier, locale)
+        if _sess_web_gated is not None:
+            return SessionAskResponse(
+                session_id=session_id,
+                final_text=_sess_web_gated,
+                outcome="feature_gated",
+                supported=False,
+                intent="unsupported",
+                review_passed=False,
+                llm_used=False,
+            )
+    else:
+        _sess_web_enabled = False
+
     # P3.f (F2 remediation): deterministic-prefix bypass (same as /ask boundary).
     _sess_question_stripped = req.question.lstrip()
     _sess_is_deterministic = req.selected_player_id is None and (
@@ -2771,6 +2804,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
             squad_context=req.squad_context,        # Phase 8e1
             intent_hint=req.intent_hint,            # V2
             locale=locale,
+            web_search_enabled=_sess_web_enabled,   # same rule as /ask (see _web_search_gate)
         )
     entry.last_used_at = time.time()
 
@@ -2843,6 +2877,9 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         turn_id=_sess_turn_id,
         locale=locale,
         question_lang=_question_lang,
+        # Same routing_trace keys /ask projects; None (no key in the line) when ask_v2 did not run.
+        web_search_enabled=(_sess_orch.get("routing_trace") or {}).get("web_search_enabled") if _sess_orch is not None else None,
+        search_web_ran=(_sess_orch.get("routing_trace") or {}).get("search_web_ran") if _sess_orch is not None else None,
     )
     try:
         write_audit_entry(_sess_audit_entry)
@@ -2997,6 +3034,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
         table_conclusions=r.table_conclusions,  # metric ranking's verdict (already plain JSON)
+        web_search=r.web_search,                # same projection as /ask
         # i102: the calendar card, already built correctly on FinalResponse by
         # Track D / i93 (composed_primary_call) and never serialized here.
         fixture_outlook=_to_dict(r.fixture_outlook),

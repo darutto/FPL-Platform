@@ -400,6 +400,33 @@ _SOURCE_LABEL_ONLY_RE = re.compile(
 )
 
 
+def web_search_payload(d: dict[str, Any], answer_text: str) -> "dict[str, Any] | None":
+    """The ``web_search`` response field of one ask_v2 result dict, or ``None``.
+
+    One projection for ``POST /ask`` (``harness_adapter``) and the session route
+    (``final_response``): non-null when ``search_web`` ran end-to-end, alone or
+    beside another tool. The raw output's own ``answer`` is model input only and
+    is never surfaced; ``answer_text`` (the displayed text) is the summary.
+    """
+    if d.get("selected_tool") == "search_web" and d.get("outcome") == "ok":
+        raw = d.get("raw_output") or {}
+        return {
+            "topic": (d.get("tool_input") or {}).get("query"),
+            "summary": answer_text,
+            "results": raw.get("results") or [],
+            "timestamp": raw.get("timestamp"),
+        }
+    src = d.get("web_search_sources")
+    if src:
+        return {
+            "topic": src.get("topic"),
+            "summary": answer_text,
+            "results": src.get("results") or [],
+            "timestamp": src.get("timestamp"),
+        }
+    return None
+
+
 def strip_urls_from_prose(text: str) -> str:
     """Remove links from model prose: the sources are shown separately as titled links.
 

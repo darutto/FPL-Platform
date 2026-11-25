@@ -99,7 +99,10 @@ def test_toggle_off_prompt_overrides_the_fetch_instructions_and_says_what_to_tel
     assert off.startswith(on) and len(off) > len(on)
     tail = off[len(on):]
     assert "WEB_OFF" in tail and "ignore every line above that tells you to fetch" in tail
-    assert "No puedo consultar la web ahora." in tail and "I can't check the web right now." in tail
+    assert "Enciende la web para consultarlo." in tail and "Turn on Web to check it." in tail
+    assert "No puedo consultar la web" not in tail and "can't check the web" not in tail   # not an outage line
+    assert "ONLY when the question itself needs the web" in tail
+    assert "never use it as a closing line" in tail and "answer the tools already covered" in tail
     assert "Never claim you checked a page" in tail
 
 
@@ -312,9 +315,111 @@ def test_ask_toggle_with_an_ineligible_tier_makes_no_model_call(server, seen):
     assert seen["client"] is None and seen["ran"] == []
 
 
-def test_session_has_no_toggle_so_it_offers_and_runs_no_web_tool(server, seen):
+# -- /session honours the toggle with /ask's rule ------------------------------
+
+ELIGIBLE = {"X-User-Tier": "patreon_plus"}
+INELIGIBLE: dict[str, str] = {}
+
+
+def _post(server, route, body, headers):
+    if route == "ask":
+        return server.post("/ask", json=body, headers=headers)
     sid = server.post("/session").json()["session_id"]
-    r = server.post(f"/session/{sid}/ask", json={"question": Q}, headers={"X-User-Id": "w-sess", "X-User-Tier": "patreon_plus"})
+    return server.post(f"/session/{sid}/ask", json=body, headers=headers)
+
+
+@pytest.fixture
+def audit(monkeypatch):
+    rows = []
+    monkeypatch.setattr(fpl_server, "write_audit_entry", lambda entry: rows.append(entry))
+    return rows
+
+
+@pytest.mark.parametrize("route", ["ask", "session"])
+@pytest.mark.parametrize("body_extra,headers,offers_web", [
+    ({"web_search_requested": True}, ELIGIBLE, True),     # on + eligible
+    ({"web_search_requested": False}, ELIGIBLE, False),   # off
+    ({}, ELIGIBLE, False),                                # absent
+])
+def test_both_routes_apply_the_same_toggle_rule(server, seen, audit, route, body_extra, headers, offers_web):
+    r = _post(server, route, {"question": Q, **body_extra}, {"X-User-Id": f"t-{route}", **headers})
     assert r.status_code == 200
-    assert seen["offered"] and all("web_fetch" not in o and "search_web" not in o for o in seen["offered"])
-    assert "web_fetch" not in seen["ran"]
+    assert seen["offered"]
+    for offered in seen["offered"]:
+        assert ({"web_fetch", "search_web"} <= offered) is offers_web
+        assert (("web_fetch" in offered) or ("search_web" in offered)) is offers_web
+    assert ("web_fetch" in seen["ran"]) is offers_web
+    assert audit and audit[-1].web_search_enabled is offers_web   # the audit says what was offered
+
+
+@pytest.mark.parametrize("route", ["ask", "session"])
+def test_on_but_ineligible_is_gated_with_no_model_call_and_no_audit_of_a_model_turn(server, seen, audit, route):
+    r = _post(server, route, {"question": Q, "web_search_requested": True}, {"X-User-Id": f"g-{route}"})
+    body = r.json()
+    assert body["outcome"] == "feature_gated" and body["supported"] is False and body["llm_used"] is False
+    assert "premium" in body["final_text"].lower() or "premium" in body["final_text"]
+    assert seen["client"] is None and seen["ran"] == []
+
+
+def test_the_gate_text_is_the_same_on_both_routes(server, seen):
+    a = _post(server, "ask", {"question": Q, "web_search_requested": True, "locale": "en"}, {"X-User-Id": "gt-a"}).json()
+    s_ = _post(server, "session", {"question": Q, "web_search_requested": True, "locale": "en"}, {"X-User-Id": "gt-s"}).json()
+    assert a["final_text"] == s_["final_text"] and a["outcome"] == s_["outcome"] == "feature_gated"
+
+
+def test_a_deterministic_player_pick_is_never_a_model_turn_because_web_is_on(server, seen):
+    pid = STANDARD_BOOTSTRAP["elements"][0]["id"]
+    sid = server.post("/session").json()["session_id"]
+    r = server.post(
+        f"/session/{sid}/ask",
+        json={"question": "pick", "selected_player_id": pid, "web_search_requested": True},
+        headers={"X-User-Id": "pick", **INELIGIBLE},   # not gated either: a pick is not a web turn
+    )
+    assert r.status_code == 200 and r.json()["outcome"] != "feature_gated"
+    assert seen["client"] is None and seen["ran"] == []
+
+
+SEARCH_RESULTS = [
+    {"title": "Synthetic club update", "snippet": "s", "url": "https://example.test/a", "source": "example.test", "published": None},
+]
+
+
+@pytest.mark.parametrize("route", ["ask", "session"])
+def test_the_sources_list_reaches_the_response_on_both_routes(server, monkeypatch, route):
+    real = orch_mod.ask_orchestrated
+
+    def _wrapped(question, bootstrap, **kw):
+        kw["client"] = _Client(_tool_use("search_web", {"query": "Saka injury update"}), default=_text("Fuente web: https://example.test/a"))
+        kw["provider"] = "anthropic"
+        kw.pop("api_key", None)
+        kw["_eval_client"] = None
+        return real(question, bootstrap, **kw)
+
+    def _spy(name, args, bootstrap):
+        return {"status": "ok", "results": SEARCH_RESULTS, "answer": None, "timestamp": "2026-11-25T10:00:00+00:00"}
+
+    monkeypatch.setattr(orch_mod, "ask_orchestrated", _wrapped)
+    monkeypatch.setattr(orch_mod, "run_tool", _spy)
+    r = _post(server, route, {"question": Q, "web_search_requested": True}, {"X-User-Id": f"src-{route}", **ELIGIBLE})
+    body = r.json()
+    assert body["web_search"] is not None, {k: body.get(k) for k in ("outcome", "intent", "final_text")}
+    assert [x["url"] for x in body["web_search"]["results"]] == ["https://example.test/a"]
+    assert "http" not in body["final_text"]   # the URL moved to the list
+
+
+def test_the_session_sources_projection_equals_asks(server, monkeypatch):
+    # One helper builds the field for both routes; the two bodies agree on it.
+    real = orch_mod.ask_orchestrated
+
+    def _wrapped(question, bootstrap, **kw):
+        kw["client"] = _Client(_tool_use("search_web", {"query": "x"}), default=_text("Resumen."))
+        kw["provider"] = "anthropic"
+        kw.pop("api_key", None)
+        kw["_eval_client"] = None
+        return real(question, bootstrap, **kw)
+
+    monkeypatch.setattr(orch_mod, "ask_orchestrated", _wrapped)
+    monkeypatch.setattr(orch_mod, "run_tool", lambda n, a, b: {"status": "ok", "results": SEARCH_RESULTS, "answer": None, "timestamp": "t"})
+    a = _post(server, "ask", {"question": Q, "web_search_requested": True}, {"X-User-Id": "p-a", **ELIGIBLE}).json()
+    s_ = _post(server, "session", {"question": Q, "web_search_requested": True}, {"X-User-Id": "p-s", **ELIGIBLE}).json()
+    assert a["web_search"] == s_["web_search"] and a["web_search"] is not None
