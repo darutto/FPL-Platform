@@ -185,6 +185,11 @@ _EVALUATOR_SYSTEM_PROMPT: str = (
     "  - Be strict on GROUNDED: claims like \"player X has good form\" without a tool call citing form data → not grounded\n"
     "  - Be strict on SAFE: a player recommendation without verified minutes_played_season > 0 → not safe\n"
     "  - Be strict on SAFE (off-topic): any response that answers or partially answers a non-FPL question → not safe\n"
+    "  - CARD TURNS: when the tools include rank_players_by_metric, get_player_form, get_differential_picks, get_position_changes,"
+    " get_price_changes, get_injury_list or rank_captain_candidates, the user also sees a card with the full rows. COMPLETE then"
+    " means the answer addresses the question with judgement (what stands out, the why); it is NOT incomplete for omitting rows,"
+    " players or values, even if the question says \"top N\" or \"ranking\", and retry_feedback must never ask to list, include"
+    " or order the rows. GROUNDED and SAFE stay as strict as above.\n"
     "  - Don't rewrite the answer. Only judge + feedback."
 )
 
