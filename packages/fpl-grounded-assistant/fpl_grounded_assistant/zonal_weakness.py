@@ -1158,6 +1158,15 @@ def get_zonal_opportunity(
         "data_provenance": provenance,
     }
     result["weakness_strength"] = card_fields["weakness_strength"]
+    if provenance.get("past_tense"):
+        # Four or more gameweeks old: "these players fit that weakness now"
+        # is a forward claim read off a picture of the past. The opponent's
+        # zone table stays (a past fact, stamped); the player list goes, and
+        # the flag lets the card and the text drop the section instead of
+        # announcing an empty one.
+        result["exploiters"] = []
+        result["opportunities"] = [{**o, "players": []} for o in opportunities]
+        result["exploiters_withheld"] = True
     if requested_teams or scope_resolution in ("fixtures", "fixtures_empty_fallback"):
         # matched is None when NO requested team resolved against the store
         # -- distinct from resolving fine but nobody on those teams having

@@ -710,6 +710,7 @@ GET_ZONAL_OPPORTUNITY_SPEC = ToolSpec(
             "zones":           {"type": "array"},   # T4b: 3 in-box lateral cells
             "frontal_zones":   {"type": "array"},   # 3 edge-of-box lateral cells, same shape
             "exploiters":      {"type": "array"},   # T4b: ranked zone-fit table; i90 adds gameweek/is_home/fixtures under fixture scope; i75: team_short is the CURRENT club, club_source ∈ bootstrap|store, club_note "antes en X" | null
+            "exploiters_withheld": {"type": "boolean"},   # true when the data is 4+ GWs old: no player list, the card drops the section
             "team_filter":     {"type": "object"},  # i85–i90: {requested, matched, source, *_teams, fixture_window, fixtures, scheduled_opponents, candidates_per_team}; present when a team scope was given, inferred, or fixture-derived
             "weakness_strength": {"type": "string"},  # i89: clear | marginal | none
             "weakness_label":  {"type": "string"},  # T4b

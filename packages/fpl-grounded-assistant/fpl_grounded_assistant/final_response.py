@@ -1972,7 +1972,7 @@ def _extract_zonal_opportunity_meta(ro: "dict[str, Any]") -> "DefensiveZonesMeta
         zones_source = ro.get("card_zones") or ro.get("zones")
         if not zones_source:
             return None
-        has_exploiters = "exploiters" in ro
+        has_exploiters = "exploiters" in ro and not ro.get("exploiters_withheld")
         return DefensiveZonesMeta(
             opponent       = ro.get("opponent") or ro.get("team", ""),
             weakness_label = ro.get("weakness_label", ""),

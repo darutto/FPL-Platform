@@ -134,6 +134,7 @@ def _store_at(tmp_path, data_gw, pointer_extra=None):
         rows.append(_shot(conceding, shooting, 0.90, 0.50, 0.30, i, _date_in_gw(data_gw)))
         if conceding == "Eastport":
             rows.append(_shot(conceding, shooting, 0.90, 0.20, 0.40, i, _date_in_gw(data_gw)))
+    rows = [r for r in rows for _ in range(12)]  # enough shots per player to be ranked
     path = tmp_path / "understat_shots.parquet"
     pd.DataFrame(rows).to_parquet(path, index=False)
     (tmp_path / "_tactical_latest.json").write_text(json.dumps({**POINTER, **(pointer_extra or {})}))
@@ -181,3 +182,44 @@ def _links(tmp_path, data_gw, monkeypatch):
 def test_fixture_cell_keeps_the_tap_at_three_behind_and_drops_it_at_four(tmp_path, monkeypatch):
     assert len(_links(tmp_path, 7, monkeypatch)) == 1
     assert _links(tmp_path, 6, monkeypatch) == []
+
+
+# --- exploiters withheld at four behind ----------------------------------------
+
+
+def _opportunity(tmp_path, data_gw):
+    path = _store_at(tmp_path, data_gw=data_gw)
+    return zw.get_zonal_opportunity("Eastport", store=path, live_season="2026-2027", gw_events=EV, locale="en")
+
+
+def test_opportunity_names_players_up_to_three_behind(tmp_path):
+    out = _opportunity(tmp_path, 7)
+    assert out["exploiters"] and "exploiters_withheld" not in out
+    assert any(o["players"] for o in out["opportunities"])
+
+
+def test_opportunity_withholds_players_at_four_behind_but_keeps_the_zones(tmp_path):
+    out = _opportunity(tmp_path, 6)
+    assert out["exploiters"] == [] and out["exploiters_withheld"] is True
+    assert out["opportunities"] and all(o["players"] == [] for o in out["opportunities"])
+    assert out["zones"] and out["data_provenance"]["status"] == "aged"
+
+
+def test_text_never_announces_an_empty_player_list(tmp_path):
+    from fpl_grounded_assistant.renderer import _render_get_zonal_opportunity
+
+    text = _render_get_zonal_opportunity(_opportunity(tmp_path, 6))
+    assert "sin jugadores" not in text and "Oportunidad zonal" not in text
+    assert "conceded" in text  # the past-tense verdict leads
+    assert "vs media" in text   # the opponent's zones stay
+
+
+def test_card_drops_the_player_section_instead_of_showing_an_empty_one(tmp_path):
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+
+    out = _opportunity(tmp_path, 6)
+    out["card_zones"] = out["zones"]
+    meta = _extract_zonal_opportunity_meta(out)
+    assert meta is not None and meta.has_exploiters is False and meta.exploiters == ()
+    fresh = _opportunity(tmp_path, 7)
+    assert _extract_zonal_opportunity_meta(fresh).has_exploiters is True

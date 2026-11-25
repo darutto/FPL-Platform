@@ -1776,6 +1776,15 @@ def _render_get_zonal_opportunity(output: dict[str, Any], locale: Locale = DEFAU
                 f"–J{fw.get('to_gw', '?')}: "
                 f"{format_zonal_fixture_scope_line(tf['fixtures'], opponent)}"
             )
+        if output.get("exploiters_withheld"):
+            # Data too old for player claims: the past-tense verdict and the
+            # opponent's zones only, no player list and no "no players" line.
+            lines = [output.get("verdict") or f"Lectura zonal de {opponent}:"]
+            for opp in opportunities:
+                lines.append(f"  {opp.get('zone', '?')} ({opp.get('delta_vs_avg', 0.0):+.3f} vs media)")
+            if prov:
+                lines.append(prov)
+            return "\n".join(lines)
         if not opportunities:
             text = (
                 f"{opponent} no concede por encima de la media de la liga en "
