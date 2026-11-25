@@ -389,12 +389,15 @@ def compare_with_backup(new: pd.DataFrame, backup: pd.DataFrame) -> dict:
         for _, row in gn.iterrows():
             best, best_d = None, 1e9
             for idx, cand in gb.iterrows():
-                if idx in used or abs(int(cand["minute"]) - int(row["minute"])) > 1:
+                # Pair on minute and depth (x is never mirrored); y is what is
+                # being checked, so it must not decide who pairs with whom.
+                if (idx in used or abs(int(cand["minute"]) - int(row["minute"])) > 1
+                        or abs(cand["x"] - row["x"]) > 0.08):
                     continue
                 d = (cand["x"] - row["x"]) ** 2 + (cand["y"] - row["y"]) ** 2
                 if d < best_d:
                     best, best_d = idx, d
-            if best is None or best_d > 0.05:
+            if best is None:
                 continue
             used.add(best)
             matched += 1

@@ -59,3 +59,19 @@ deterministic engines.
 
 See `CONTRACT.md` for the schema and invariants, `DECISIONS.md` for the
 T1a data-source decision and its caveats.
+
+## StrikerAPI source (2026-27)
+
+Understat stopped answering on 2026-11-02, so 2026-27 shots come from StrikerAPI.
+One season is one source; the Understat objects on R2 stay untouched as a backup.
+
+- `strikerapi-load` (once, explicit, 202 credits) and `strikerapi-sync` (daily, only what is due: finished,
+  at least 36 h past full time, not stored; nothing due = no call, no credits; default ceiling 130).
+- Working store: `seasons/<season>/strikerapi/` (never the serving files). R2: `tactical/<season>/strikerapi/`.
+- Serving: `TACTICAL_SHOTS_SOURCE=strikerapi|understat` (default `understat`) decides which R2 pair
+  `publish sync` copies to the serving files at startup. Switch or roll back = change the variable and restart.
+- StrikerAPI has no situation field: penalties are labelled from its flag, every other shot has an unknown
+  situation, and the zonal side then shows no set-piece/open-play origin.
+- Frame: `x_store = 1 - x_api/2`, `y_store = 1 - y_api` (mirrored).
+- A failed check (goals vs FPL, coverage, duplicates, ranges, flank canaries) publishes nothing; the daily
+  workflow then opens or refreshes one issue, "shot source down or changed".
