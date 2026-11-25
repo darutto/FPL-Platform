@@ -394,7 +394,9 @@ def _valid_zonal(zonal: dict[str, Any]) -> bool:
             s = z["share"]
             if z["zone"] not in ZONES or isinstance(s, bool) or not math.isfinite(s) or not 0.0 <= s <= 1.0:
                 return False
-        if not zonal["fixtures"]:
+        # Empty fixtures are valid only as the profile-only block (data too
+        # old for matchup claims); anything else with no fixtures is invalid.
+        if not zonal["fixtures"] and zonal.get("verdict_kind") != "profile":
             return False
         for fx in zonal["fixtures"]:
             if fx["status"] not in _VALID_STATUS:
@@ -487,7 +489,12 @@ def _compose(
             "status": entry["status"],
             "matches": entry["matches"],
         })
-    kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale)
+    if provenance.get("past_tense"):
+        # No per-opponent rows, no verdict, nothing present-tense: just the
+        # player's own profile and the stamp (see build_player_outlook).
+        out_fixtures, kind, verdict = [], "profile", ""
+    else:
+        kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale)
     zonal = {
         "zones": zones,
         "window": {"gw_from": window[0], "gw_to": window[1]},

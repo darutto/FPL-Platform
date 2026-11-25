@@ -454,7 +454,7 @@ def build_data_provenance(
         prov["data_through_gw"] = data_age["data_gw"]
         prov["data_through_date"] = data_age["date"]
         prov["gws_behind"] = data_age["behind"]
-        prov["past_tense"] = data_age["behind"] >= PAST_BEHIND_GWS and prov["status"] in ("aged", "thin", "current")
+        prov["past_tense"] = data_age["behind"] >= PAST_BEHIND_GWS
     return prov
 
 
@@ -1302,6 +1302,19 @@ def build_player_outlook(
     exact same read.
     """
     player_zones = player_zone_list(info)
+
+    # Four or more gameweeks old: no per-opponent matchup claim at all. The
+    # player's own zone profile stays (a fact about the past), stamped.
+    if provenance.get("past_tense"):
+        return {
+            "status": "ok",
+            "player": player,
+            "team": info["team"],
+            "player_zones": player_zones,
+            "outlook": [],
+            "verdict": "",
+            "data_provenance": provenance,
+        }
 
     outlook: list[dict[str, Any]] = []
     for fx in fixtures:

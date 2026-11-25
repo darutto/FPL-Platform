@@ -1825,7 +1825,8 @@ def _render_get_player_zonal_outlook(output: dict[str, Any], locale: Locale = DE
         zones   = output.get("player_zones", [])
         outlook = output.get("outlook", [])
 
-        lines = [verdict or f"Cruce zonal de {player} ({team}):"]
+        heading = f"Cruce zonal de {player} ({team}):" if outlook else f"Perfil zonal de {player} ({team}):"
+        lines = [verdict or heading]
         if zones:
             zones_str = ", ".join(
                 f"{z.get('zone', '?')} ({z.get('share', 0.0) * 100:.0f}% de su xG)"

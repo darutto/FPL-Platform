@@ -2125,7 +2125,7 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
             PlayerZonalZone(zone=str(z["zone"]), share=float(z["share"]))
             for z in raw["zones"]
         )
-        if not zones or not fixtures:
+        if not zones or (not fixtures and str(raw.get("verdict_kind")) != "profile"):
             return None
         return PlayerZonalOutlookMeta(
             zones           = zones,

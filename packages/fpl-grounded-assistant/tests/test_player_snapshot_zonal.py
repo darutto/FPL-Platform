@@ -753,3 +753,38 @@ def test_prompt_rule_exists_for_the_llm_path():
     from fpl_grounded_assistant import orchestrator
     src = open(orchestrator.__file__, encoding="utf-8").read()
     assert "PLAYER_ZONAL" in src and "next 3 gameweeks" in src
+
+
+# ---------------------------------------------------------------------------
+# Data four or more gameweeks old: the player's profile stays, matchup claims go
+# ---------------------------------------------------------------------------
+
+def _bootstrap_aged(finished_through):
+    """Newest stored shot is 2026-09-01 (GW1's window); *finished_through* gameweeks are finished."""
+    bs = make_bootstrap()
+    bs["events"] = [
+        {"id": gw, "deadline_time": f"2026-{8 + (gw > 1):02d}-{15 if gw == 1 else 5 + 7 * (gw - 2):02d}T17:30:00Z",
+         "finished": gw <= finished_through, "is_current": gw == finished_through}
+        for gw in range(1, 8)
+    ]
+    return bs
+
+
+def test_three_behind_still_makes_matchup_claims():
+    z = zonal_of(10, _bootstrap_aged(4))
+    assert z["fixtures"] and z["verdict_kind"] == "favorable"
+
+
+def test_four_behind_keeps_the_profile_and_drops_every_matchup_claim():
+    z = zonal_of(10, _bootstrap_aged(5))
+    assert z["zones"] == [{"zone": CENTRAL, "share": 1.0}]
+    assert z["fixtures"] == []
+    assert z["verdict_kind"] == "profile" and z["verdict"] == ""
+    assert z["data_provenance"]["past_tense"] is True and z["data_provenance"]["gws_behind"] == 4
+    assert "favor" not in json.dumps(z).lower()
+
+
+def test_four_behind_card_has_no_pill_or_conclusion_for_zonal():
+    res = snap(10, _bootstrap_aged(5))["player"]
+    assert all(s.get("kind") != "zone" for s in res.get("signals") or [])
+    assert all(c.get("key") != "zonal" for c in res.get("conclusions") or [])
