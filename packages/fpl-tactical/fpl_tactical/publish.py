@@ -225,6 +225,26 @@ def publish_tactical_store_to_r2(
     return result
 
 
+def fetch_working_store_from_r2(season: str, source: str = SOURCE_STRIKERAPI) -> int:
+    """Restore a source's WORKING store from R2 (a CI runner starts empty).
+
+    Not the serving paths. Returns the number of files fetched; fewer than 2
+    means R2 holds no complete store for that source yet (the first load has
+    not happened).
+    """
+    client = _make_r2_client()
+    bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
+    n = 0
+    for local, key in _season_transfer_plan(season, source, serving=False):
+        local.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            client.download_file(bucket, key, str(local))
+            n += 1
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("tactical_fetch event=file_missing key=%s err=%s", key, exc)
+    return n
+
+
 def sync_tactical_store_from_r2(season: str = CURRENT_SEASON) -> TacticalSyncResult:
     """Download the tactical store from R2 into the serving paths. FAIL-SOFT.
 
@@ -305,13 +325,18 @@ def _main(argv: list[str] | None = None) -> int:
     for name, help_text in (
         ("publish", "Upload tactical store to R2 (operator/workflow)."),
         ("sync", "Download tactical store from R2 (fail-soft)."),
+        ("fetch", "Restore a source's working store from R2 (CI)."),
     ):
         cmd = sub.add_parser(name, help=help_text)
         cmd.add_argument("--season", default=CURRENT_SEASON)
-        if name == "publish":
+        if name in ("publish", "fetch"):
             cmd.add_argument("--source", choices=SOURCES, default=SOURCE_UNDERSTAT)
 
     args = parser.parse_args(argv)
+    if args.command == "fetch":
+        n = fetch_working_store_from_r2(args.season, args.source)
+        print(f"fetched {n} files")
+        return 0 if n == 2 else 1
     if args.command == "publish":
         result = publish_tactical_store_to_r2(args.season, args.source)
     else:

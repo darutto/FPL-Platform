@@ -90,11 +90,23 @@ class StrikerApiClient:
         return payload["data"]
 
     def list_games(self, season: int) -> list[dict]:
-        data = self.call("list_games", {"season": season})
-        games = data.get("games") if isinstance(data, dict) else None
-        if not isinstance(games, list):
-            raise StrikerApiError("list_games answered without a games list")
-        return games
+        """Finished games of the season (PL is the default league), paged 200 at a time."""
+        games: list[dict] = []
+        offset = 0
+        for _ in range(10):  # a season is 380 games: 2 pages; the bound only stops a runaway
+            body: dict = {"season": season, "status": "final", "limit": 200}
+            if offset:
+                body["offset"] = offset
+            data = self.call("list_games", body)
+            page = data.get("games") if isinstance(data, dict) else None
+            if not isinstance(page, list):
+                raise StrikerApiError("list_games answered without a games list")
+            games.extend(page)
+            nxt = data.get("next_offset")
+            if not nxt:
+                return games
+            offset = int(nxt)
+        raise StrikerApiError("list_games kept paging")
 
     def shot_map_for_game(self, game_id: str) -> list[dict]:
         data = self.call("get_shot_map", {"game_id": str(game_id)})

@@ -1,22 +1,46 @@
 name: Tactical-Store Refresh
 
+# Zonal shots come from StrikerAPI. Daily, after the source's own refresh
+# (10:00 UTC). The job reads FPL's public fixtures first; on a day with no
+# match due (finished and >= 36 h past full time, not yet stored) it makes no
+# call to the source and spends no credits.
+#
+# The Understat next-season probe (i77) no longer lives here: this job does not
+# wait on Understat, and a probe hidden behind continue-on-error would be
+# green noise. Nothing read its step outputs.
+
 on:
   schedule:
-    - cron: "30 6 * * 1"   # Mondays 06:30 UTC — offset from owned-store-refresh (06:00)
-  workflow_dispatch:        # manual trigger via `gh workflow run tactical-store-refresh.yml`
+    - cron: "30 11 * * *"
+  workflow_dispatch:
     inputs:
       season:
         description: "Season key override; blank = the registry's current_season"
         required: false
+      max_credits:
+        description: "Hard credit ceiling for this run"
+        required: false
+        default: "130"
 
 concurrency:
   group: tactical-store-refresh
-  cancel-in-progress: false  # never cancel an in-flight refresh; let it finish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      PYTHONPATH: packages/fpl-tactical
+      OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
+      OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
+      OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
+      OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
+      OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
 
     steps:
       - name: Checkout repository
@@ -27,24 +51,12 @@ jobs:
         with:
           python-version: "3.13"
 
-      # soccerdata is a weekly-workflow dependency ONLY — it never ships to
-      # the serving deployment, which reads the R2 parquet via
-      # `python -m fpl_tactical.publish sync`. boto3 is for the publish step.
-      # soccerdata's first run downloads a tls-client binary and caches raw
-      # pulls under ~/soccerdata/data — both fine on an ephemeral runner
-      # (each run does one full league pass, ~380 polite requests).
       - name: Install dependencies
         run: |
           pip install -r packages/fpl-tactical/requirements.txt boto3
 
       # Single source of truth for "which season is current" is
-      # packages/fpl-data-core/season_registry.yaml (current_season key),
-      # exactly as owned-store-refresh.yml resolves it. This step used to be
-      # a `DEFAULT_SEASON: "2025-2026"` literal in this file's env block --
-      # the twelfth copy of the season key, and the one the #222
-      # consolidation could not reach, because YAML cannot import Python.
-      # It has to run after "Install dependencies" (it needs pyyaml, which
-      # packages/fpl-tactical/requirements.txt pins for exactly this import).
+      # packages/fpl-data-core/season_registry.yaml, as in owned-store-refresh.yml.
       - name: Resolve season
         env:
           INPUT_SEASON: ${{ github.event.inputs.season }}
@@ -52,69 +64,43 @@ jobs:
           REGISTRY_SEASON="$(python -c "import sys; sys.path.insert(0, 'packages/fpl-data-core'); from fpl_data_core.season_registry import CURRENT_SEASON; print(CURRENT_SEASON)")"
           echo "SEASON=${INPUT_SEASON:-$REGISTRY_SEASON}" >> "$GITHUB_ENV"
 
-      # i77 -- nobody would notice when Understat publishes the NEXT season.
-      # This cron re-ingested a finished season every Monday from July to
-      # September 2026, in green, while the rotation (i73 delivery 2) waited
-      # on Understat with nothing to say when the wait was over. One schedule
-      # read + one R2 HEAD, before anything is ingested, for the season AFTER
-      # the one this job is about to refresh. The current season ($SEASON) is
-      # read first as a CONTROL: it is known to be published (its store is on
-      # R2), so an empty answer for it means the scrape is broken, blocked or
-      # stale -- not that anything is unpublished -- and the probe says so in
-      # red rather than passing "empty" off as "not yet" (found 2026-09-13: a
-      # July soccerdata cache served (3, 0) for the published 2026-2027; the
-      # probe also reads with no_cache=True for the same reason).
-      #
-      #   CONTROL ($SEASON) comes back empty -> ::error::, exit 2, JOB RED:
-      #        "sonda sin señal: la temporada actual <s> llegó vacía de Understat"
-      #   Understat empty                   -> ::notice::, exit 0, job continues
-      #   published, store already on R2     -> ::notice::, exit 0, job continues
-      #   empty, but a store exists on R2    -> ::warning::, exit 0 (wrong key?)
-      #   published, NO tactical store yet   -> ::error::, exit 1, JOB RED:
-      #        "Understat publicó <season>: ejecutar la entrega de i73 pendiente"
-      #   the probe itself failed            -> ::error::, exit 2, JOB RED
-      #
-      # The red is deliberate: a failure that is meant to be seen. It does NOT
-      # ingest the new season or bump current_season -- both stay a
-      # human-approved operation (i70's guard). Exit code -> Actions: any
-      # non-zero exit fails this step, which fails the job and skips the steps
-      # below (their implicit `if: success()`); there is no "neutral" outcome
-      # for a step in current Actions, so the empty case is a green job with a
-      # notice annotation. Outputs (published / store_exists / outcome /
-      # season / matches) are exported for any wiring that wants to gate on
-      # them. Measured 2026-09-13: read_schedule('2027-2028') -> shape (3, 0)
-      # (empty, notice); ('2026-2027') -> (380, 17) with its store on R2.
-      - name: Probe Understat for the next season (i77)
-        id: probe_next_season
-        env:
-          PYTHONPATH: packages/fpl-tactical
-          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
-          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
-          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
-          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
-          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+      # The runner starts empty: restore the StrikerAPI working store first.
+      # The first load (202 credits) is a separate, manual command and has to
+      # exist on R2 before this job can do anything.
+      - name: Restore the working store from R2
         run: |
-          python packages/fpl-tactical/scripts/probe_understat_season.py --next-after "$SEASON"
+          python -m fpl_tactical.publish fetch --season "$SEASON" --source strikerapi
 
-      - name: Ingest Understat shots (full season)
+      # Exit codes of strikerapi-sync: 0 ok or nothing due, 1 failed (nothing
+      # published), 3 refused (credits), 4 stored fine but a due match has been
+      # missing from the source for 3+ days. 4 still publishes what is valid
+      # and then opens the issue; every other non-zero fails the job.
+      - name: Sync what is due
+        id: sync
         env:
-          PYTHONPATH: packages/fpl-tactical
+          STRIKERAPI_KEY: ${{ secrets.STRIKERAPI_KEY }}
+          MAX_CREDITS: ${{ github.event.inputs.max_credits || '130' }}
         run: |
-          python -m fpl_tactical.cli ingest --season "$SEASON"
+          set +e
+          python -m fpl_tactical.cli strikerapi-sync --season "$SEASON" --max-credits "$MAX_CREDITS" | tee sync.json
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if grep -q '"action": "synced"' sync.json; then echo "synced=true" >> "$GITHUB_OUTPUT"; fi
+          if [ "$code" -ne 0 ] && [ "$code" -ne 4 ]; then exit "$code"; fi
 
       - name: Verify store
-        env:
-          PYTHONPATH: packages/fpl-tactical
+        if: steps.sync.outputs.synced == 'true'
         run: |
-          python -m fpl_tactical.cli verify --season "$SEASON"
+          python packages/fpl-tactical/scripts/verify_strikerapi_store.py --season "$SEASON"
 
       - name: Publish to R2
-        env:
-          PYTHONPATH: packages/fpl-tactical
-          OWNED_STORE_R2_ENDPOINT: ${{ secrets.OWNED_STORE_R2_ENDPOINT }}
-          OWNED_STORE_R2_BUCKET: ${{ secrets.OWNED_STORE_R2_BUCKET }}
-          OWNED_STORE_R2_ACCESS_KEY_ID: ${{ secrets.OWNED_STORE_R2_ACCESS_KEY_ID }}
-          OWNED_STORE_R2_SECRET_ACCESS_KEY: ${{ secrets.OWNED_STORE_R2_SECRET_ACCESS_KEY }}
-          OWNED_STORE_R2_PREFIX: ${{ secrets.OWNED_STORE_R2_PREFIX }}
+        if: steps.sync.outputs.synced == 'true'
         run: |
-          python -m fpl_tactical.publish publish --season "$SEASON"
+          python -m fpl_tactical.publish publish --season "$SEASON" --source strikerapi
+
+      - name: Open or refresh the issue
+        if: failure() || steps.sync.outputs.code == '4'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python packages/fpl-tactical/scripts/open_source_issue.py --detail "The daily shot refresh failed, or a finished match is missing from the source."
