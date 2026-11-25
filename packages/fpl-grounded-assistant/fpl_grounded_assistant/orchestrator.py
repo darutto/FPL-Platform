@@ -943,10 +943,30 @@ _EN_LOCALE_LINE: str = (
 )
 
 
-def static_system_prompt(locale: Locale = DEFAULT_LOCALE) -> str:
-    """The static orchestrator system prompt for *locale* (es == pre-i18n bytes)."""
+#: Appended to the static prompt ONLY on a turn whose web toggle is off. The base
+#: prompt (pinned byte for byte) still tells the model to fetch pages for news
+#: and to "offer to web_fetch"; with the web tools removed that would send it
+#: after a tool it does not have. This line overrides those, and says what to
+#: tell the user. With the toggle on nothing is appended: the toggle-on prompt is
+#: byte-identical to before.
+_WEB_OFF_LINE: str = (
+    "\n\nWEB_OFF: web access is OFF this turn. web_fetch and search_web are not available: ignore every "
+    "line above that tells you to fetch, search or open a page, or to offer to. If the question needs the "
+    "web or recent news, say so in ONE short sentence in the user's language (es: \"No puedo consultar la "
+    "web ahora.\" / en: \"I can't check the web right now.\"), then answer only from what the tools "
+    "returned. Never claim you checked a page."
+)
+
+
+def static_system_prompt(locale: Locale = DEFAULT_LOCALE, *, web_enabled: bool = True) -> str:
+    """The static orchestrator system prompt for *locale* (es == pre-i18n bytes).
+
+    ``web_enabled=False`` (the turn's web toggle is off) appends ``_WEB_OFF_LINE``;
+    the default keeps every existing caller and the pinned bytes unchanged.
+    """
     base = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
-    return base + _EN_LOCALE_LINE if locale == "en" else base
+    prompt = base + _EN_LOCALE_LINE if locale == "en" else base
+    return prompt if web_enabled else prompt + _WEB_OFF_LINE
 
 
 #: A local request capture (en locale, Spanish question, OpenAI path) showed the line above reaches the model on every
@@ -1101,7 +1121,7 @@ def _build_tools(
         if football_intelligence_enabled is None
         else football_intelligence_enabled
     )
-    offered = get_offered_tool_schemas(fi_enabled)
+    offered = get_offered_tool_schemas(fi_enabled, web_enabled=web_search_enabled)
     schemas = (*offered, SEARCH_WEB_SCHEMA) if web_search_enabled else offered
     if is_near_rank_eo_enabled():
         schemas = (*schemas, NEAR_RANK_EO_SCHEMA)
@@ -3030,7 +3050,7 @@ def _ask_orchestrated_impl(
     # P1.e Lever 2: for Anthropic, also build system_blocks with cache_control
     # applied to the last block so the system prompt prefix is cached.
     # ------------------------------------------------------------------
-    _static_prompt = static_system_prompt(locale)
+    _static_prompt = static_system_prompt(locale, web_enabled=web_search_enabled)
     try:
         from .context_builder import build_orchestration_context  # noqa: PLC0415
         _ctx = build_orchestration_context(actual_bootstrap)
