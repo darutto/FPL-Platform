@@ -216,25 +216,10 @@ def to_ask_response(
     #     field is model input only and is never surfaced (answer_text/
     #     summary is the rendered, displayed text instead).
     # ------------------------------------------------------------------
-    web_search: dict[str, Any] | None = None
-    if d.get("selected_tool") == "search_web" and d.get("outcome") == "ok":
-        _raw = d.get("raw_output") or {}
-        web_search = {
-            "topic": (d.get("tool_input") or {}).get("query"),
-            "summary": answer_text,
-            "results": _raw.get("results") or [],
-            "timestamp": _raw.get("timestamp"),
-        }
-    elif d.get("web_search_sources"):
-        # search_web ran beside another tool (e.g. get_player_snapshot): the cited
-        # sources still reach the UI, next to that tool's card.
-        _src = d["web_search_sources"]
-        web_search = {
-            "topic": _src.get("topic"),
-            "summary": answer_text,
-            "results": _src.get("results") or [],
-            "timestamp": _src.get("timestamp"),
-        }
+    # (also when search_web ran beside another tool: the cited sources still reach the UI.)
+    from .search_web import web_search_payload  # noqa: PLC0415
+
+    web_search: dict[str, Any] | None = web_search_payload(d, answer_text)
 
     # ------------------------------------------------------------------
     # 2. Derive intent from selected_tool (no top-level "intent" key in

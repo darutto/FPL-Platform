@@ -2127,13 +2127,35 @@ _REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {
 TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
 
 
+#: The tools that reach the web. ONE rule gates them all: the per-request web
+#: toggle (``/ask`` ``web_search_requested`` and an eligible tier). ``search_web``
+#: lives outside the base registry and is added only when the toggle is on;
+#: ``web_fetch`` lives inside it, so it is REMOVED when the toggle is off. Both
+#: the schemas offered to the model and the names the server will execute are
+#: computed from this one set, so a tool that is not offered cannot be run by
+#: naming it anyway.
+WEB_TOOL_NAMES: frozenset[str] = frozenset({"search_web", WEB_FETCH_SCHEMA.name})
+
+
 def get_offered_tool_schemas(
     football_intelligence_enabled: bool,
+    *,
+    web_enabled: bool = True,
 ) -> tuple[ToolSchema, ...]:
-    """Return the immutable LLM-offered schema set for one flag state."""
-    if football_intelligence_enabled:
-        return (*_BASE_OFFERED_SCHEMAS, *FI7B_TOOL_SCHEMAS)
-    return _BASE_OFFERED_SCHEMAS
+    """Return the immutable LLM-offered schema set for one flag state.
+
+    ``web_enabled=False`` drops the web-reaching tools that live in the base
+    registry (``web_fetch``). The default stays ``True`` so a caller that does
+    not say keeps today's set; the orchestrator always passes the turn's toggle.
+    """
+    schemas = (
+        (*_BASE_OFFERED_SCHEMAS, *FI7B_TOOL_SCHEMAS)
+        if football_intelligence_enabled
+        else _BASE_OFFERED_SCHEMAS
+    )
+    if web_enabled:
+        return schemas
+    return tuple(s for s in schemas if s.name not in WEB_TOOL_NAMES)
 
 
 def get_offered_tool_names(
@@ -2147,7 +2169,9 @@ def get_offered_tool_names(
     """Return names reachable through LLM tool dispatch for one request."""
     names = frozenset(
         schema.name
-        for schema in get_offered_tool_schemas(football_intelligence_enabled)
+        for schema in get_offered_tool_schemas(
+            football_intelligence_enabled, web_enabled=web_search_enabled,
+        )
     )
     if web_search_enabled:
         names = names | {SEARCH_WEB_SCHEMA.name}

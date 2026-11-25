@@ -1494,6 +1494,8 @@ class FinalResponse:
     # A metric ranking's verdict (table_conclusions): 0-3 {key, params,
     # evidence} dicts about the table, deterministic; None when none fires.
     table_conclusions:      "list[dict[str, Any]] | None"    = field(default=None)
+    # The web_search sources of a turn where search_web ran (same projection as POST /ask).
+    web_search:             "dict[str, Any] | None"          = field(default=None)
     # i80/i36: what ask_v2() produced on a session turn, kept as-is so the
     # HTTP layer audits from it instead of from constants:
     #   {"routing_trace": dict, "tokens": dict, "selected_tool": str | None,
@@ -3341,6 +3343,12 @@ def _try_deterministic_player_lookup_response(
 _SESSION_LLM_BRANCHES: frozenset[str] = frozenset({"orchestrator", "classifier_rewrite"})
 
 
+def _web_search_payload(result: dict[str, Any], answer_text: str) -> "dict[str, Any] | None":
+    from .search_web import web_search_payload  # noqa: PLC0415  (same projection as /ask)
+
+    return web_search_payload(result, answer_text)
+
+
 def _try_session_orchestration_response(
     user_message: str,
     bootstrap: dict[str, Any],
@@ -3356,6 +3364,7 @@ def _try_session_orchestration_response(
     intent_hint: str | None,
     locale: Locale = DEFAULT_LOCALE,
     raw_question: str | None = None,
+    web_search_enabled: bool = False,
 ) -> FinalResponse | None:
     """Route a session turn through the unified ``ask_v2()`` pipeline.
 
@@ -3423,6 +3432,8 @@ def _try_session_orchestration_response(
         # Brief 0a: the user's text untouched (``user_message`` may be the
         # session resolver's rewrite).
         raw_question=raw_question,
+        # The turn's web toggle, decided at the HTTP boundary with /ask's rule.
+        web_search_enabled=web_search_enabled,
     )
 
     routing_trace: dict[str, Any] = dict(result.get("routing_trace") or {})
@@ -3570,6 +3581,7 @@ def _try_session_orchestration_response(
         player_snapshot=result.get("player_snapshot"),
         generic_card=result.get("generic_card"),
         table_conclusions=result.get("table_conclusions"),
+        web_search=_web_search_payload(result, answer_text),
         suggestions=suggestion_items,
         evidence=_evidence_from_wire(result.get("evidence")),
         orch_outcome=orch_outcome,
@@ -3612,6 +3624,7 @@ def respond(
     _session_orchestration: bool = False,
     locale: Locale = DEFAULT_LOCALE,
     _raw_question: str | None = None,
+    web_search_enabled: bool = False,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -3726,6 +3739,7 @@ def respond(
             intent_hint=intent_hint,
             locale=locale,
             raw_question=_raw_question if _raw_question is not None else user_message,
+            web_search_enabled=web_search_enabled,
         )
         if orchestration_response is not None:
             return orchestration_response
