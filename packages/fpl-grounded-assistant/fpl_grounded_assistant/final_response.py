@@ -3175,6 +3175,7 @@ def _try_football_intelligence_response(
     api_key: str | None,
     classifier_client: Any,
     locale: Locale = DEFAULT_LOCALE,
+    raw_question: str | None = None,
 ) -> FinalResponse | None:
     """Use the shared FI harness path when the FI flag selects an FI tool."""
     from .orch_config import is_football_intelligence_enabled
@@ -3194,6 +3195,7 @@ def _try_football_intelligence_response(
         orch_api_key=api_key,
         _enrich_existing_intents=False,
         locale=locale,
+        raw_question=raw_question,
     )
     selected_tool = result.get("selected_tool")
     if selected_tool not in _FI_TOOL_NAMES:
@@ -3353,6 +3355,7 @@ def _try_session_orchestration_response(
     squad_context: dict[str, Any] | None,
     intent_hint: str | None,
     locale: Locale = DEFAULT_LOCALE,
+    raw_question: str | None = None,
 ) -> FinalResponse | None:
     """Route a session turn through the unified ``ask_v2()`` pipeline.
 
@@ -3417,6 +3420,9 @@ def _try_session_orchestration_response(
         orch_api_key=api_key,
         _enrich_existing_intents=False,
         locale=locale,
+        # Brief 0a: the user's text untouched (``user_message`` may be the
+        # session resolver's rewrite).
+        raw_question=raw_question,
     )
 
     routing_trace: dict[str, Any] = dict(result.get("routing_trace") or {})
@@ -3458,7 +3464,7 @@ def _try_session_orchestration_response(
         outcome: str = "unsupported_intent"
     else:
         outcome = raw_outcome
-    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification")
+    supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification", "condition_not_applied")
 
     if outcome == "needs_clarification":
         answer_text = _clarification_text_for_intent(intent, locale)
@@ -3467,7 +3473,7 @@ def _try_session_orchestration_response(
     # i127: same projection as harness_adapter (orchestrator branches carry it).
     llm_used: bool = bool(result["llm_used"]) if "llm_used" in result else branch in _SESSION_LLM_BRANCHES
     review_passed: bool = bool(routing_trace.get("grounded", False)) or (
-        outcome not in ("unsupported", "unsupported_intent")
+        outcome not in ("unsupported", "unsupported_intent", "condition_not_applied")
     )
 
     # ---- route_source (mirrors harness_adapter.to_ask_response step 5) ----
@@ -3605,6 +3611,7 @@ def respond(
     intent_hint: str | None = None,  # V2: optional slash-command routing bias
     _session_orchestration: bool = False,
     locale: Locale = DEFAULT_LOCALE,
+    _raw_question: str | None = None,
 ) -> FinalResponse:
     """Run the full pipeline and return a single caller-facing ``FinalResponse``.
 
@@ -3718,6 +3725,7 @@ def respond(
             squad_context=squad_context,
             intent_hint=intent_hint,
             locale=locale,
+            raw_question=_raw_question if _raw_question is not None else user_message,
         )
         if orchestration_response is not None:
             return orchestration_response
@@ -3746,6 +3754,7 @@ def respond(
             api_key=api_key,
             classifier_client=classifier_client,
             locale=locale,
+            raw_question=_raw_question if _raw_question is not None else user_message,
         )
         if fi_response is not None:
             return fi_response

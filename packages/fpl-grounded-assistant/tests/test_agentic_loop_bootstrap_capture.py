@@ -238,7 +238,8 @@ def test_rank_players_by_metric_still_ok(frozen_bootstrap, run_tool_fn):
         "rank_players_by_metric",
         {"metric": "points_per_game", "position": "MID",
          "min_price": 6.0, "max_price": 8.0, "top_n": 5},
-        frozen_bootstrap,
+        # Brief 0a: internal caller, no user text -> explicit opt-out.
+        {**frozen_bootstrap, "_rank_guard_internal": True},
     )
 
     assert result["status"] == "ok", result.get("message")
@@ -312,7 +313,8 @@ def network_tripwire(monkeypatch):
 
 def test_no_tool_touches_the_network(frozen_bootstrap, run_tool_fn, network_tripwire):
     for tool, args in _SCENARIO_TOOL_CALLS:
-        result = run_tool_fn(tool, args, frozen_bootstrap)
+        # Brief 0a: internal caller, no user text -> explicit opt-out.
+        result = run_tool_fn(tool, args, {**frozen_bootstrap, "_rank_guard_internal": True})
         assert result["status"] == "ok", f"{tool}: {result}"
 
     assert network_tripwire == [], f"tools attempted outbound calls: {network_tripwire}"

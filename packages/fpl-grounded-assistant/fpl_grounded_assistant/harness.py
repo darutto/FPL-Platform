@@ -578,6 +578,7 @@ def ask_v2(
     locale: Locale = DEFAULT_LOCALE,
     team_id: int | None = None,
     league_id: int | None = None,
+    raw_question: str | None = None,
 ) -> dict[str, Any]:
     """Phase M1/M2/M3 entrypoint composing `decision_router` + existing `ask()`.
 
@@ -1332,6 +1333,10 @@ def ask_v2(
                 web_search_enabled=web_search_enabled,
                 _eval_client=_eval_client,
                 locale=locale,
+                # Brief 0a: the user's text untouched (``question`` may already
+                # be a rewrite). A
+                # caller that does not pass it gets ``question`` as the raw text.
+                raw_question=raw_question if raw_question is not None else question,
             )
         except Exception as exc:  # noqa: BLE001  — defensive; ask_orchestrated never raises
             routing_trace["branch"]                  = "unsupported"
@@ -1389,6 +1394,48 @@ def ask_v2(
         # enough: ambiguous / not_found / no_team_connected all count as
         # success there). A non-ok owner (e.g. an ambiguous snapshot, i60)
         # still falls through to the branch below, unchanged.
+        # Brief 0a: the season ranking was refused and is the turn's only
+        # answer. Its own branch, not "unsupported" (which would drop
+        # raw_output) and not the grounded one (which would claim a reviewed
+        # answer and may render a card): the honest line, grounded=False, no
+        # selected tool, raw_output kept for audit and tests.
+        from .orchestrator import OUTCOME_CONDITION_NOT_APPLIED as _ORCH_GUARDED  # noqa: PLC0415
+        if orch_result.outcome == _ORCH_GUARDED:
+            routing_trace["branch"]               = "orchestrator_condition_guard"
+            routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
+            routing_trace["grounded"]             = False
+            routing_trace["tool_call_count"]      = orch_result.tool_call_count
+            routing_trace["synthesis_turn"]       = False
+            result = {
+                "selected_tool": None,
+                "tool_input":    {},
+                "raw_output":    dict(orch_result.tool_output or {}),
+                "answer_text":   orch_result.answer_text,
+                "outcome":       "condition_not_applied",
+                "kind":          "text",
+                "orchestrator_outcome": orch_result.outcome,
+                **_project_orchestrator_identity(orch_result),
+                **_project_final_text_guard(orch_result),
+                "llm_used": _project_llm_used(orch_result),
+                "tool_calls_trace": _project_tool_calls_trace(orch_result),
+                "tokens": {
+                    "primary_input": orch_result.primary_input_tokens,
+                    "primary_output": orch_result.primary_output_tokens,
+                    "primary_cache_read": orch_result.primary_cache_read_tokens,
+                    "evaluator": orch_result.evaluator_input_tokens,
+                    "retry_input": orch_result.retry_input_tokens,
+                    "retry_output": orch_result.retry_output_tokens,
+                    "retry_cache_read": orch_result.retry_cache_read_tokens,
+                    "total": orch_result.total_tokens,
+                },
+                "routing_trace": routing_trace,
+                **_none_meta,
+            }
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)
+            return result
+
         from .final_response import composed_primary_call  # noqa: PLC0415
         _composed_call = composed_primary_call(orch_result.tool_calls_trace)
         _primary_call = _plan_call_owner(orch_result.tool_calls_trace) or _composed_call
@@ -1956,5 +2003,16 @@ def _project_tool_calls_trace(orch_result: Any) -> list[dict[str, Any]]:
             "output_status": str((_e.get("output") or {}).get("status") or "unknown"),
             "round":         _e.get("round"),
             "retry":         bool(_e.get("retry", False)),
+            **_guard_kinds_field(_e),
         })
     return out
+
+
+def _guard_kinds_field(entry: dict[str, Any]) -> dict[str, list[str]]:
+    """Brief 0a audit: which condition kind(s) fired, enum values only."""
+    from .rank_condition_guard import AUDIT_KINDS, STATUS_CONDITION_NOT_APPLIED  # noqa: PLC0415
+
+    out = entry.get("output") or {}
+    if out.get("status") != STATUS_CONDITION_NOT_APPLIED:
+        return {}
+    return {"guard_conditions": [c for c in (out.get("conditions") or []) if c in AUDIT_KINDS]}

@@ -62,7 +62,8 @@ ROUTE_STRUCTURAL_KEYS: frozenset[str] = frozenset({
 
 
 def _tool_output(name: str, args: dict) -> dict:
-    out = run_tool(name, dict(args), copy.deepcopy(STANDARD_BOOTSTRAP))
+    # Brief 0a: building a fixture payload offline is an internal caller.
+    out = run_tool(name, dict(args), {**copy.deepcopy(STANDARD_BOOTSTRAP), "_rank_guard_internal": True})
     assert out.get("status") == "ok", (name, out)
     return out
 

@@ -997,7 +997,19 @@ def _rank_players_by_metric_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
-    """Tool-runner handler — delegates to ``rank_players_by_metric()``."""
+    """Tool-runner handler — delegates to ``rank_players_by_metric()``.
+
+    Brief 0a: this is the ONE place every user route reaches the ranking
+    (first round, evaluator retry, synthesis extra round), so the season-only
+    guard lives here. Order matters: (1) the independent suppress switch, read
+    first and outside any ``try``; (2) the ranking itself, so an unknown
+    metric keeps its refusal; (3) the condition guard on an ``ok`` result,
+    which replaces it with a rows-free ``condition_not_applied``.
+    """
+    from . import rank_condition_guard as guard  # noqa: PLC0415
+
+    if guard.suppress_enabled():
+        return guard.note_refusal(bootstrap, guard.refusal_output((), guard.REASON_SUPPRESSED))
     try:
         metric = args.get("metric")
         if not metric:
@@ -1007,7 +1019,7 @@ def _rank_players_by_metric_handler(
                 "message":       "metric is required.",
                 "valid_metrics": _VALID_METRICS,
             }
-        return rank_players_by_metric(
+        result = rank_players_by_metric(
             metric      = metric,
             top_n       = args.get("top_n", 10),
             position    = args.get("position"),
@@ -1017,6 +1029,12 @@ def _rank_players_by_metric_handler(
             order       = args.get("order"),
             bootstrap   = bootstrap,
         )
+        if result.get("status") != "ok":
+            return result
+        refusal = guard.evaluate(bootstrap, result.get("metric"))
+        if refusal is not None:
+            return guard.note_refusal(bootstrap, refusal)
+        return result
     except Exception as exc:  # noqa: BLE001
         return {
             "status":  "error",

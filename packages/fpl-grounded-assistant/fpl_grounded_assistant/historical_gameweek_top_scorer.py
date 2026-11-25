@@ -521,7 +521,8 @@ GET_HISTORICAL_GAMEWEEK_TOP_SCORER_SPEC = ToolSpec(
         "is omitted. Reads the owned store: any FINISHED gameweek of any stored "
         "season, including already-finished gameweeks of the current season. An "
         "in-progress gameweek returns code=gameweek_not_finished. Not goals -- "
-        "'maximo goleador' by goals is rank_players_by_metric. Not fixtures/"
+        "'maximo goleador' over the whole season is rank_players_by_metric; goals "
+        "in ONE gameweek have no tool (say so, never answer with points). Not fixtures/"
         "deadlines -- that is get_gameweek_context."
     ),
     parameters={
