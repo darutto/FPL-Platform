@@ -1167,7 +1167,7 @@ export interface PlayerZonalOutlookMeta {
   gw_to: number;
   fixtures: PlayerZonalFixture[];
   /** 'no_data' = availability verdict, not "no standout cross". */
-  verdict_kind: 'favorable' | 'neutral' | 'no_data';
+  verdict_kind: 'favorable' | 'neutral' | 'no_data' | 'profile';
   verdict: string;
   data_provenance: ZonalDataProvenance | null;
 }

@@ -49,7 +49,9 @@ export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
     zonal.fixtures.some((f) => f.status === 'favorable')
       ? zoneLink
       : null;
-  if (zonal.zones.length === 0 || zonal.fixtures.length === 0) return null;
+  const profileOnly = zonal.fixtures.length === 0;
+  // Data too old for matchup claims: the backend sends the profile only (no rows, no verdict).
+  if (zonal.zones.length === 0 || (profileOnly && zonal.verdict_kind !== 'profile')) return null;
   const { gw_from, gw_to } = zonal;
   const hasPitch = hasPlaceableZones(zonal.zones);
   const range = gw_from === gw_to ? gwLabel(gw_from, locale) : gwRange(gw_from, gw_to, locale);
@@ -62,11 +64,14 @@ export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-bf-gray">{t('pz.title')}</h3>
-        <span className="text-[10px] text-bf-gray">
-          {t('pz.window', { range })}
-        </span>
+        {!profileOnly && (
+          <span className="text-[10px] text-bf-gray">
+            {t('pz.window', { range })}
+          </span>
+        )}
       </div>
 
+      {zonal.verdict && (
       <p
         data-testid="player-zonas-verdict"
         className={`text-xs leading-snug ${
@@ -79,6 +84,7 @@ export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
       >
         {zonal.verdict}
       </p>
+      )}
 
       <div className="flex flex-col gap-3 min-[481px]:flex-row min-[481px]:items-start">
         {hasPitch && (
@@ -105,11 +111,13 @@ export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
         </div>
       </div>
 
-      <ul className="space-y-1" data-testid="player-zonas-rows">
-        {zonal.fixtures.map((f) => (
-          <ZonasRow key={`${f.fixture_id ?? 'x'}-${f.gameweek}-${f.opponent_short}`} fixture={f} />
-        ))}
-      </ul>
+      {!profileOnly && (
+        <ul className="space-y-1" data-testid="player-zonas-rows">
+          {zonal.fixtures.map((f) => (
+            <ZonasRow key={`${f.fixture_id ?? 'x'}-${f.gameweek}-${f.opponent_short}`} fixture={f} />
+          ))}
+        </ul>
+      )}
 
       {link && ask && (
         <div className="flex flex-wrap gap-2" data-testid="player-zonas-link">

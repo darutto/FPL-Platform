@@ -67,6 +67,29 @@ describe('zone helpers', () => {
 });
 
 describe('PlayerCard — Zonas section', () => {
+  test('data too old: profile and stamp stay, no window, verdict or rows, no empty gap', () => {
+    const aged: PlayerZonalOutlookMeta = {
+      ...zonal,
+      fixtures: [],
+      verdict_kind: 'profile',
+      verdict: '',
+      data_provenance: { ...zonal.data_provenance!, status: 'aged', label: '⚠ Datos hasta la GW8 · 20 oct' },
+    };
+    render(<PlayerCard data={withZonal(aged)} />);
+    expect(screen.getByTestId('player-zonas')).toBeInTheDocument();
+    expect(screen.getByTestId('player-zonas-chips').children).toHaveLength(2);
+    expect(screen.getByTestId('zonal-provenance')).toHaveTextContent('Datos hasta la GW8');
+    expect(screen.queryByTestId('player-zonas-verdict')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-zonas-rows')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-zonas-legend')).not.toBeInTheDocument();
+    expect(screen.queryByText(/jornadas|GW 6/)).not.toBeInTheDocument();
+  });
+
+  test('no fixtures and not the profile-only block still leaves the card without the section', () => {
+    render(<PlayerCard data={withZonal({ ...zonal, fixtures: [] })} />);
+    expect(screen.queryByTestId('player-zonas')).not.toBeInTheDocument();
+  });
+
   test('absent or null zonal leaves the card without the section', () => {
     const { rerender } = render(<PlayerCard data={withZonal(undefined)} />);
     expect(screen.queryByTestId('player-zonas')).not.toBeInTheDocument();
