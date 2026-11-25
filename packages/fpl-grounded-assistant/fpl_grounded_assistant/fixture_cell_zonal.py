@@ -79,6 +79,13 @@ def match_zonal_links(
         from .zonal_weakness_tool import _to_store_team  # noqa: PLC0415
 
         shots = _load_shots(store)
+        # Data four or more gameweeks old: the matchup would be read off a
+        # picture of the past, so the cell offers no tap (Leo, 2026-11-24).
+        from .zonal_weakness import PAST_BEHIND_GWS, _data_age, _read_pointer, gw_events_of  # noqa: PLC0415
+
+        age = _data_age(_read_pointer(store), shots, gw_events_of(bootstrap))
+        if age is not None and age["behind"] >= PAST_BEHIND_GWS:
+            return []
         if shots is None or not _has_shots(shots, _to_store_team(str(team.get("short_name") or ""), bootstrap)):
             return []
         locale = bootstrap_locale(bootstrap)

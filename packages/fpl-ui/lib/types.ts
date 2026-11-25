@@ -967,7 +967,7 @@ export interface ZonalDataProvenance {
   season_label: string | null;
   live_season: string | null;
   is_current: boolean;
-  /** 'current' | 'stale_season' | 'thin' | 'unverified' | 'unknown' */
+  /** 'current' | 'aged' | 'stale_season' | 'thin' | 'unverified' | 'unknown' */
   status: string;
   label: string;
   ingested_at: string | null;
