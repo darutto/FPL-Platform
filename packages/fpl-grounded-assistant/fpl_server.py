@@ -1804,6 +1804,39 @@ def metrics() -> dict[str, Any]:
     }
 
 
+
+def _tactical_serving_info(sync_result: Any) -> dict[str, Any]:
+    """Which shot source the server is serving, and how old it is.
+
+    Read from the pointer ON DISK (the file the zonal engine stamps from), so a
+    failed sync that left an older store in place still shows what is really
+    being served. Additive keys only; counts and labels, no paths.
+    """
+    out: dict[str, Any] = {"source_requested": getattr(sync_result, "source", None)}
+    try:
+        from fpl_tactical import store as _tstore  # noqa: PLC0415
+        from fpl_tactical.paths import CURRENT_SEASON as _season  # noqa: PLC0415
+
+        ptr = _tstore.read_pointer(_season) or {}
+    except Exception:  # noqa: BLE001 - health must never fail on this
+        ptr = {}
+    src = ptr.get("source")
+    out["source_serving"] = "strikerapi" if src == "strikerapi" else ("understat" if src else None)
+    out["ingested_at"] = ptr.get("ingested_at")
+    out["data_through_gw"] = ptr.get("data_through_gw")
+    out["newest_shot_date"] = ptr.get("newest_shot_date")
+    out["canaries"] = {
+        k: (v or {}).get("status") for k, v in (ptr.get("canaries") or {}).items()
+    } or None
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        ts = datetime.strptime(ptr["ingested_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        out["age_hours"] = round((datetime.now(tz=timezone.utc) - ts).total_seconds() / 3600, 1)
+    except Exception:  # noqa: BLE001
+        out["age_hours"] = None
+    return out
+
 @app.get("/healthz")
 def healthz() -> dict[str, Any]:
     """Phase M5 (MCP_architecture): decision-tree telemetry and graduation status.
@@ -1934,6 +1967,7 @@ def healthz() -> dict[str, Any]:
                 "files_synced": _tac.files_synced,
                 "error":        _tac.error,
             }
+            tactical_store_sync_info.update(_tactical_serving_info(_tac))
 
     # i57: which mode the orchestrator runs in, read from the environment AT
     # THIS REQUEST (orch_config getters are env reads, nothing is cached at
