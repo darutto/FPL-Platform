@@ -575,7 +575,7 @@ class DataProvenance:
     season_label: str | None
     live_season:  str | None
     is_current:   bool
-    #: current | stale_season | thin | unverified | unknown
+    #: current | aged | stale_season | thin | unverified | unknown
     status:       str
     label:        str
     ingested_at:  str | None

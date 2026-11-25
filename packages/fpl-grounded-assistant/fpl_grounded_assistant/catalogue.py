@@ -1939,6 +1939,38 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "Ataca a {team} {parts} \u2014 concede por encima de la media de la liga ah\u00ed.",
     },
     "zonal.and": {"en": " and ", "es": " y "},
+    "zonal.prov_aged": {
+        "en": "⚠ Data up to GW{gw} · {day} {month}",
+        "es": "⚠ Datos hasta la GW{gw} · {day} {month}",
+    },
+    "zonal.mon.1": {"en": "Jan", "es": "ene"},
+    "zonal.mon.2": {"en": "Feb", "es": "feb"},
+    "zonal.mon.3": {"en": "Mar", "es": "mar"},
+    "zonal.mon.4": {"en": "Apr", "es": "abr"},
+    "zonal.mon.5": {"en": "May", "es": "may"},
+    "zonal.mon.6": {"en": "Jun", "es": "jun"},
+    "zonal.mon.7": {"en": "Jul", "es": "jul"},
+    "zonal.mon.8": {"en": "Aug", "es": "ago"},
+    "zonal.mon.9": {"en": "Sep", "es": "sep"},
+    "zonal.mon.10": {"en": "Oct", "es": "oct"},
+    "zonal.mon.11": {"en": "Nov", "es": "nov"},
+    "zonal.mon.12": {"en": "Dec", "es": "dic"},
+    "zonal.verdict_none_past": {
+        "en": "{team} did not concede above the league average in any zone of the box.",
+        "es": "{team} no concedió por encima de la media de la liga en ninguna zona del área.",
+    },
+    "zonal.verdict_marginal_past": {
+        "en": "{team} did not concede clearly above average in any zone — the most favourable read was {side} {depth} ({pct:+.0f}%), a slight edge.",
+        "es": "{team} no concedió claramente por encima de la media en ninguna zona — la lectura más favorable fue {side} {depth} ({pct:+.0f}%), una ventaja leve.",
+    },
+    "zonal.verdict_clear_past": {
+        "en": "{team} conceded {pct:+.0f}% over an average side {side} {depth}.",
+        "es": "{team} concedió un {pct:+.0f}% sobre un equipo medio {side} {depth}.",
+    },
+    "zonal.verdict_multi_past": {
+        "en": "{team} conceded above the league average {parts}.",
+        "es": "{team} concedió por encima de la media de la liga {parts}.",
+    },
     "zonal.prov_unknown": {
         "en": "\u26a0 The tactical store does not declare which season this data is from",
         "es": "\u26a0 El almac\u00e9n t\u00e1ctico no declara de qu\u00e9 temporada son estos datos",

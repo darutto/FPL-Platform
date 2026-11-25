@@ -314,8 +314,76 @@ def _read_pointer(store: Any) -> dict[str, Any] | None:
     return pointer if isinstance(pointer, dict) else None
 
 
+#: Honest age of the data (Leo, 2026-11-24). Counted in finished gameweeks
+#: between the newest stored shot and the newest finished gameweek.
+#: From STAMP_BEHIND_GWS the stamp says «datos hasta la GW8 · 26 oct»; from
+#: PAST_BEHIND_GWS verdicts are worded in the past and the fixture cell
+#: offers no zonal tap. Tables stay, labelled.
+STAMP_BEHIND_GWS: int = 2
+PAST_BEHIND_GWS: int = 4
+
+
+def gw_events_of(bootstrap: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """The slice of the FPL bootstrap the age stamp needs, or None.
+
+    ``[{"id", "deadline_time", "finished"}]``. Passed down instead of the
+    whole bootstrap so the engine stays bootstrap-agnostic.
+    """
+    try:
+        events = (bootstrap or {}).get("events")
+        if not events:
+            return None
+        return [
+            {"id": e["id"], "deadline_time": e.get("deadline_time"), "finished": bool(e.get("finished"))}
+            for e in events
+            if isinstance(e, dict) and "id" in e
+        ]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _gw_of_date(date_str: str, events: list[dict[str, Any]]) -> int | None:
+    """Gameweek whose window (its deadline up to the next deadline) holds *date_str*.
+
+    Window-based, not ``n_matches // 10``: a double gameweek or a postponed
+    match does not shift it. Shot dates are kickoff times, and a match
+    always kicks off after its gameweek's deadline.
+    """
+    try:
+        day = str(date_str)[:19].replace(" ", "T")
+        best = None
+        for e in sorted(events, key=lambda e: e["id"]):
+            deadline = str(e.get("deadline_time") or "")[:19]
+            if deadline and deadline <= day:
+                best = e["id"]
+        return best
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _data_age(
+    pointer: dict[str, Any] | None, shots: pd.DataFrame | None, events: list[dict[str, Any]] | None
+) -> dict[str, Any] | None:
+    """``{"data_gw", "date", "behind"}`` for the stored shots, or None when unknowable."""
+    if not events:
+        return None
+    newest = (pointer or {}).get("newest_shot_date")
+    if not newest and shots is not None and len(shots) and "date" in shots.columns:
+        newest = str(shots["date"].max())
+    if not newest:
+        return None
+    data_gw = _gw_of_date(str(newest), events)
+    last_done = max((e["id"] for e in events if e.get("finished")), default=None)
+    if data_gw is None or last_done is None:
+        return None
+    return {"data_gw": data_gw, "date": str(newest)[:10], "behind": max(0, last_done - data_gw)}
+
+
 def build_data_provenance(
-    pointer: dict[str, Any] | None, live_season: str | None, locale: Locale = DEFAULT_LOCALE
+    pointer: dict[str, Any] | None,
+    live_season: str | None,
+    locale: Locale = DEFAULT_LOCALE,
+    data_age: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the season stamp from *pointer* content vs the *live_season*.
 
@@ -325,6 +393,9 @@ def build_data_provenance(
 
     ``current``      pointer season == live season, with enough matches stored;
     ``stale_season`` pointer season != live season — the loud case;
+    ``aged``         right season, but the newest stored shot is
+                     ``STAMP_BEHIND_GWS`` or more finished gameweeks behind
+                     (needs *data_age*; wins over ``thin``: it says since when);
     ``thin``         right season, but under ``MIN_TRUSTWORTHY_MATCHES``;
     ``unverified``   season known but no live season to check it against;
     ``unknown``      the store declares no season at all.
@@ -361,6 +432,12 @@ def build_data_provenance(
         prov["label"] = t(
             "zonal.prov_stale", locale, label=prov["season_label"], live=prov["live_season_label"]
         )
+    elif data_age is not None and data_age["behind"] >= STAMP_BEHIND_GWS:
+        day = int(data_age["date"][8:10])
+        month = t(f"zonal.mon.{int(data_age['date'][5:7])}", locale)
+        prov["status"] = "aged"
+        prov["is_current"] = True
+        prov["label"] = t("zonal.prov_aged", locale, gw=data_age["data_gw"], day=day, month=month)
     elif prov["n_matches"] is not None and prov["n_matches"] < MIN_TRUSTWORTHY_MATCHES:
         prov["status"] = "thin"
         prov["is_current"] = True
@@ -373,14 +450,36 @@ def build_data_provenance(
         prov["status"] = "current"
         prov["is_current"] = True
         prov["label"] = t("zonal.prov_current", locale, label=prov["season_label"])
+    if data_age is not None:
+        prov["data_through_gw"] = data_age["data_gw"]
+        prov["data_through_date"] = data_age["date"]
+        prov["gws_behind"] = data_age["behind"]
+        prov["past_tense"] = data_age["behind"] >= PAST_BEHIND_GWS and prov["status"] in ("aged", "thin", "current")
     return prov
 
 
 def _provenance_for(
-    store: Any, live_season: str | None, locale: Locale = DEFAULT_LOCALE
+    store: Any,
+    live_season: str | None,
+    locale: Locale = DEFAULT_LOCALE,
+    gw_events: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Convenience: read the pointer for *store* and stamp it."""
-    return build_data_provenance(_read_pointer(store), live_season, locale)
+    """Convenience: read the pointer for *store* and stamp it.
+
+    With *gw_events* (``gw_events_of(bootstrap)``) the stamp also says how old
+    the data is, from the newest stored shot date. Same rule for any source.
+    """
+    pointer = _read_pointer(store)
+    data_age = None
+    if gw_events:
+        shots = None
+        if not (pointer or {}).get("newest_shot_date"):
+            try:
+                shots = _load_shots(store)
+            except Exception:  # noqa: BLE001
+                shots = None
+        data_age = _data_age(pointer, shots, gw_events)
+    return build_data_provenance(pointer, live_season, locale, data_age)
 
 
 # ---------------------------------------------------------------------------
@@ -510,36 +609,38 @@ def _weakness_label(weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCA
 
 
 def _opportunity_verdict(
-    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE, past: bool = False
 ) -> str:
     """Spanish card verdict — attacker/opportunity frame ("ataca por…"),
     headline pct included. Never "débil por", never buy/sell. A marginal
     read says so FIRST, then names the least-bad zone."""
     top = _top_weak(weakest)
     strength = weakness_strength(weakest)
+    sfx = "_past" if past else ""
     if top is None or strength == "none":
-        return t("zonal.verdict_none", locale, team=team)
+        return t(f"zonal.verdict_none{sfx}", locale, team=team)
     depth, lat = _split_zone(top["zone"])
     pct = _pct_over_avg(top["xga_per_game"], top["league_avg"])
-    key = "zonal.verdict_marginal" if strength == "marginal" else "zonal.verdict_clear"
+    key = f"zonal.verdict_{'marginal' if strength == 'marginal' else 'clear'}{sfx}"
     return t(key, locale, team=team, side=_side(lat, locale), depth=_depth(depth, locale), pct=pct)
 
 
 def _weakness_verdict(
-    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+    team: str, weakest: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE, past: bool = False
 ) -> str:
     """Spanish one-liner for the text tool — same attacker/opportunity
     frame as the card ("ataca por…"). Never buy/sell."""
+    sfx = "_past" if past else ""
     above = [z for z in weakest if z["delta_vs_avg"] > 0]
     if not above or weakness_strength(weakest) == "none":
-        return t("zonal.verdict_none", locale, team=team)
+        return t(f"zonal.verdict_none{sfx}", locale, team=team)
     if weakness_strength(weakest) == "marginal":
-        return _opportunity_verdict(team, weakest, locale)
+        return _opportunity_verdict(team, weakest, locale, past)
     parts = []
     for zone_row in above:
         depth, lat = _split_zone(zone_row["zone"])
         parts.append(f"{_side(lat, locale)} {_depth(depth, locale)}")
-    return t("zonal.verdict_multi", locale, team=team, parts=t("zonal.and", locale).join(parts))
+    return t(f"zonal.verdict_multi{sfx}", locale, team=team, parts=t("zonal.and", locale).join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +648,7 @@ def _weakness_verdict(
 # ---------------------------------------------------------------------------
 
 def get_zonal_weakness(
-    team: str, *, store: Any = None, live_season: str | None = None,
+    team: str, *, store: Any = None, live_season: str | None = None, gw_events: list[dict[str, Any]] | None = None,
     locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Relative zonal-weakness read for one team's defence.
@@ -559,7 +660,7 @@ def get_zonal_weakness(
     zone). ``weakest_zones`` is the top-``TOP_WEAK_ZONES`` by delta;
     ``penalty_context`` reports penalty xGA separately (excluded from zones).
     """
-    provenance = _provenance_for(store, live_season, locale)
+    provenance = _provenance_for(store, live_season, locale, gw_events)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "team": team}
@@ -613,7 +714,7 @@ def get_zonal_weakness(
             "penalty_xga": round(pen_xga, 4),
             "penalty_xga_per_game": round(pen_xga / n_games, 4) if n_games else 0.0,
         },
-        "verdict": _weakness_verdict(matched, weakest, locale),
+        "verdict": _weakness_verdict(matched, weakest, locale, bool(provenance.get("past_tense"))),
         "data_provenance": provenance,
     }
 
@@ -724,6 +825,7 @@ def get_zonal_opportunity(
     horizon: int | None = None,
     store: Any = None,
     live_season: str | None = None,
+    gw_events: list[dict[str, Any]] | None = None,
     locale: Locale = DEFAULT_LOCALE,
     currently_at_opponent: "Callable[[str], bool] | None" = None,
 ) -> dict[str, Any]:
@@ -805,7 +907,7 @@ def get_zonal_opportunity(
     ``verdict`` / ``penalty_context`` feed the card header and footer.
     Everything is opportunity/suitability-framed — never buy/sell.
     """
-    provenance = _provenance_for(store, live_season, locale)
+    provenance = _provenance_for(store, live_season, locale, gw_events)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "opponent": opponent}
@@ -1051,7 +1153,7 @@ def get_zonal_opportunity(
         "exploiters": exploiters,
         "frontal_zones": card_fields["frontal_zones"],
         "weakness_label": card_fields["weakness_label"],
-        "verdict": _opportunity_verdict(matched, weakness["weakest_zones"], locale),
+        "verdict": _opportunity_verdict(matched, weakness["weakest_zones"], locale, bool(provenance.get("past_tense"))),
         "penalty_context": weakness["penalty_context"],
         "data_provenance": provenance,
     }
@@ -1118,6 +1220,7 @@ def get_player_zonal_outlook(
     fixtures_for_team: Any,
     store: Any = None,
     live_season: str | None = None,
+    gw_events: list[dict[str, Any]] | None = None,
     locale: Locale = DEFAULT_LOCALE,
 ) -> dict[str, Any]:
     """Per-fixture zonal matchup read for one player's upcoming opponents.
@@ -1139,7 +1242,7 @@ def get_player_zonal_outlook(
     ``zone`` / ``delta_vs_avg`` / ``player_share``), and a Spanish,
     opportunity-framed ``verdict`` (never buy/sell).
     """
-    provenance = _provenance_for(store, live_season, locale)
+    provenance = _provenance_for(store, live_season, locale, gw_events)
     shots = _load_shots(store)
     if shots is None:
         return {"status": "missing_context", "player": player_query}

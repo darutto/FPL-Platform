@@ -59,6 +59,7 @@ from .catalogue import t
 from .locale_types import DEFAULT_LOCALE, Locale, bootstrap_locale
 
 from .zonal_weakness import (
+    gw_events_of,
     ZONES,
     _FPL_TACTICAL_AVAILABLE,
     _load_shots,
@@ -468,7 +469,7 @@ def _compose(
         })
 
     locale = bootstrap_locale(bootstrap)
-    provenance = _provenance_for(store, _live_season(bootstrap), locale)
+    provenance = _provenance_for(store, _live_season(bootstrap), locale, gw_events_of(bootstrap))
     outlook = build_player_outlook(
         name, info, engine_fixtures, bundle["profiles"], bundle["baseline"], provenance, locale,
     )

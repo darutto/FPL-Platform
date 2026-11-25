@@ -44,6 +44,7 @@ from fpl_tool_runner.specs import ToolSpec
 from .catalogue import t as _cat
 from .locale_types import bootstrap_locale
 from .zonal_weakness import (
+    gw_events_of,
     get_player_zonal_outlook,
     get_zonal_opportunity,
     get_zonal_weakness,
@@ -455,6 +456,7 @@ def _get_zonal_weakness_handler(
         result = get_zonal_weakness(
             _to_store_team(team_query, bootstrap),
             live_season=_live_season(bootstrap),
+            gw_events=gw_events_of(bootstrap),
             locale=bootstrap_locale(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
@@ -550,6 +552,7 @@ def _get_zonal_opportunity_handler(
             fixtures_for_team=fixtures_for_team,
             horizon=horizon,
             live_season=_live_season(bootstrap),
+            gw_events=gw_events_of(bootstrap),
             # i75: exclude players who moved TO the opponent since the
             # store was built (the store still lists them under their old
             # club, so the engine alone would rank them against themselves).
@@ -820,6 +823,7 @@ def _get_player_zonal_outlook_handler(
             player_query,
             fixtures_for_team=fixtures_for_team,
             live_season=_live_season(bootstrap),
+            gw_events=gw_events_of(bootstrap),
             locale=bootstrap_locale(bootstrap),
         )
     except Exception as exc:  # noqa: BLE001 — never raise into the orchestrator
