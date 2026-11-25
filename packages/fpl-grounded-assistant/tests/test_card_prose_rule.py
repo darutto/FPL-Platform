@@ -130,6 +130,34 @@ def test_a_value_that_belongs_to_another_player_does_not_count():
     assert not trim(text).fired
 
 
+def test_the_card_name_and_the_name_the_prose_writes_may_differ():
+    # The card shows FPL's web_name ("B.Fernandes", "Gibbs-White"); the model writes the full name.
+    ranked = [{"web_name": n, "metric_value": v} for n, v in (
+        ("Alder", 239.0), ("B.Fernandes", 235.0), ("Cedar", 209.0), ("Gibbs-White", 188.0))]
+    text = (
+        "**Alder** lidera con **239 puntos** esta temporada.\n\nLe siguen:\n\n"
+        "2. Bruno Fernandes \u2014 235  \n3. Cedar \u2014 209  \n4. Gibbs White \u2014 188"
+    )
+    out = trim(text, ranked)
+    assert out.fired
+    assert out.text == "**Alder** lidera con **239 puntos** esta temporada."
+
+
+def test_a_list_line_beside_a_confirmed_block_that_carries_a_card_value_joins_it():
+    ranked = [{"web_name": n, "metric_value": v} for n, v in (("Alder", 76.0), ("Birch", 70.0), ("Cedar", 68.0), ("Dogwood", 66.0))]
+    # the second line spells its player in a way no variant of the card name matches
+    text = "Asi quedan:\n1. Alder: 76\n2. El joven Birchy: 70\n3. Cedar: 68\n4. Dogwood: 66\n\nBuen precio."
+    out = trim(text, ranked)
+    assert out.fired and out.text == "Buen precio."
+
+
+def test_a_bare_surname_is_only_accepted_for_the_initial_form():
+    ranked = [{"web_name": n, "metric_value": v} for n, v in (("Alder", 76.0), ("Birch", 70.0), ("Cedar", 68.0))]
+    assert not trim("- Alder: 76\n- Birch: 70", ranked).fired     # two lines, no block
+    initial = [{"web_name": n, "metric_value": v} for n, v in (("A.Smith", 76.0), ("Birch", 70.0), ("Cedar", 68.0))]
+    assert trim("- Smith: 76\n- Birch: 70\n- Cedar: 68", initial).fired
+
+
 def test_a_price_alone_is_not_the_metric_value():
     ranked = [{"web_name": n, "metric_value": v} for n, v in (("Alder", 5.5), ("Birch", 5.3), ("Van Cedar", 5.4))]
     text = "- Alder: £5.5m\n- Birch: £5.3m\n- Van Cedar: £5.4m"

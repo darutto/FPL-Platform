@@ -54,15 +54,34 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 def _fold(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower().replace("*", "").replace("_", " ")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower().replace("*", "").replace("_", " ").replace("-", " ")
 
 
 @dataclass(frozen=True)
 class Row:
-    """One card row, ready to match: the folded name and the regex of its value."""
+    """One card row, ready to match: the folded names it may be written as and the regex of its value."""
 
-    name: str
+    names: tuple[str, ...]
     value: "re.Pattern[str]"
+
+    @property
+    def name(self) -> str:  # the primary (card) spelling
+        return self.names[0]
+
+
+def _name_variants(web_name: str) -> tuple[str, ...]:
+    """How the prose may write a card name: the card's own, hyphen-insensitive, and the surname of an initial-form name.
+
+    The card shows FPL's ``web_name`` ("B.Fernandes", "Gibbs-White"); the model writes the player's name in
+    full ("Bruno Fernandes", "Gibbs White"). A surname alone is only accepted for the initial form
+    ("B.Fernandes" -> "fernandes"): a bare common word must not become a name.
+    """
+    base = " ".join(_fold(web_name).replace("-", " ").split())
+    variants = [base]
+    m = re.match(r"^[a-z]\.\s*(.+)$", base)
+    if m and len(m.group(1)) >= 4:
+        variants.append(m.group(1))
+    return tuple(dict.fromkeys(variants))
 
 
 def _value_forms(value: float) -> list[str]:
@@ -91,15 +110,16 @@ def rows_from_ranked(ranked: Sequence[dict[str, Any]]) -> list[Row]:
             continue
         alt = "|".join(re.escape(f) for f in sorted(_value_forms(float(value)), key=len, reverse=True))
         pattern = re.compile(rf"(?<![\d.,])(?:{alt})(?![\d]|[.,]\d)")
-        rows.append(Row(name=_fold(name), value=pattern))
+        rows.append(Row(names=_name_variants(name), value=pattern))
     return rows
 
 
 def _name_positions(folded: str, row: Row) -> list[int]:
     out: list[int] = []
-    for m in re.finditer(rf"(?<![a-z0-9]){re.escape(row.name)}(?![a-z0-9])", folded):
-        out.append(m.start())
-    return out
+    for variant in row.names:
+        for m in re.finditer(rf"(?<![a-z0-9]){re.escape(variant)}(?![a-z0-9])", folded):
+            out.append(m.start())
+    return sorted(out)
 
 
 def _hits(line: str, rows: Sequence[Row], *, strip_prices: bool) -> dict[int, tuple[int, int]]:
@@ -144,10 +164,20 @@ def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric
 
     lines = text.split("\n")
     n = len(lines)
-    qualifies = [False] * n
-    for idx, line in enumerate(lines):
+    def _carries_a_value(line: str) -> bool:
+        text = _fold(line)
+        if strip_prices:
+            text = _PRICE.sub(" ", text)
+        return any(r.value.search(text) for r in rows)
+
+    qualifies = [False] * n   # a card player beside his own value
+    member = [False] * n      # qualifies, or a list-marked line that carries a card value (the prose spelled
+    for idx, line in enumerate(lines):  # its player some other way: "Bruno Fernandes" for "B.Fernandes")
         if line.strip() and _is_listy(line):
             qualifies[idx] = bool(_hits(line, rows, strip_prices=strip_prices))
+            member[idx] = qualifies[idx] or (
+                bool(_LIST_MARK.match(line) or _TABLE_ROW.match(line)) and _carries_a_value(line)
+            )
 
     drop = [False] * n
 
@@ -156,7 +186,7 @@ def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric
     run: list[int] = []
     runs: list[list[int]] = []
     for i in non_blank:
-        if qualifies[i]:
+        if member[i]:
             run.append(i)
         else:
             if run:
