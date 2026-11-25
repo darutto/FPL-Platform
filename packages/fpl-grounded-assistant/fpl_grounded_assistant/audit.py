@@ -147,6 +147,12 @@ class AuditEntry:
     # tool_output never held it. Both None on a clean turn.
     final_text_guard_reason: str | None = None
     guarded_raw_answer_text: str | None = None
+    # The ranking-card prose rule (card_prose_rule): the enum that it fired, how many lines it dropped,
+    # and the model's original text, local only like guarded_raw_answer_text. None unless it fired,
+    # and then the serialised line carries no such keys at all.
+    card_prose_reason: str | None = None
+    card_prose_dropped_lines: int | None = None
+    card_prose_raw_answer_text: str | None = None
     # i116: set ONLY on a turn the Jev shadow ran on (FPL_JEV_MODE=shadow);
     # the key that joins this line to its shadow_logs/ row. None otherwise,
     # and then the serialised line carries no turn_id key at all.
@@ -293,6 +299,10 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
     }
     # i116: additive and conditional -- a line from a non-shadowed turn is
     # byte-identical to what it was before the shadow existed.
+    if entry.card_prose_reason is not None:
+        entry_dict["card_prose_reason"] = entry.card_prose_reason
+        entry_dict["card_prose_dropped_lines"] = entry.card_prose_dropped_lines
+        entry_dict["card_prose_raw_answer_text"] = entry.card_prose_raw_answer_text
     if entry.turn_id is not None:
         entry_dict["turn_id"] = entry.turn_id
     # i18n S0: additive and conditional, same reasoning.
@@ -387,6 +397,9 @@ def make_audit_entry(
     orchestration_absent: bool = False,
     final_text_guard_reason: str | None = None,
     guarded_raw_answer_text: str | None = None,
+    card_prose_reason: str | None = None,
+    card_prose_dropped_lines: int | None = None,
+    card_prose_raw_answer_text: str | None = None,
     turn_id: str | None = None,
     retry_delivery: str | None = None,
     locale: str | None = None,
@@ -427,6 +440,9 @@ def make_audit_entry(
         model=model,
         final_text_guard_reason=final_text_guard_reason,
         guarded_raw_answer_text=guarded_raw_answer_text,
+        card_prose_reason=card_prose_reason,
+        card_prose_dropped_lines=card_prose_dropped_lines,
+        card_prose_raw_answer_text=card_prose_raw_answer_text,
         turn_id=turn_id,
         retry_delivery=retry_delivery,
         locale=locale,

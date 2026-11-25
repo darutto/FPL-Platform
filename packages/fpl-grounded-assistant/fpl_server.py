@@ -2578,6 +2578,9 @@ def ask(req: AskRequest, request: Request) -> AskResponse:
         # absent (deterministic branches) reads as None, never as "clean".
         final_text_guard_reason=ask_v2_dict.get("final_text_guard_reason"),
         guarded_raw_answer_text=ask_v2_dict.get("guarded_raw_answer_text"),
+        card_prose_reason=ask_v2_dict.get("card_prose_reason"),
+        card_prose_dropped_lines=ask_v2_dict.get("card_prose_dropped_lines"),
+        card_prose_raw_answer_text=ask_v2_dict.get("card_prose_raw_answer_text"),
         # i116: present only when the Jev shadow ran on this turn.
         turn_id=_routing_trace.get("jev_shadow_turn_id"),
         locale=locale,
@@ -2839,7 +2842,13 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         _sess_guard_reason: str | None = None
         _sess_guarded_raw: str | None = None
         _sess_turn_id: str | None = None
+        _sess_prose: dict[str, Any] = {}
     else:
+        _sess_prose = {
+            "card_prose_reason": _sess_orch.get("card_prose_reason"),
+            "card_prose_dropped_lines": _sess_orch.get("card_prose_dropped_lines"),
+            "card_prose_raw_answer_text": _sess_orch.get("card_prose_raw_answer_text"),
+        }
         _sess_trace = _sess_orch.get("routing_trace") or {}
         _sess_tokens = _sess_orch.get("tokens") or {}
         _sess_tool_calls = list(_sess_orch.get("tool_calls") or [])
@@ -2874,6 +2883,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         orchestration_absent=_sess_orchestration_absent,
         final_text_guard_reason=_sess_guard_reason,
         guarded_raw_answer_text=_sess_guarded_raw,
+        **_sess_prose,
         turn_id=_sess_turn_id,
         locale=locale,
         question_lang=_question_lang,
