@@ -55,7 +55,7 @@ WORDS: dict[str, dict[str, Any]] = {
         "set_pieces": {"penalties": "penales", "direct_freekicks": "tiros libres directos", "corners": "córners"},
         "taker": "Primer lanzador de {names}", "not_taker": "No es primer lanzador de {names}",
         "or": " o ", "of": " o de ",
-        "not_checked": "Sumas sin comprobar", "unavailable": "No disponible: {names}",
+        "not_checked": "Sumas sin comprobar", "unavailable": "No disponible: {names}", "unused": "Sin usar: {name}",
         "kinds": {
             "season_only_metric": "ese dato solo existe a día de hoy", "player_venue": "local o visitante por jugador",
             "opponent": "filtro por rival", "month": "meses", "calendar_phrase": "fechas del calendario",
@@ -84,7 +84,7 @@ WORDS: dict[str, dict[str, Any]] = {
         "set_pieces": {"penalties": "penalty", "direct_freekicks": "direct free kick", "corners": "corner"},
         "taker": "First {names} taker", "not_taker": "Not first {names} taker",
         "or": " or ", "of": " or ",
-        "not_checked": "Totals not checked yet", "unavailable": "Not available: {names}",
+        "not_checked": "Totals not checked yet", "unavailable": "Not available: {names}", "unused": "Not used: {name}",
         "kinds": {
             "season_only_metric": "that figure only exists as of today", "player_venue": "home or away by player",
             "opponent": "opponent filter", "month": "months", "calendar_phrase": "calendar phrases",
@@ -480,13 +480,21 @@ def _mark_unsupported(parts: list[dict], kinds: Iterable[str], lang: str) -> Non
         parts.append(part)
 
 
-def _mark_clarify(parts: list[dict], clarify: Mapping[str, Any]) -> None:
+def _mark_clarify(parts: list[dict], clarify: Mapping[str, Any], lang: str) -> None:
     written = str(clarify.get("written") or "")
+    kind = clarify.get("kind")
+    if kind in ("missing_club", "missing_player", "phrase"):      # named, and in no part: say it was left out
+        part = _part("unused", WORDS[lang]["unused"].format(name=written), written)
+        part["braked"] = True
+        parts.append(part)
+        return
+    if kind == "date":
+        _mark(parts, _SETS, lambda p: "since_date" in str(p["value"]))
+        return
 
     def names_it(part: dict) -> bool:
         return bool(written) and written in str(part["value"])
 
-    kind = clarify.get("kind")
     found = False
     if kind in ("player", "player_club"):
         found = _mark(parts, ("condition", "match_set", "compare_to"), names_it)
@@ -502,7 +510,7 @@ def _mark_result(parts: list[dict], result: QueryResult, lang: str) -> None:
     if result.state == UNSUPPORTED:
         _mark_unsupported(parts, result.unsupported, lang)
     elif result.state == NEEDS_CLARIFICATION:
-        _mark_clarify(parts, result.clarify or {})
+        _mark_clarify(parts, result.clarify or {}, lang)
     elif result.state == DATA_UNAVAILABLE:
         if result.reason == "invariant_failed":
             _mark(parts, ("metric",))
