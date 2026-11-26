@@ -89,7 +89,7 @@ def test_names_flags_dates_and_vocabulary_are_the_stores():
     assert df["date"].iloc[0] == "2026-10-03T14:00:00"
     assert list(df["result"]) == ["Goal", "Shot On Post", "Blocked Shot", "Goal"]
     # The real store has only the two foot values; every other shot is null.
-    assert df["shot_type"].where(df["shot_type"].notna(), None).tolist() == ["Left Foot", None, None, "Right Foot"]
+    assert [None if pd.isna(v) else v for v in df["shot_type"]] == ["Left Foot", None, None, "Right Foot"]
     assert list(df["is_home_shot"]) == [True, False, False, True]
     assert list(df["situation"].isna()) == [True, True, True, False]
     assert df["situation"].iloc[3] == "Penalty"
