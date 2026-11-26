@@ -289,12 +289,69 @@ def _assoc_line(matches: list[dict[str, Any]], locale: Locale, cap: int = 3) -> 
     return t("gcard.position_changes.assoc_line_one" if one else "gcard.position_changes.assoc_line_many", locale, gws=when, names=who)
 
 
+def _role_key(slot: dict[str, Any]) -> tuple[Any, Any]:
+    """A starting role as the pitch draws it: provider role + side (left/right only), never the grid cell."""
+    return (slot.get("detailed_position"), slot.get("side") if slot.get("side") in ("left", "right") else None)
+
+
+def _steady_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, Any] | None":
+    """No switch and no FPL-position gap: where he has been starting. One spot when one role holds more than half of
+    his starts; otherwise the main role plus the others as lighter spots with their counts (on a tie, the main one is
+    the most recently started). Counted: starts of played matches only, as everywhere on this card. ``None`` without
+    one (bench only, nothing stored, a role the provider did not name)."""
+    from football_intelligence.position_changes import played_line  # noqa: PLC0415
+
+    listed = [m["slot"] for m in raw_output.get("matches") or []
+              if m.get("player_status") == "started" and m.get("slot") and m.get("played", True)]
+    slots = [s for s in listed if s.get("detailed_position")]  # an unnamed role is a start, never a spot
+    if not slots:
+        return None
+    counts: dict[tuple[Any, Any], int] = {}
+    latest: dict[tuple[Any, Any], int] = {}
+    last_slot: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for i, slot in enumerate(slots):  # oldest first
+        key = _role_key(slot)
+        counts[key] = counts.get(key, 0) + 1
+        latest[key], last_slot[key] = i, slot
+    ordered = sorted(counts, key=lambda k: (-counts[k], -latest[k]))
+    main, total = ordered[0], len(listed)  # the hero's count too (_same_slot)
+    split = counts[main] * 2 <= total
+
+    def spot(key: tuple[Any, Any]) -> dict[str, Any]:
+        return {"detailed_position": key[0], "side": key[1], "line": played_line(last_slot[key])}
+
+    def name(key: tuple[Any, Any]) -> str:
+        return role_text({"detailed_position": key[0], "side": key[1]}, locale)
+
+    others = [{**spot(k), "starts": counts[k],
+               "label": t("gcard.position_changes.pitch_other", locale, role=name(k), n=counts[k])}
+              for k in ordered[1:]] if split else []
+    label = t("gcard.position_changes.pitch_steady" if total != 1 else "gcard.position_changes.pitch_steady_one",
+              locale, role=name(main), n=counts[main], m=total)
+    return {"kind": "steady", "from": None, "to": spot(main), "others": others,
+            "labels": {"from": "", "to": label, "table": "",
+                       "before": t("gcard.position_changes.col_before", locale),
+                       "after": t("gcard.position_changes.col_after", locale)},
+            "rows": [], "note": None,
+            "associations": _assoc_line(raw_output.get("matches") or [], locale), "claim_status": "observed"}
+
+
+def _steady_row_adds(match: dict[str, Any], pitch: dict[str, Any]) -> bool:
+    """A match the steady pitch cannot tell: a start in a role it does not draw, or the same role on another line."""
+    if (match.get("change") or {}).get("kind") == "line":
+        return True
+    if match.get("player_status") != "started" or not match.get("played", True) or not match.get("slot"):
+        return False
+    drawn = {(s["detailed_position"], s["side"]) for s in (pitch["to"], *pitch["others"])}
+    return _role_key(match["slot"]) not in drawn
+
+
 def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, Any] | None":
     """The mini-pitch payload (old -> new starting role, or FPL listing -> played role) plus its per-90 table.
 
     Roles travel as provider role + side (never the provider grid cell, whose columns flip between matches); the UI
     places them. Every string is already localized; numbers stay numbers (the UI formats them, one decimal, dot).
-    ``None`` unless the tool found a role switch or an FPL-position gap.
+    With neither a role switch nor an FPL-position gap it is the steady pitch (``_steady_pitch``).
     """
     switch, gap, block = raw_output.get("role_switch"), raw_output.get("fpl_position_gap"), raw_output.get("per90_change")
     if switch:
@@ -318,7 +375,7 @@ def _position_pitch(raw_output: dict[str, Any], locale: Locale) -> "dict[str, An
                   "table": t("gcard.position_changes.table_as", locale, role=role_text(role, locale).lower())}
         kind = "fpl_listing"
     else:
-        return None
+        return _steady_pitch(raw_output, locale)
     rows: list[dict[str, Any]] = []
     note = None
     if block:
@@ -366,8 +423,19 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
             Column(header=t("gcard.position_changes.col_note", locale), align="left", kind="text"),
         )
         pitch = _position_pitch(raw_output, locale)
+        steady = pitch if pitch and pitch["kind"] == "steady" else None
         rows: list[tuple[str, ...]] = []
         adds = False  # with the pitch on, the per-match table shows only when a row says what the pitch cannot
+        # A steady pitch is one fact (where he starts): when a row has more to say, the table reads in full, with its
+        # change and association notes, as it does without a pitch. ``told``: the pitch already says those.
+        steady_table = steady is not None and any(
+            _steady_row_adds(m, steady) or m.get("fpl_out") or slot_row_text(m.get("slot_occupants"), locale)
+            or (m.get("player_status") == "started" and m.get("played") is False)
+            for m in matches)
+        if steady_table:
+            adds = True
+            steady["associations"] = None  # the rows carry them
+        told = pitch is not None and not steady_table
         for m in matches:
             where = t("renderer.position_changes.home" if m.get("is_home") else "renderer.position_changes.away", locale,
                       opp=m.get("opponent", "?"))
@@ -383,7 +451,7 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                 # A lineup stored before the match: shown as the predicted XI, outside every count.
                 notes.append(t("gcard.position_changes.note_predicted", locale))
                 adds = True
-            if pitch:
+            if told:
                 pass  # the pitch already says the starting role and how it changed
             elif m.get("change") and m["change"].get("kind") == "line":
                 notes.append(t("gcard.position_changes.note_line_forward" if m["change"].get("direction") == "further_forward"
@@ -398,9 +466,9 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                 notes.append(out_text(m["fpl_out"], locale))
             if slot_row_text(m.get("slot_occupants"), locale):
                 notes.append(slot_row_text(m.get("slot_occupants"), locale))
-            for a in ([] if pitch else m.get("associations") or []):
+            for a in ([] if told else m.get("associations") or []):
                 notes.append(t("gcard.position_changes.note_assoc", locale, name=(a.get("teammate") or {}).get("web_name", "?")))
-            if m.get("associations_more") and not pitch:
+            if m.get("associations_more") and not told:
                 notes.append(t("gcard.position_changes.note_assoc_more", locale, n=m["associations_more"]))
             gw = m.get("gameweek")
             rows.append((
@@ -455,7 +523,11 @@ def compose_position_changes_card(raw_output: dict[str, Any], locale: Locale = D
                   HeroStat(value="{}/{}".format(*_same_slot(matches, gap)), tone=None,
                            label=t("gcard.position_changes.hero_gap", locale, line=role_text(
                                {"detailed_position": gap.get("detailed_position"), "side": gap.get("side")}, locale).lower()))
-                  if gap else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
+                  if gap else
+                  HeroStat(value="{}/{}".format(*_same_slot(matches, steady["to"])), tone=None,
+                           label=t("gcard.position_changes.hero_gap", locale,
+                                   line=role_text(steady["to"], locale).lower()))
+                  if steady else HeroStat(value=str(changes), label=t("gcard.position_changes.hero", locale), tone=None)),
             pills=tuple(pills), columns=columns if (adds or not pitch) else (), rows=tuple(rows) if (adds or not pitch) else (),
             footer=t("renderer.position_changes.provenance", locale, built_at=str(built)[:10]) if built else None,
             position_pitch=pitch,
