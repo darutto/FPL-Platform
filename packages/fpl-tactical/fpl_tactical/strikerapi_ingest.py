@@ -64,13 +64,14 @@ RESULT_MAP: dict[str, str] = {
     "blocked": "Blocked Shot",
     "woodwork": "Shot On Post",
 }
-#: The 2025-26 store holds only the two foot values; Understat's own terms
-#: are used for the other two (reported to the reviewer in the PR).
-SHOT_TYPE_MAP: dict[object, str] = {
+#: The 2025-26 store holds exactly two values, "Left Foot" and "Right Foot",
+#: and null for every other shot (checked on the real store).
+#: A header or an unnamed body part is therefore stored as null.
+SHOT_TYPE_MAP: dict[object, str | None] = {
     "left_foot": "Left Foot",
     "right_foot": "Right Foot",
-    "header": "Head",
-    None: "Other Body Part",
+    "header": None,
+    None: None,
 }
 
 #: Full time is assumed at kickoff + 2 h. The source refreshes a match for
@@ -227,7 +228,8 @@ def normalize_shots(shots: Iterable[dict], schedule: dict[str, dict], season: st
 
 def _store_frame(df: pd.DataFrame) -> pd.DataFrame:
     out = df[SHOT_COLUMNS].copy()
-    out["situation"] = out["situation"].astype(object).where(out["situation"].notna(), None)
+    for col in ("situation", "shot_type"):
+        out[col] = out[col].astype(object).where(out[col].notna(), None)
     return out
 
 
