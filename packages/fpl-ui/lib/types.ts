@@ -1418,9 +1418,12 @@ export interface PitchRole {
 
 /** Built by the backend (atomic_tool_cards._position_pitch); every string is already localized, numbers are raw. */
 export interface PositionPitchMeta {
-  kind: 'switch' | 'fpl_listing';
-  from: PitchRole;
+  kind: 'switch' | 'fpl_listing' | 'steady';
+  /** null on the steady pitch: nothing to come from. */
+  from: PitchRole | null;
   to: PitchRole;
+  /** Steady pitch only: the other roles he started in when none holds more than half, with their counts. */
+  others?: Array<PitchRole & { starts: number; label: string }>;
   labels: { from: string; to: string; table: string; before: string; after: string };
   rows: Array<{ metric: string; label: string; before?: number | null; after?: number | null; value?: number | null }>;
   note: string | null;
