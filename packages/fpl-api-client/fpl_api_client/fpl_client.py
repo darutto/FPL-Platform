@@ -21,7 +21,6 @@ Sources:   fpl-video-repurposer/build_fpl_kb.py (fetch_json, build_master_squad)
 
 from __future__ import annotations
 
-import socket
 import threading
 import time
 from typing import Any
@@ -100,30 +99,14 @@ class FetchDeadlineExceeded(requests.Timeout):
     """The overall deadline of a bounded fetch passed before the response was complete."""
 
 
-def _socket_of(resp: Any) -> Any:
-    """The socket *resp* is being read from, or None.
-
-    On a kept-alive response the connection holds it. When the server is going to
-    close, ``http.client`` drops it from the connection at once and only the
-    response's own file object still reaches it.
-    """
-    raw = resp.raw
-    for path in (("connection", "sock"), ("_connection", "sock"), ("_fp", "fp", "raw", "_sock")):
-        found = raw
-        for name in path:
-            found = getattr(found, name, None)
-        if found is not None:
-            return found
-    return None
-
-
-def _shutdown_socket(sock: Any) -> None:
-    """Unblock a read in progress by shutting *sock* down."""
-    if sock is not None:
+def _stop_reading(resp: Any) -> None:
+    """Unblock a read in progress on *resp* (``HTTPResponse.shutdown``, urllib3 >= 2.3)."""
+    shutdown = getattr(resp.raw, "shutdown", None)
+    if shutdown is not None:
         try:
-            sock.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass  # already closed
+            shutdown()
+        except (OSError, RuntimeError, ValueError):
+            pass  # the response finished or was closed in the meantime
 
 
 def fetch_json_bounded(
@@ -139,8 +122,8 @@ def fetch_json_bounded(
 
     *deadline* is a ``time.monotonic()`` value covering every attempt. The
     per-socket timeouts alone do not bound a request (each received byte
-    restarts the read timeout), so a timer shuts the socket down when the
-    deadline passes. A failed attempt is retried *retries* times, without
+    restarts the read timeout), so a timer shuts the response's read side
+    down when the deadline passes. A failed attempt is retried *retries* times, without
     back-off, while time remains.
 
     Raises ``FetchDeadlineExceeded``, another ``requests.RequestException``,
@@ -159,14 +142,14 @@ def fetch_json_bounded(
                 timeout=(min(connect_timeout, remaining), min(read_timeout, remaining)),
                 stream=True,
             )
-            watchdog = threading.Timer(max(deadline - time.monotonic(), 0), _shutdown_socket, (_socket_of(resp),))
+            watchdog = threading.Timer(max(deadline - time.monotonic(), 0), _stop_reading, (resp,))
             watchdog.daemon = True
             watchdog.start()
             resp.raise_for_status()
             payload = resp.json()
             if time.monotonic() <= deadline:
                 return payload
-        except Exception as exc:  # noqa: BLE001 -- a shut socket surfaces as several types
+        except Exception as exc:  # noqa: BLE001 -- a stopped read surfaces as several types
             if not isinstance(exc, (requests.RequestException, ValueError, OSError)) and time.monotonic() < deadline:
                 raise
             last_exc = exc
