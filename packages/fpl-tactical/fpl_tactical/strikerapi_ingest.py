@@ -366,6 +366,38 @@ def validate_store(df: pd.DataFrame, fixtures: list[FplFixture], now: datetime) 
 
 
 # ---------------------------------------------------------------------------
+# One season = one source
+# ---------------------------------------------------------------------------
+# The two sources have different xG models (per-shot correlation 0.71), so rows
+# of both, or of two seasons, must never meet in one store or one comparison.
+
+def check_backup(backup: pd.DataFrame, season: str) -> None:
+    """The first-load reference must be the OTHER source's rows of THIS season.
+
+    ``compare_with_backup`` pairs matches by (home, away) with no date: another
+    season's rows would "overlap" and compare different matches. A file of this
+    source's own rows would agree with itself; it is told apart by having no
+    known situation outside penalties. Raises before any credit is spent.
+    """
+    seasons = sorted({str(s) for s in backup["season"].unique()})
+    if seasons != [season]:
+        raise IngestError(f"backup rows are of season(s) {seasons}, expected only {season}")
+    open_rows = backup[backup["situation"] != PENALTY_SITUATION]
+    if not len(open_rows) or open_rows["situation"].isna().all():
+        raise IngestError("backup rows carry no situation: they are not the other source's store")
+
+
+def _check_working_store(df: pd.DataFrame, pointer: dict | None, season: str) -> None:
+    """Refuse to append to a working store of another source or season."""
+    source = (pointer or {}).get("source")
+    if source != SOURCE_STRIKERAPI:
+        raise IngestError(f"working store source is {source!r}: one season is one source, nothing appended")
+    seasons = sorted({str(s) for s in df["season"].unique()} | {str((pointer or {}).get("season"))})
+    if seasons != [season]:
+        raise IngestError(f"working store holds season(s) {seasons}, expected only {season}")
+
+
+# ---------------------------------------------------------------------------
 # Canaries (mismatch fails closed; too little data says "not_checked")
 # ---------------------------------------------------------------------------
 
@@ -564,6 +596,7 @@ def sync(
     current, prior = read_working_store(season)
     if current is None:
         raise SyncRefused("no StrikerAPI store yet: run strikerapi-load first (explicit, 202 credits)")
+    _check_working_store(current, prior, season)
     due = due_fixtures(fixtures, current, now)
     if not due:
         return SyncReport(action="nothing_due")
@@ -636,6 +669,7 @@ def load_by_team(
     refuses) before anything is written. Replaces the whole working store.
     """
     now = now or datetime.now(tz=timezone.utc)
+    check_backup(backup, season)
     names = sorted({f.home for f in fixtures} | {f.away for f in fixtures})
     cost = COST_LIST_GAMES + COST_SHOT_MAP * len(names)
     if cost > max_credits:

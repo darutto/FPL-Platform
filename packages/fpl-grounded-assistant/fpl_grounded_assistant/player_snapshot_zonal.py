@@ -13,7 +13,7 @@ input or invalid zonal datum returns ``zonal=None`` plus an internal reason
 Three decisions worth re-reading before changing anything:
 
 Identity (store player <-> FPL element)
-    The Understat store carries a player NAME only -- no id (the ids in
+    The shots store carries a player NAME only -- no id (the ids in
     ``football-identity-registry`` corpus are synthetic and not stable). So
     identity is: normalised full name (first + second name) equal to exactly
     one store name AND exactly one FPL element, with the store team equal to

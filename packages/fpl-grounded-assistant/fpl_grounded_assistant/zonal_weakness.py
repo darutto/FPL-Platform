@@ -4,8 +4,8 @@ fpl_grounded_assistant.zonal_weakness
 Tactical track (T2a) — zonal defensive-weakness engine.
 
 Pure and deterministic — no LLM, no tool registry, no network. Reads the
-owned tactical parquet store built by ``packages/fpl-tactical`` (Understat
-shot events) and turns it into a **relative** zonal-weakness signal. The
+owned tactical parquet store built by ``packages/fpl-tactical`` (shot events;
+the store keeps Understat's coordinate frame whichever source filled it) and turns it into a **relative** zonal-weakness signal. The
 tool wrapper (T2b, ``zonal_weakness_tool.py``) is where ``TOOL_REGISTRY``
 is touched — mirroring the ``fixture_outlook`` engine/tool split of Track D.
 

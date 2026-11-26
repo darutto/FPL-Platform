@@ -73,5 +73,8 @@ One season is one source; the Understat objects on R2 stay untouched as a backup
 - StrikerAPI has no situation field: penalties are labelled from its flag, every other shot has an unknown
   situation, and the zonal side then shows no set-piece/open-play origin.
 - Frame: `x_store = 1 - x_api/2`, `y_store = 1 - y_api` (mirrored).
+- `strikerapi-load` refuses, before spending, a backup of another season or of this source.
+- The per-sync flank canary pools only matches no verdict has covered (`flank_pending_matches` in the
+  pointer): under 40 known-flank shots it says `not_checked`, and those matches publish unverified.
 - A failed check (goals vs FPL, coverage, duplicates, ranges, flank canaries) publishes nothing; the daily
   workflow then opens or refreshes one issue, "shot source down or changed".

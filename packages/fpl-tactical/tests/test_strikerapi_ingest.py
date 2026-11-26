@@ -445,13 +445,19 @@ def double_meeting():
     return games, shots, fixtures, later + timedelta(days=3)
 
 
+def other_source_rows(games, shots):
+    """The same matches as the other source stores them: with a known situation on every row."""
+    df = si.normalize_shots([s for rows in shots.values() for s in rows], si.schedule_from_games(games), SEASON)
+    return df.assign(situation="Open Play")
+
+
 @pytest.mark.parametrize("both_sides", [False, True])
 def test_first_load_takes_each_shot_once_though_both_team_calls_carry_the_match(
         tmp_tactical_root, monkeypatch, both_sides):
     games, shots, fixtures, now = double_meeting()
     monkeypatch.setattr(si, "CANARY_MIN_MATCHES", 2)
     monkeypatch.setattr(si, "CANARY_MIN_MATCHED_SHOTS", 1)
-    backup = si.normalize_shots([s for rows in shots.values() for s in rows], si.schedule_from_games(games), SEASON)
+    backup = other_source_rows(games, shots)
     api = FakeApi(games, shots, both_sides=both_sides)
     rep = si.load_by_team(SEASON, client_for(api), fixtures, backup, now=now)
     df, ptr = si.read_working_store(SEASON)
@@ -530,3 +536,47 @@ def test_the_same_mirrored_rows_fail_both_canaries():
     players = si.pick_flank_players(backup)
     assert si.compare_with_backup(new, backup)["status"] == "mismatch"
     assert si.flank_canary(new, players)["status"] == "mismatch"
+
+
+# ---------------------------------------------------------------- one season = one source
+
+
+@pytest.mark.parametrize("spoil,why", [
+    (lambda b: b.assign(season="2025-2026"), "season"),
+    (lambda b: b.assign(situation=None), "situation"),
+])
+def test_the_first_load_refuses_a_wrong_backup_before_spending_anything(tmp_tactical_root, spoil, why):
+    games, shots, fixtures, now = double_meeting()
+    api = FakeApi(games, shots)
+    with pytest.raises(si.IngestError, match=why):
+        si.load_by_team(SEASON, client_for(api), fixtures, spoil(other_source_rows(games, shots)), now=now)
+    assert api.calls == [] and si.read_working_store(SEASON) == (None, None)
+
+
+@pytest.mark.parametrize("pointer_change", [{"source": "understat via soccerdata"}, {"season": "2025-2026"}])
+def test_sync_never_appends_to_a_store_of_another_source_or_season(tmp_tactical_root, pointer_change):
+    seed_store(tmp_tactical_root)
+    df, ptr = si.read_working_store(SEASON)
+    si.write_working_store(df, {**ptr, **pointer_change}, SEASON)
+    api = FakeApi([G1, G2], {"2": liv_eve_shots()})
+    with pytest.raises(si.IngestError, match="working store"):
+        si.sync(SEASON, client_for(api), FIXTURES, now=NOW)
+    assert api.calls == []
+
+
+# ---------------------------------------------------------------- what the workflow reads: the exit code
+
+
+@pytest.mark.parametrize("days,code", [(1, 0), (3, 4)])
+def test_a_match_missing_for_three_days_makes_the_command_exit_4(
+        tmp_tactical_root, monkeypatch, capsys, days, code):
+    from fpl_tactical import cli, strikerapi_client
+
+    seed_store(tmp_tactical_root)
+    real_sync, now = si.sync, FIXTURES[1].due_at + timedelta(days=days)
+    fake = client_for(FakeApi([G1], {}))
+    monkeypatch.setattr(si, "fetch_fpl_fixtures", lambda: FIXTURES)
+    monkeypatch.setattr(strikerapi_client, "StrikerApiClient", lambda: fake)
+    monkeypatch.setattr(si, "sync", lambda *a, **kw: real_sync(*a, now=now, **kw))
+    assert cli.main(["strikerapi-sync", "--season", SEASON]) == code
+    assert ("ALERT: Liverpool-Everton" in capsys.readouterr().err) is (code == 4)

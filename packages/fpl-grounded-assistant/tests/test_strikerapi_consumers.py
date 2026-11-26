@@ -104,3 +104,30 @@ def test_healthz_old_pointer_still_says_understat_or_nothing(tmp_path, monkeypat
     latest_pointer_path(CURRENT_SEASON).write_text(json.dumps(pointer))
     info = fpl_server._tactical_serving_info(None)
     assert info["source_serving"] == ("understat" if pointer else None)
+
+
+def test_unknown_situation_leaves_no_origin_anywhere_down_to_the_serialized_card():
+    from dataclasses import asdict
+
+    from fpl_grounded_assistant.final_response import _extract_zonal_opportunity_meta
+
+    out = zw.get_zonal_opportunity("Eastport", store=_store(lambda i: None), locale="en")
+    card = asdict(_extract_zonal_opportunity_meta(out))
+    assert card["exploiters"]
+    assert all(e["origin"] is None and e["set_piece_share"] is None for e in card["exploiters"])
+    for payload in (out, card):
+        text = json.dumps(payload, default=str).lower()
+        assert not any(w in text for w in ("open_play", "open play", "set piece"))
+
+
+def test_the_old_parquet_and_its_old_pointer_still_answer_with_the_origin(tmp_path):
+    """A server still on the old files after this code ships: no newest_shot_date, known situations."""
+    path = tmp_path / "understat_shots.parquet"
+    _store(lambda i: "From Corner").to_parquet(path, index=False)
+    (tmp_path / "_tactical_latest.json").write_text(json.dumps(
+        {"season": "2026-2027", "source": "understat via soccerdata", "n_matches": 36, "n_shots": 36}))
+    out = zw.get_zonal_opportunity(
+        "Eastport", store=str(path), live_season="2026-2027", locale="en",
+        gw_events=[{"id": 7, "deadline_time": "2026-09-26T10:00:00Z", "finished": True}])
+    assert out["status"] == "ok" and out["exploiters"][0]["origin"] == "set_piece"
+    assert out["data_provenance"]["data_through_gw"] == 7

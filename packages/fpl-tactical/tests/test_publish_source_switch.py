@@ -143,3 +143,24 @@ def test_ci_restores_the_working_store_from_the_strikerapi_keys(r2, tmp_path):
     assert publish.fetch_working_store_from_r2(SEASON, "strikerapi") == 2
     assert len(pd.read_parquet(source_shots_path(SEASON, "strikerapi"))) == 5
     assert not shots_parquet_path(SEASON).exists()  # never the serving paths
+
+
+def test_a_server_that_already_holds_the_old_parquet_switches_and_rolls_back(r2, tmp_path, monkeypatch):
+    """The prod case: the volume has the old files before this code ever runs a sync."""
+    u_ptr, u_shots = _pair(tmp_path, "old", "understat via soccerdata", rows=3)
+    latest_pointer_path(SEASON).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(u_ptr, latest_pointer_path(SEASON))
+    shutil.copy(u_shots, shots_parquet_path(SEASON))
+    monkeypatch.setenv(publish.ENV_TACTICAL_SOURCE, "strikerapi")
+
+    assert not publish.sync_tactical_store_from_r2(SEASON).ok  # nothing published yet
+    assert _serving_source().startswith("understat") and len(pd.read_parquet(shots_parquet_path(SEASON))) == 3
+
+    _stock_bucket(r2, tmp_path)
+    assert publish.sync_tactical_store_from_r2(SEASON).ok
+    assert _serving_source() == "strikerapi" and len(pd.read_parquet(shots_parquet_path(SEASON))) == 5
+
+    monkeypatch.delenv(publish.ENV_TACTICAL_SOURCE)  # rollback: removing the variable is enough
+    assert publish.sync_tactical_store_from_r2(SEASON).ok
+    assert _serving_source().startswith("understat") and len(pd.read_parquet(shots_parquet_path(SEASON))) == 2
+    assert not source_shots_path(SEASON, "strikerapi").exists()

@@ -23,7 +23,7 @@ upstream churn. Network is touched **only** by `understat_client.fetch_raw`
 | `x`, `y` | float64 | Understat coordinates, 0–1 |
 | `xg` | float64 | Understat xG |
 | `situation` | str | soccerdata-normalized: `Open Play` / `From Corner` / `Set Piece` / `Direct Freekick` / `Penalty` |
-| `shot_type` | str | soccerdata `body_part` |
+| `shot_type` | str | `Left Foot` / `Right Foot`; null for every other shot (both sources) |
 | `result` | str | soccerdata-normalized: `Goal` / `Saved Shot` / `Missed Shot` / `Blocked Shot` / `Shot On Post` / `Own Goal` |
 
 ## §3 Penalty invariant

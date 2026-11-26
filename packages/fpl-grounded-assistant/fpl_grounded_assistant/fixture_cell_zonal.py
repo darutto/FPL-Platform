@@ -13,7 +13,7 @@ gameweek the outlook covers, and only when the tap would be worth it:
 * the outlook covers exactly one gameweek (a cell), with at least one match
   (a blank gameweek has no rival); a double gameweek gives one link per
   rival, at most :data:`MAX_LINKS`;
-* the zonal (Understat shots) store is readable, the outlook's team has shots
+* the zonal shots store is readable, the outlook's team has shots
   of its own in it, and the rival has a defensive profile there whose top
   weak zone is at least ``marginal`` (``zonal_weakness.weakness_strength``) --
   "no weak zone" would open a card with no opportunity to show.
