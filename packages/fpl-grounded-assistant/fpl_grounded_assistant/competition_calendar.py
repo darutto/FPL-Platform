@@ -84,6 +84,10 @@ def _licensed_calendar() -> dict[str, list[dict[str, Any]]] | None:
         handle = handle_from_env()
         manifest = handle.manifest()
         key = manifest["build_id"]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        europe = _europe_layer(now)                      # None with the flag off: nothing below changes
+        if europe is not None:
+            key = (key, europe["fingerprint"])
         hit = _licensed_cache.get("calendar")
         if hit and hit["build"] == key and time.time() - hit["at"] < _PL_TTL_SECONDS:
             return hit["value"]
@@ -103,18 +107,131 @@ def _licensed_calendar() -> dict[str, list[dict[str, Any]]] | None:
                     gameweek=int(r["gameweek"]) if r["gameweek"] == r["gameweek"] and r["gameweek"] is not None else None)
                     for r in rows),
                 postponed=int(row["postponed"] or 0)))
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
         snapshots.append(_pl_snapshot(season, now.strftime("%Y-%m-%dT%H:%M:%SZ")))
-        value = build_public_calendar(snapshots, now=now, covered=LICENSED_COVERED)
+        covered = LICENSED_COVERED
+        if europe is not None:
+            snapshots.extend(europe["snapshots"])
+            covered = (*LICENSED_COVERED, *EUROPE_COVERED)   # one that is missing keeps the calendar incomplete
+        value = build_public_calendar(snapshots, now=now, covered=covered)
         # What the board may say about the data: which cups are covered and how complete each is. Cups are
         # best-effort, so "partial"/"missing" means "not confirmed", never "no match".
-        coverage = {c: v["status"] for c, v in calendar_status(snapshots, LICENSED_COVERED, now).items()}
+        states = calendar_status(snapshots, covered, now)
+        coverage = {c: v["status"] for c, v in states.items()}
         meta = {"provenance": "licensed_starter", "built_at": manifest.get("built_at"), "coverage": coverage}
+        if europe is not None:
+            used = {s.competition for s in europe["snapshots"]}
+            _mark_europe(value, used)
+            meta["provenance"] = "licensed_starter+strikerapi_calendar"
+            meta["europe"] = {
+                "provenance": "strikerapi_calendar", "built_at": europe["built_at"],
+                "competitions": {c: {"status": states[c]["status"], "complete_as_of": states[c]["complete_as_of"]}
+                                 for c in EUROPE_COVERED},
+                "used": sorted(used),
+            }
         _licensed_cache["calendar"] = {"build": key, "at": time.time(), "value": value, "meta": meta}
         return value
     except Exception as exc:  # noqa: BLE001 -- fail-soft by design; log the type only, never a row
         _LOG.info("licensed competition calendar unavailable: %s", type(exc).__name__)
         return None
+
+
+# -- Europe from StrikerAPI (provenance ``strikerapi_calendar``), behind a flag, default OFF -----------------------
+#: With the flag off nothing below runs and every response is byte-identical to before.
+ENV_EUROPE_FLAG = "FPL_EUROPE_CALENDAR_STRIKERAPI"
+ENV_EUROPE_PATH = "FPL_EUROPE_CALENDAR_PATH"
+DEFAULT_EUROPE_PATH = "data/europe-calendar/europe.json"
+EUROPE_COVERED = ("UCL", "UEL", "UECL")
+#: How often the private R2 object is read again (the job refreshes it a few times a week).
+_EUROPE_R2_TTL_SECONDS = 6 * 3600
+_europe_r2: dict[str, float] = {"at": 0.0}
+
+
+def europe_enabled() -> bool:
+    return os.environ.get(ENV_EUROPE_FLAG, "").strip().lower() in ("1", "true", "yes")
+
+
+def _europe_path() -> Path:
+    return Path(os.environ.get(ENV_EUROPE_PATH, "").strip() or DEFAULT_EUROPE_PATH)
+
+
+def _refresh_europe_file(season: str) -> None:
+    """Copy the private R2 object over the local file, at most once per TTL. Never raises; a failure keeps the file."""
+    now = time.time()
+    if now - _europe_r2["at"] < _EUROPE_R2_TTL_SECONDS:
+        return
+    _europe_r2["at"] = now
+    try:
+        from fpl_tactical.europe_calendar import r2_key
+        from fpl_tactical.publish import calendar_location
+
+        client, bucket, prefix = calendar_location()
+        path = _europe_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_suffix(".json.part")
+        client.download_file(bucket, r2_key(prefix, season), str(part))
+        os.replace(str(part), str(path))
+    except Exception as exc:  # noqa: BLE001 -- no R2, no object, no package: keep whatever file there is
+        _LOG.info("europe calendar not refreshed: %s", type(exc).__name__)
+
+
+def _europe_season() -> str:
+    from fpl_data_core.season_registry import CURRENT_SEASON
+
+    return CURRENT_SEASON
+
+
+def _europe_layer(now: datetime) -> dict[str, Any] | None:
+    """The usable European snapshots, or None (then the calendar is exactly what it is without this source).
+
+    A competition is used only when its stored snapshot is well formed, of the current season and not stale.
+    None when the flag is off, there is no file, or no competition is usable. Never raises.
+    """
+    if not europe_enabled():
+        return None
+    try:
+        from football_intelligence.public_calendar import snapshot_status
+        from football_intelligence.strikerapi_calendar import PROVENANCE, SCHEMA_VERSION, snapshot_from_dict
+
+        season = _europe_season()
+        _refresh_europe_file(season)
+        payload = json.loads(_europe_path().read_text(encoding="utf-8"))
+        if (payload.get("schema_version") != SCHEMA_VERSION or payload.get("provenance") != PROVENANCE
+                or payload.get("season") != season):
+            return None
+        fresh = []
+        for competition in EUROPE_COVERED:
+            try:
+                snap = snapshot_from_dict(competition, season, payload["competitions"][competition])
+            except Exception as exc:  # noqa: BLE001 -- one bad competition is "missing", not the whole layer
+                _LOG.info("europe calendar competition unusable: %s %s", competition, type(exc).__name__)
+                continue
+            if snapshot_status(snap, now) != "stale":
+                fresh.append(snap)
+        if not fresh:
+            return None
+        return {"snapshots": fresh, "built_at": payload.get("built_at"),
+                "fingerprint": tuple((s.competition, s.fetched_at, len(s.records), s.complete_as_of) for s in fresh)}
+    except Exception as exc:  # noqa: BLE001 -- fail-soft; log the type only, never a row
+        _LOG.info("europe calendar unavailable: %s", type(exc).__name__)
+        return None
+
+
+def _mark_europe(calendar: dict[str, list[dict[str, Any]]], competitions: set[str]) -> None:
+    """Whole hours between kickoffs, and ``europe_prior`` on a PL match that follows a verified European one.
+
+    The same rule the hand-made layer has: a known kickoff before a Premier League match is a fact (a match the
+    calendar is missing could only make the rest SHORTER), so its notice does not wait for a complete
+    calendar. ``calendar_complete`` itself is untouched.
+    """
+    for matches in calendar.values():
+        for i, m in enumerate(matches):
+            if not i:
+                continue
+            previous = matches[i - 1]
+            m["rest_hours_before"] = int(
+                (_parse(m["kickoff_utc"]) - _parse(previous["kickoff_utc"])).total_seconds() // 3600)
+            if m["is_pl"] and previous["competition"] in competitions:
+                m["europe_prior"] = True
 
 
 ENV_MANUAL = "FPL_MANUAL_CALENDAR_PATH"
@@ -243,6 +360,15 @@ def _with_manual(calendar: dict[str, list[dict[str, Any]]], layer: dict[str, Any
     return out
 
 
+def _manual_without(layer: dict[str, Any], competitions: set[str]) -> dict[str, Any] | None:
+    """The hand-made layer minus the competitions another source now covers (never both), or None when empty."""
+    matches = [m for m in layer["matches"] if m["competition"] not in competitions]
+    if not matches:
+        return None
+    return {**layer, "matches": matches,
+            "competitions": [c for c in layer.get("competitions", []) if c not in competitions]}
+
+
 def _dev_gate_open() -> bool:
     return os.environ.get(ENV_ALLOW, "").strip() == "1"
 
@@ -289,6 +415,8 @@ def competitions_response(tier: str, team: str | None, date_from: str | None, da
         # both on one timeline in real date order, each with the whole rest days before it.
         data = _licensed_cache.get("calendar", {}).get("meta") if not _dev_gate_open() else None
         manual = _manual_layer() if data else None  # layered on the licensed calendar only, never on the dev capture
+        if manual and data.get("europe"):
+            manual = _manual_without(manual, set(data["europe"]["used"]))
         if manual:
             wanted = {c: ms for c, ms in _with_manual(calendar, manual).items() if c in wanted}
         if data and manual:
