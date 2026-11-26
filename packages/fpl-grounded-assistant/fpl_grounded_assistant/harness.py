@@ -1524,6 +1524,54 @@ def ask_v2(
             _telemetry.record(routing_trace)
             return result
 
+        # The query door owned the turn: its own branch. Outcome, supported,
+        # review_passed and intent are one projection of the block
+        # (query_contract.project); the text is code-written, so llm_used is
+        # False, and no card or slot of another tool is served beside it.
+        from .orchestrator import OUTCOME_QUERY as _ORCH_QUERY  # noqa: PLC0415
+        if orch_result.outcome == _ORCH_QUERY:
+            from .query_contract import project as _project_query  # noqa: PLC0415
+            _output = dict(orch_result.tool_output or {})
+            _block = _output["query"]
+            _projected = _project_query(_block)
+            routing_trace["branch"]               = "orchestrator_query"
+            routing_trace["orchestrator_tool_calls"] = [orch_result.tool_chosen]
+            routing_trace["grounded"]             = _projected["outcome"] == "ok"
+            routing_trace["tool_call_count"]      = orch_result.tool_call_count
+            routing_trace["synthesis_turn"]       = False
+            routing_trace["query_state"]          = _block["state"]
+            result = {
+                "selected_tool": orch_result.tool_chosen,
+                "tool_input":    {},
+                "raw_output":    _output,
+                "answer_text":   orch_result.answer_text,
+                "outcome":       _projected["outcome"],
+                "intent":        _projected["intent"],
+                "query":         _block,
+                "kind":          "text",
+                "orchestrator_outcome": orch_result.outcome,
+                **_project_orchestrator_identity(orch_result),
+                **_project_final_text_guard(orch_result),
+                "llm_used": False,
+                "tool_calls_trace": _project_tool_calls_trace(orch_result),
+                "tokens": {
+                    "primary_input": orch_result.primary_input_tokens,
+                    "primary_output": orch_result.primary_output_tokens,
+                    "primary_cache_read": orch_result.primary_cache_read_tokens,
+                    "evaluator": orch_result.evaluator_input_tokens,
+                    "retry_input": orch_result.retry_input_tokens,
+                    "retry_output": orch_result.retry_output_tokens,
+                    "retry_cache_read": orch_result.retry_cache_read_tokens,
+                    "total": orch_result.total_tokens,
+                },
+                "routing_trace": routing_trace,
+                **_none_meta,
+            }
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)
+            return result
+
         from .final_response import composed_primary_call  # noqa: PLC0415
         _composed_call = composed_primary_call(orch_result.tool_calls_trace)
         _primary_call = _plan_call_owner(orch_result.tool_calls_trace) or _composed_call
@@ -2091,13 +2139,21 @@ def _project_tool_calls_trace(orch_result: Any) -> list[dict[str, Any]]:
             continue
         out.append({
             "name":          _e["name"],
-            "args":          dict(_e.get("args") or {}),
+            # A query call's arguments quote the user's words: audited as enums only (below).
+            "args":          {} if _e["name"] == "query" else dict(_e.get("args") or {}),
             "output_status": str((_e.get("output") or {}).get("status") or "unknown"),
             "round":         _e.get("round"),
             "retry":         bool(_e.get("retry", False)),
             **_guard_kinds_field(_e),
+            **_query_audit_field(_e),
         })
     return out
+
+
+def _query_audit_field(entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The query call's audit record: state, reason and brake, enum values only."""
+    audit = (entry.get("output") or {}).get("query_audit")
+    return {"query": dict(audit)} if entry.get("name") == "query" and isinstance(audit, dict) else {}
 
 
 def _guard_kinds_field(entry: dict[str, Any]) -> dict[str, list[str]]:

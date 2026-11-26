@@ -77,7 +77,7 @@ Design invariants
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 
@@ -2104,6 +2104,10 @@ _ALL_SCHEMAS: tuple[ToolSchema, ...] = (
     *FI7B_TOOL_SCHEMAS,
 )
 
+#: Withdrawn from the model while the query door is on (still registered and directly callable).
+QUERY_LAYER_WITHDRAWN_TOOL_NAMES: frozenset[str] = frozenset({"rank_players_by_metric"})
+
+
 #: Immutable dict mapping tool name → ToolSchema.
 _REGISTRY: dict[str, ToolSchema] = {s.name: s for s in _ALL_SCHEMAS}
 
@@ -2124,7 +2128,8 @@ _REGISTRY_WITH_SEARCH: dict[str, ToolSchema] = {
     LEAGUE_EO_SCHEMA.name: LEAGUE_EO_SCHEMA,        # likewise (FPL_LEAGUE_EO_ENABLED)
     TIER_EO_SCHEMA.name: TIER_EO_SCHEMA,            # likewise (FPL_TIER_EO_ENABLED)
 }
-TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH)
+#: ``query`` is runnable like the opt-in tools above; its schema is built on demand (``_query_schema``).
+TOOL_NAMES_WITH_SEARCH: frozenset[str] = frozenset(_REGISTRY_WITH_SEARCH) | {"query"}
 
 
 #: The tools that reach the web. ONE rule gates them all: the per-request web
@@ -2153,9 +2158,33 @@ def get_offered_tool_schemas(
         if football_intelligence_enabled
         else _BASE_OFFERED_SCHEMAS
     )
-    if web_enabled:
+    if not web_enabled:
+        schemas = tuple(s for s in schemas if s.name not in WEB_TOOL_NAMES)
+    return _with_query_door(schemas)
+
+
+def _with_query_door(schemas: tuple[ToolSchema, ...]) -> tuple[ToolSchema, ...]:
+    """With ``FPL_QUERY_LAYER`` on: the ranking is withdrawn, two descriptions point at ``query``, and ``query``
+    is offered last, as in the probe's frozen tool list. Off: *schemas* unchanged.
+
+    ``query`` is in no static registry; its text is the probe's round-4 freeze (``query_door_text``). The
+    imports live here so this module still loads on its own as pure data.
+    """
+    from .orch_config import is_query_layer_enabled  # noqa: PLC0415
+
+    if not is_query_layer_enabled():
         return schemas
-    return tuple(s for s in schemas if s.name not in WEB_TOOL_NAMES)
+    from .query_door_text import rewrite_description  # noqa: PLC0415
+
+    kept = tuple(replace(s, description=rewrite_description(s.name, s.description))
+                 for s in schemas if s.name not in QUERY_LAYER_WITHDRAWN_TOOL_NAMES)
+    return (*kept, _query_schema())
+
+
+def _query_schema() -> ToolSchema:
+    from .query_door_text import QUERY_DESCRIPTION, QUERY_PARAMETERS, QUERY_TOOL_NAME  # noqa: PLC0415
+
+    return ToolSchema(name=QUERY_TOOL_NAME, description=QUERY_DESCRIPTION, parameters=QUERY_PARAMETERS)
 
 
 def get_offered_tool_names(
@@ -2228,7 +2257,7 @@ def get_tool_schema(name: str) -> ToolSchema | None:
     >>> get_tool_schema("nonexistent") is None
     True
     """
-    return _REGISTRY_WITH_SEARCH.get(name)
+    return _query_schema() if name == "query" else _REGISTRY_WITH_SEARCH.get(name)
 
 
 def validate_tool_schema_shape(schema: Any) -> bool:

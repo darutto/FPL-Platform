@@ -406,6 +406,9 @@ class AskResponse(BaseModel):
     evidence: list[dict[str, Any]] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    #: The query door's block (state, reading line, table or comparison, chips). The key is absent on every
+    #: other turn, so a response with the door off is byte-for-byte what it was before the door.
+    query: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CreateSessionRequest(BaseModel):
@@ -542,6 +545,8 @@ class SessionAskResponse(BaseModel):
     evidence: list[dict[str, Any]] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    #: Same field and rule as AskResponse.query.
+    query: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ClearSessionResponse(BaseModel):
@@ -3060,6 +3065,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         fixture_run=sess_fixture_run_bundle,
         differential=sess_differential_bundle,
         evidence=sess_evidence_list,
+        query=r.query,
         orch_outcome=r.orch_outcome,   # Orch-4c: audit
         degraded=r.degraded,           # Phase 2.6b: provider failed silently
         player_form=sess_player_form_bundle,
