@@ -15,6 +15,16 @@ What it removes
   introduces it (it ends in ``:``) and, for a table, its header and rule rows.
 * A single SENTENCE that names three or more card players each beside his own value.
 
+A line that also carries judgement is never deleted
+-----------------------------------------------------
+After removing the list marker, the card players' names, club names and codes, position
+words, prices, the rows' values and their units, a line (a list item, a table row with a
+comment column, or a sentence) with six or more words left says something the card does
+not, and stays. The pure rows of the same block still go; if fewer than three pure rows
+(three different players) remain, nothing of that block is dropped. A table with any
+commented row is left whole (dropping some rows would break it), and the intro line stays
+whenever a line of its block stays.
+
 What it never touches
 ---------------------
 * Sentences with judgement that name players with no value beside them («Haaland lidera
@@ -45,6 +55,18 @@ _SHORT_LINE = 90
 #: A name and its value must sit this close in a sentence to be "beside" each other.
 _BESIDE = 45
 _MIN_ROWS = 3
+#: This many words left after removing what the card already shows is judgement, not a row.
+_JUDGEMENT_WORDS = 6
+
+#: Words that only label a row: positions and the units of the card's values (ES + EN).
+_ROW_WORDS: frozenset[str] = frozenset(
+    "portero porteros arquero arqueros defensa defensas defensor defensores lateral laterales central "
+    "centrales mediocampista mediocampistas centrocampista centrocampistas volante volantes delantero "
+    "delanteros atacante atacantes extremo extremos gkp gk def mid fwd goalkeeper goalkeepers defender "
+    "defenders midfielder midfielders forward forwards striker strikers "
+    "punto puntos pts pt points point gol goles goal goals asistencia asistencias assist assists minuto "
+    "minutos minute minutes tarjeta tarjetas parada paradas save saves xg xa xgi bonus bps total totales".split()
+)
 
 _LIST_MARK = re.compile(r"^\s*(?:\d{1,2}[.)]|[-*•])\s+")
 _TABLE_ROW = re.compile(r"^\s*\|")
@@ -143,6 +165,20 @@ def _is_listy(line: str) -> bool:
     return bool(_LIST_MARK.match(line) or _TABLE_ROW.match(line) or len(line.strip()) <= _SHORT_LINE)
 
 
+def _residual_words(text: str, rows: Sequence[Row], extra_terms: Sequence[str]) -> int:
+    """How many words *text* says beyond what a card row shows (see the module docstring)."""
+    s = _fold(_LIST_MARK.sub("", text)).replace("|", " ")
+    s = _PRICE.sub(" ", s)
+    for row in rows:
+        for variant in row.names:
+            s = re.sub(rf"(?<![a-z0-9]){re.escape(variant)}(?![a-z0-9])", " ", s)
+    for row in rows:
+        s = row.value.sub(" ", s)
+    for term in sorted({" ".join(_fold(t).split()) for t in extra_terms if t and str(t).strip()}, key=len, reverse=True):
+        s = re.sub(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", " ", s)
+    return sum(1 for w in re.findall(r"[a-z0-9]+", s) if not w.isdigit() and w not in _ROW_WORDS)
+
+
 @dataclass(frozen=True)
 class Trim:
     text: str
@@ -150,7 +186,9 @@ class Trim:
     fired: bool
 
 
-def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric: str = "") -> Trim:
+def trim_card_restatement(
+    text: str, ranked: Sequence[dict[str, Any]], *, metric: str = "", extra_terms: Sequence[str] = (),
+) -> Trim:
     """*text* without the blocks and sentences that reprint the card's rows.
 
     ``fired`` is False (and the text unchanged) when nothing matched. Never returns the
@@ -161,6 +199,8 @@ def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric
     if len(rows) < _MIN_ROWS or not text or not text.strip():
         return Trim(text, 0, False)
     strip_prices = metric not in ("now_cost", "price")
+    #: Club names / codes: what the caller knows, plus the codes on the card itself.
+    terms = [*extra_terms, *(str(e.get("team_short") or "") for e in ranked or ())]
 
     lines = text.split("\n")
     n = len(lines)
@@ -200,8 +240,19 @@ def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric
             players |= set(_hits(lines[i], rows, strip_prices=strip_prices))
         if len(run) < _MIN_ROWS or len(players) < _MIN_ROWS:
             continue
-        for i in run:
+        commented = {i for i in run if _residual_words(lines[i], rows, terms) >= _JUDGEMENT_WORDS}
+        pure = [i for i in run if i not in commented]
+        pure_players: set[int] = set()
+        for i in pure:
+            pure_players |= set(_hits(lines[i], rows, strip_prices=strip_prices))
+        if len(pure) < _MIN_ROWS or len(pure_players) < _MIN_ROWS:
+            continue                                            # too few pure rows left: touch nothing
+        if commented and any(_TABLE_ROW.match(lines[i]) for i in run):
+            continue                                            # a table with a comment column stays whole
+        for i in pure:
             drop[i] = True
+        if commented:
+            continue                                            # lines remain, so their intro remains too
         first, last = run[0], run[-1]
         if _TABLE_ROW.match(lines[first]):                      # header + rule rows of the same table
             j = first - 1
@@ -241,7 +292,10 @@ def trim_card_restatement(text: str, ranked: Sequence[dict[str, Any]], *, metric
                     if rows[i].value.search(window):
                         near += 1
                         break
-            if len(hits) >= _MIN_ROWS and near >= _MIN_ROWS:
+            if (
+                len(hits) >= _MIN_ROWS and near >= _MIN_ROWS
+                and _residual_words(sentence, rows, terms) < _JUDGEMENT_WORDS
+            ):
                 removed_any = True
                 continue
             kept.append(sentence)

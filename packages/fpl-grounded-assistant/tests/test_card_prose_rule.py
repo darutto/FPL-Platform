@@ -130,6 +130,92 @@ def test_a_value_that_belongs_to_another_player_does_not_count():
     assert not trim(text).fired
 
 
+# -- a line that also carries judgement is never deleted ----------------------
+
+COMMENT = "titular fijo y con calendario suave hasta la GW15"
+CLUBS = ["Brighton", "BHA", "Tottenham", "TOT", "Arsenal", "ARS", "Man City", "MCI"]
+
+
+def _rows(*lines):
+    return "\n".join(lines)
+
+
+def test_a_commented_line_stays_and_the_pure_rows_of_the_block_go():
+    text = _rows(
+        "Los mejores son:",
+        "",
+        f"1. **Alder** \u2014 76 puntos: {COMMENT}",
+        "2. **Birch** \u2014 Brighton, \u00a35.3m: **70 puntos**",
+        "3. **Van Cedar** \u2014 Tottenham, \u00a35.4m: **68 puntos**",
+        "4. **Dogwood** \u2014 Arsenal, \u00a35.9m: **66 puntos**",
+    )
+    out = trim_card_restatement(text, RANKED, metric="total_points", extra_terms=CLUBS)
+    assert out.fired and out.dropped_lines == 3
+    assert out.text == f"Los mejores son:\n\n1. **Alder** \u2014 76 puntos: {COMMENT}"
+
+
+def test_with_fewer_than_three_pure_rows_nothing_is_dropped():
+    text = _rows(
+        f"1. Alder: 76 puntos, {COMMENT}",
+        f"2. Birch: 70 puntos, {COMMENT}",
+        "3. Van Cedar: 68 puntos",
+        "4. Dogwood: 66 puntos",
+    )
+    out = trim_card_restatement(text, RANKED, metric="total_points", extra_terms=CLUBS)
+    assert not out.fired and out.text == text
+
+
+def test_five_words_left_is_a_row_six_is_judgement():
+    five = "uno mas bien muy flojo"
+    six = "uno mas bien muy flojo ahora"
+    base_rows = ("2. Birch: 70", "3. Van Cedar: 68", "4. Dogwood: 66")
+    assert trim(_rows(f"1. Alder: 76 {five}", *base_rows)).text == ""
+    assert trim(_rows(f"1. Alder: 76 {six}", *base_rows)).text == f"1. Alder: 76 {six}"
+
+
+def test_clubs_positions_prices_values_and_units_do_not_count_as_judgement():
+    text = _rows(
+        "1. Alder (Man City, defensa, MCI) \u2014 \u00a35.5m \u00b7 76 puntos totales",
+        "2. Birch (Brighton, DEF, BHA) \u2014 5.3m \u00b7 70 pts",
+        "3. Van Cedar (Tottenham, delantero, TOT) \u2014 \u00a35.4m \u00b7 68 points",
+    )
+    out = trim_card_restatement(text, RANKED, metric="total_points", extra_terms=CLUBS)
+    assert out.fired and out.text == ""
+
+
+def test_a_table_with_a_comment_column_is_left_whole():
+    text = _rows(
+        "| # | Jugador | Pts | Nota |",
+        "|---|---|---|---|",
+        f"| 1 | Alder | 76 | {COMMENT} |",
+        "| 2 | Birch | 70 | - |",
+        "| 3 | Van Cedar | 68 | - |",
+        "| 4 | Dogwood | 66 | - |",
+    )
+    out = trim(text)
+    assert not out.fired and out.text == text
+
+
+def test_a_sentence_with_a_real_clause_after_the_values_keeps_the_line():
+    text = (
+        "Alder (76), Birch (70) y Van Cedar (68) lideran, aunque solo el primero tiene un calendario "
+        "suave hasta la GW15."
+    )
+    out = trim(text)
+    assert not out.fired and out.text == text
+
+
+def test_a_bare_sentence_of_three_values_still_goes():
+    out = trim("Alder (76), Birch (70) y Van Cedar (68) lideran.\n\nLo interesante es el precio.")
+    assert out.fired and out.text == "Lo interesante es el precio."
+
+
+def test_leos_exact_shape_is_still_dropped_with_the_clubs_known():
+    out = trim_card_restatement(LEO_SHAPE, RANKED, metric="total_points", extra_terms=CLUBS)
+    assert out.fired and out.dropped_lines == 5
+    assert out.text == "Alder destaca porque su precio es bajo para lo que rinde."
+
+
 def test_the_card_name_and_the_name_the_prose_writes_may_differ():
     # The card shows FPL's web_name ("B.Fernandes", "Gibbs-White"); the model writes the full name.
     ranked = [{"web_name": n, "metric_value": v} for n, v in (

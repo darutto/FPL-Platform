@@ -166,7 +166,7 @@ def _tool_table_conclusions(tool: Any, raw_output: Any, bootstrap: Any) -> "list
     return tool_ranking_conclusions(raw_output, bootstrap) or None
 
 
-def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any) -> None:
+def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any, bootstrap: Any = None) -> None:
     """Drop the lines of a ranking turn's prose that reprint the card's rows (card_prose_rule).
 
     Only a ``rank_players_by_metric`` turn whose card is on screen (``generic_card`` composed), whose text the
@@ -184,7 +184,15 @@ def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any) -
             return
         from .card_prose_rule import REASON_ROWS_RESTATED, trim_card_restatement  # noqa: PLC0415
 
-        trimmed = trim_card_restatement(original, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""))
+        clubs = [
+            str(team.get(key) or "")
+            for team in ((bootstrap or {}).get("teams") or [])
+            if isinstance(team, dict)
+            for key in ("name", "short_name")
+        ]
+        trimmed = trim_card_restatement(
+            original, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""), extra_terms=clubs,
+        )
         if not trimmed.fired:
             return
         if not trimmed.text.strip() and not result.get("table_conclusions"):
@@ -1597,7 +1605,7 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _apply_card_prose_rule(result, _orch_tool, _orch_raw)
+            _apply_card_prose_rule(result, _orch_tool, _orch_raw, actual_bootstrap)
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap, locale)
             if _chips is None:
                 _chips = _plan_to_sign_chips(_orch_tool, _orch_raw, locale)
