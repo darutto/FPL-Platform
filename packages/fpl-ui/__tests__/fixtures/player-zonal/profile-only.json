@@ -1,0 +1,36 @@
+{
+  "final_text": "Lectura del cruce.",
+  "intent": "player_zonal_outlook",
+  "outcome": "ok",
+  "player_zonal": {
+    "id": 10,
+    "position": "MID",
+    "signals": [],
+    "team_short": "CHE",
+    "web_name": "Palmer",
+    "zonal": {
+      "data_provenance": {
+        "ingested_at": "2026-09-12T06:00:00Z",
+        "is_current": true,
+        "label": "⚠ Datos hasta la GW5 · 11 sep",
+        "live_season": "2026-2027",
+        "n_matches": 380,
+        "n_shots": 163,
+        "season": "2026-2027",
+        "season_label": "2026-27",
+        "status": "aged"
+      },
+      "fixtures": [],
+      "gw_from": 6,
+      "gw_to": 8,
+      "verdict": "",
+      "verdict_kind": "profile",
+      "zones": [
+        {
+          "share": 1.0,
+          "zone": "in-box / central"
+        }
+      ]
+    }
+  }
+}

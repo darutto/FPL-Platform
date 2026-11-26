@@ -432,6 +432,7 @@ def to_ask_response(
         # chat over HTTP -- on any get_fixture_outlook turn, composed (i93) or not.
         fixture_outlook=_to_dict(d.get("fixture_outlook")),      # Track D / FI4
         player_snapshot=_to_dict(d.get("player_snapshot")),      # single-player card
+        player_zonal=_to_dict(d.get("player_zonal")),            # focused zonal card
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
         suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
         evidence=_to_dict(d.get("evidence")),                    # FI-7a: contract-only passthrough

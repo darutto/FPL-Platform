@@ -214,7 +214,7 @@ def classify_fixture(f: dict[str, Any]) -> str:
 
 
 def pending_window(
-    fixtures: list[dict[str, Any]], team_id: int,
+    fixtures: list[dict[str, Any]], team_id: int, window_gws: int = WINDOW_GWS,
 ) -> "tuple[list[dict[str, Any]] | None, str, tuple[int, int] | None]":
     """The team's pending matches in the 3-gameweek window.
 
@@ -239,7 +239,7 @@ def pending_window(
         if any(f["_state"] == "unknown" for f in mine):
             return None, "fixture_state_unknown", None
         return None, "no_pending_fixtures", None
-    end = start + WINDOW_GWS - 1
+    end = start + window_gws - 1
     in_window = [f for f in mine if start <= f["_gw"] <= end]
     # An unreadable flag inside the window could be a pending match we would
     # silently drop: omit instead of showing a partial calendar.
@@ -410,7 +410,8 @@ def _valid_zonal(zonal: dict[str, Any]) -> bool:
 
 
 def _verdict(
-    web_name: str, fixtures: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+    web_name: str, fixtures: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE,
+    window_gws: int = WINDOW_GWS,
 ) -> "tuple[str, str]":
     favorable = [f for f in fixtures if f["status"] == "favorable"]
     if favorable:
@@ -421,11 +422,15 @@ def _verdict(
         return "favorable", t("zonal.player_favorable", locale, player=web_name, gws=gws)
     if all(f["status"] == "no_data" for f in fixtures):
         return "no_data", t("zonal.snap_no_data", locale)
-    return "neutral", t("zonal.snap_neutral", locale, player=web_name)
+    if window_gws == WINDOW_GWS:
+        return "neutral", t("zonal.snap_neutral", locale, player=web_name)
+    if window_gws == 1:
+        return "neutral", t("zonal.window_neutral_one", locale, player=web_name)
+    return "neutral", t("zonal.window_neutral", locale, player=web_name, n=window_gws)
 
 
 def _compose(
-    element: dict[str, Any], bootstrap: dict[str, Any],
+    element: dict[str, Any], bootstrap: dict[str, Any], window_gws: int = WINDOW_GWS,
 ) -> ComposeResult:
     store = _STORE_OVERRIDE
     bundle = load_store_bundle(store)
@@ -452,7 +457,7 @@ def _compose(
     if team_id is None or team_id not in teams_by_id:
         return _omit("team_unknown", method)
 
-    rows, why, window = pending_window(fixtures_all, team_id)
+    rows, why, window = pending_window(fixtures_all, team_id, window_gws)
     if rows is None or window is None:
         return _omit(why, method)
     if not rows:
@@ -494,7 +499,7 @@ def _compose(
         # player's own profile and the stamp (see build_player_outlook).
         out_fixtures, kind, verdict = [], "profile", ""
     else:
-        kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale)
+        kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale, window_gws)
     zonal = {
         "zones": zones,
         "window": {"gw_from": window[0], "gw_to": window[1]},
@@ -509,12 +514,12 @@ def _compose(
 
 
 def compose_player_zonal(
-    element: dict[str, Any], bootstrap: dict[str, Any],
+    element: dict[str, Any], bootstrap: dict[str, Any], window_gws: int = WINDOW_GWS,
 ) -> ComposeResult:
     """Never raises. Logs one structured line per call (internal diagnosis)."""
     t0 = time.monotonic()
     try:
-        result = _compose(element, bootstrap)
+        result = _compose(element, bootstrap, window_gws)
     except Exception as exc:  # noqa: BLE001 -- enrichment must not break the card
         result = _omit(f"exception:{type(exc).__name__}")
     try:
@@ -532,3 +537,28 @@ def compose_player_zonal(
     except Exception:  # noqa: BLE001
         pass
     return result
+
+
+def element_for_store_player(
+    store_player: str, bootstrap: dict[str, Any],
+) -> "dict[str, Any] | None":
+    """The one FPL element whose strict identity (``select_store_profile``) is
+    *store_player*; None when no element or more than one is. For a caller that
+    starts from a store name (get_player_zonal_outlook). Never raises."""
+    try:
+        bundle = load_store_bundle(_STORE_OVERRIDE)
+        if bundle is None or store_player not in bundle["shares"]:
+            return None
+        wanted = set(normalize_player_name(store_player).split())
+        found = [
+            el for el in bootstrap.get("elements") or []
+            if wanted & set(normalize_player_name(
+                f"{el.get('first_name') or ''} {el.get('second_name') or ''} "
+                f"{el.get('web_name') or ''}"
+            ).split())
+            and select_store_profile(el, bootstrap, bundle)[0] == store_player
+        ]
+        return found[0] if len(found) == 1 else None
+    except Exception as exc:  # noqa: BLE001 -- no card is the fallback
+        _LOG.info("player_zonal: no element for store player (%s)", type(exc).__name__)
+        return None

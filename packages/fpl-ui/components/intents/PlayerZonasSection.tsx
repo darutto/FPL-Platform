@@ -4,7 +4,8 @@
  * Rendered only when the snapshot carries a `zonal` block (the backend
  * omits it when it cannot prove the player's identity or has no pending
  * match). Shows where the player generates his xG and how the PENDING
- * matches of the next 3 gameweeks line up with it.
+ * matches of its window (3 gameweeks on the player card) line up with it.
+ * PlayerZonalCard draws this same section for a focused zonal question.
  *
  * Units: `share` / `player_share` arrive as 0–1 fractions; `sharePercent`
  * converts them here, once, for display. Chips are not renormalised — they
@@ -66,7 +67,9 @@ export default function PlayerZonasSection({ zonal, zoneLink = null }: Props) {
         <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-bf-gray">{t('pz.title')}</h3>
         {!profileOnly && (
           <span className="text-[10px] text-bf-gray">
-            {t('pz.window', { range })}
+            {gw_from === gw_to
+              ? t('pz.windowOne', { range })
+              : t('pz.window', { n: gw_to - gw_from + 1, range })}
           </span>
         )}
       </div>

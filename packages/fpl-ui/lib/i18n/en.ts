@@ -583,7 +583,8 @@ export const en: typeof es = {
 
   // --- The player's Zonas section ---
   'pz.title': 'Zones',
-  'pz.window': 'Fixtures in the next 3 gameweeks · {range}',
+  'pz.window': 'Fixtures in the next {n} gameweeks · {range}',
+  'pz.windowOne': 'Fixtures in the next gameweek · {range}',
   'pz.chip': '{zone} · {pct}% of his non-penalty xG',
   'pz.favourable': 'Favourable matchup',
   'pz.noData': 'No data on the opponent',
