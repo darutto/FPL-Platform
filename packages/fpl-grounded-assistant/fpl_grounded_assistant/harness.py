@@ -129,6 +129,7 @@ Known gaps (remaining before true LLM integration)
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -154,12 +155,57 @@ from .tool_dispatch import run_tool
 #   correct and expected.
 # ---------------------------------------------------------------------------
 
+_LOG = logging.getLogger(__name__)
+
+
 def _tool_table_conclusions(tool: Any, raw_output: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
     """``table_conclusions`` for a ``rank_players_by_metric`` turn; None for any other tool or when none fires."""
     if tool != "rank_players_by_metric":
         return None
     from .table_conclusions import tool_ranking_conclusions  # noqa: PLC0415
     return tool_ranking_conclusions(raw_output, bootstrap) or None
+
+
+def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any, bootstrap: Any = None) -> None:
+    """Drop the lines of a ranking turn's prose that reprint the card's rows (card_prose_rule).
+
+    Only a ``rank_players_by_metric`` turn whose card is on screen (``generic_card`` composed), whose text the
+    model wrote and the final-text guard did not replace. If nothing would remain, the turn needs the table's
+    conclusions (#648) to be what the user reads; without them the text is left as it is. Never raises: any
+    failure sends the original text. The original goes to the audit line (``card_prose_raw_answer_text``).
+    """
+    try:
+        if tool != "rank_players_by_metric" or not isinstance(raw_output, dict) or raw_output.get("status") != "ok":
+            return
+        if result.get("generic_card") is None or not result.get("llm_used") or result.get("final_text_guard_reason"):
+            return
+        original = result.get("answer_text")
+        if not isinstance(original, str) or not original.strip():
+            return
+        from .card_prose_rule import REASON_ROWS_RESTATED, trim_card_restatement  # noqa: PLC0415
+
+        clubs = [
+            str(team.get(key) or "")
+            for team in ((bootstrap or {}).get("teams") or [])
+            if isinstance(team, dict)
+            for key in ("name", "short_name")
+        ]
+        card = result.get("generic_card")
+        title = card.get("title") if isinstance(card, dict) else getattr(card, "title", None)
+        trimmed = trim_card_restatement(
+            original, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""), extra_terms=clubs,
+            card_title=str(title or ""),
+        )
+        if not trimmed.fired:
+            return
+        if not trimmed.text.strip() and not result.get("table_conclusions"):
+            return
+        result["answer_text"] = trimmed.text
+        result["card_prose_reason"] = REASON_ROWS_RESTATED
+        result["card_prose_dropped_lines"] = trimmed.dropped_lines
+        result["card_prose_raw_answer_text"] = original
+    except Exception as exc:  # noqa: BLE001 -- the original text goes out
+        _LOG.warning("card_prose_rule failed (%s); original text kept", type(exc).__name__)
 
 
 def _resource_table_conclusions(decision: Any, bootstrap: Any) -> "list[dict[str, Any]] | None":
@@ -1562,6 +1608,7 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
+            _apply_card_prose_rule(result, _orch_tool, _orch_raw, actual_bootstrap)
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap, locale)
             if _chips is None:
                 _chips = _plan_to_sign_chips(_orch_tool, _orch_raw, locale)

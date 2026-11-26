@@ -3588,6 +3588,10 @@ def _try_session_orchestration_response(
         # i106: same dict, same two keys the /ask audit line reads.
         "final_text_guard_reason": result.get("final_text_guard_reason"),
         "guarded_raw_answer_text": result.get("guarded_raw_answer_text"),
+        # The ranking-card prose rule: enum, dropped-line count and the original text (audit line only).
+        "card_prose_reason": result.get("card_prose_reason"),
+        "card_prose_dropped_lines": result.get("card_prose_dropped_lines"),
+        "card_prose_raw_answer_text": result.get("card_prose_raw_answer_text"),
     }
     response = FinalResponse(
         final_text=answer_text,
