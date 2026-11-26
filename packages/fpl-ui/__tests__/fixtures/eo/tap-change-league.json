@@ -21,6 +21,7 @@
   "plan_state": null,
   "player_form": null,
   "player_snapshot": null,
+  "player_zonal": null,
   "pool_size": null,
   "pool_source": null,
   "position_fixture_run": null,

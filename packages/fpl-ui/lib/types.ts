@@ -84,7 +84,9 @@ export type Intent =
   | 'zonal_opportunity'
   // Orchestrator-only renderable intent for the single-player detail card
   // (same non-classifier pattern as zonal_opportunity).
-  | 'player_snapshot';
+  | 'player_snapshot'
+  // Orchestrator-only: the card of a focused player zonal question.
+  | 'player_zonal_outlook';
 
 /**
  * Runtime-accessible list of every intent value that can appear in
@@ -119,6 +121,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'fixture_outlook',   // Track D/FI4 — renderable orchestrator-routed intent
   'zonal_opportunity', // T4b — renderable orchestrator-routed intent
   'player_snapshot',   // renderable orchestrator-routed intent (player card)
+  'player_zonal_outlook', // renderable orchestrator-routed intent (player zonal card)
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -343,6 +346,8 @@ export interface AskResponse {
    * (pre-existing fixtures/serialisers omit it).
    */
   player_snapshot?: PlayerSnapshotMeta | null;
+  /** Non-null when intent=player_zonal_outlook, outcome=ok and the backend could compose the card. */
+  player_zonal?: PlayerZonalCardMeta | null;
   /**
    * Provider-neutral structured evidence (FI-7a). Optional so responses
    * produced without evidence retain the pre-FI-7a wire shape.
@@ -1157,6 +1162,20 @@ export interface PlayerZonalFixture {
 }
 
 /**
+ * Source: final_response.py -> PlayerZonalCardMeta. The card of a focused zonal question:
+ * a short header plus the player card's own «Zonas» block.
+ */
+export interface PlayerZonalCardMeta {
+  id: number;
+  web_name: string;
+  team_short: string;
+  position: string;
+  zonal: PlayerZonalOutlookMeta;
+  /** Only the section's closing `zone` link, when it applies. */
+  signals?: PlayerSignal[];
+}
+
+/**
  * Source: final_response.py -> PlayerZonalOutlookMeta. Window = first
  * gameweek with a pending match of the player's current team, plus the two
  * after it; in-play and finished matches are excluded.
@@ -1176,7 +1195,7 @@ export interface PlayerZonalOutlookMeta {
 // Resource rows types (A2 post-graduation — @resource rendering)
 // ---------------------------------------------------------------------------
 
-/** One row in a metric-ranked resource (top_form/top_xg/top_points/top_minutes/popular). */
+/** One row in a metric-ranked resource (top_form/top_xg/top_xa/top_xgi/top_points/top_minutes/popular). */
 export interface ResourceRankingRow {
   web_name: string;
   team_short: string;
@@ -1195,10 +1214,12 @@ export interface InjuryRow {
   news_added: string | null;
 }
 
-/** Identifier for the 6 supported resources. */
+/** Identifier for the 8 supported resources. */
 export type ResourceKind =
   | 'top_form'
   | 'top_xg'
+  | 'top_xa'
+  | 'top_xgi'
   | 'top_points'
   | 'top_minutes'
   | 'popular'

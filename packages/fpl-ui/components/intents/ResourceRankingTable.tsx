@@ -2,7 +2,7 @@
  * ResourceRankingTable — structured rendering for @resource metric-ranked turns.
  *
  * Rendered beneath final_text when response.resource_rows is non-null and
- * resource is one of: top_form, top_xg, top_points, top_minutes, popular.
+ * resource is one of: top_form, top_xg, top_xa, top_xgi, top_points, top_minutes, popular.
  *
  * Columns: rank (#), player (web_name), team (team_short), position, value.
  * Style modelled after RankingTable.tsx — same border/divider/font hierarchy,

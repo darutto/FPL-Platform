@@ -30,7 +30,7 @@ def test_glossary_command_names_resolve_to_the_same_prompt_as_the_spanish_ones(e
 
 @pytest.mark.parametrize("english, spanish, canonical", [
     ("injuries", "lesionados", "injuries"), ("form", "forma", "top_form"), ("points", "puntos", "top_points"),
-    ("minutes", "minutos", "top_minutes"), ("popular", "populares", "popular"), ("xg", "xg", "top_xg"),
+    ("minutes", "minutos", "top_minutes"), ("popular", "populares", "popular"), ("xg", "xg", "top_xg"), ("xgi", "xgi", "top_xgi"),
 ])
 def test_glossary_resource_names_resolve_in_both_languages(english, spanish, canonical):
     assert resolve_resource("@" + english) == resolve_resource("@" + spanish) == canonical

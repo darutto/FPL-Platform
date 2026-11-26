@@ -34,9 +34,14 @@ from pathlib import Path
 
 from fpl_tactical.paths import (
     CURRENT_SEASON,
+    SOURCE_STRIKERAPI,
+    SOURCE_UNDERSTAT,
+    SOURCES,
     latest_pointer_path,
     season_dir,
     shots_parquet_path,
+    source_pointer_path,
+    source_shots_path,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +50,12 @@ _LOGGER = logging.getLogger(__name__)
 #: OWNED_STORE_SYNC_ENABLED so the two syncs toggle independently.
 #: Truthy = "1"/"true"/"yes" (case-insensitive, stripped). Default OFF.
 ENV_TACTICAL_SYNC_ENABLED = "TACTICAL_STORE_SYNC_ENABLED"
+
+#: Which source's objects the server copies into the serving paths. This one
+#: variable is the switch (and the rollback): ``understat`` (default, the
+#: pre-existing behaviour) or ``strikerapi``. Change it, restart, done; no
+#: code change. See ``sync_tactical_store_from_r2``.
+ENV_TACTICAL_SOURCE = "TACTICAL_SHOTS_SOURCE"
 
 # Same env var names as owned_store_sync — one set of R2 credentials.
 ENV_R2_ENDPOINT          = "OWNED_STORE_R2_ENDPOINT"
@@ -64,6 +75,7 @@ class TacticalSyncResult:
     season: str
     files_synced: int
     error: str | None
+    source: str | None = None
 
 
 #: Records the most recent sync/publish result, read by /healthz.
@@ -94,13 +106,34 @@ def _r2_prefix() -> str:
     return raw.rstrip("/") + "/"
 
 
-def _season_transfer_plan(season: str) -> list[tuple[Path, str]]:
-    """Return (local_path, r2_key) pairs — pointer first, then the parquet."""
+def configured_source() -> str:
+    """The source this server serves (``TACTICAL_SHOTS_SOURCE``, default understat)."""
+    raw = (os.environ.get(ENV_TACTICAL_SOURCE, "") or "").strip().lower()
+    return raw or SOURCE_UNDERSTAT
+
+
+def _season_transfer_plan(season: str, source: str = SOURCE_UNDERSTAT, *, serving: bool = True) -> list[tuple[Path, str]]:
+    """Return (local_path, r2_key) pairs — pointer first, then the parquet.
+
+    R2 keeps one object pair per source. The Understat pair keeps its
+    original keys (so it stays the untouched backup); StrikerAPI has its own
+    ``strikerapi/`` folder. Locally, *serving* paths are what the zonal
+    engine reads (any source lands there); the non-serving paths are an
+    ingest's working store.
+    """
     base = f"{_r2_prefix()}{_TACTICAL_SEGMENT}{season}"
-    return [
-        (latest_pointer_path(season), f"{base}/_tactical_latest.json"),
-        (shots_parquet_path(season), f"{base}/understat_shots.parquet"),
-    ]
+    if source == SOURCE_UNDERSTAT:
+        keys = (f"{base}/_tactical_latest.json", f"{base}/understat_shots.parquet")
+        local = (latest_pointer_path(season), shots_parquet_path(season))
+    elif source == SOURCE_STRIKERAPI:
+        keys = (f"{base}/strikerapi/_tactical_latest.json", f"{base}/strikerapi/shots.parquet")
+        local = (
+            (latest_pointer_path(season), shots_parquet_path(season)) if serving
+            else (source_pointer_path(season, source), source_shots_path(season, source))
+        )
+    else:
+        raise ValueError(f"unknown shot source {source!r}; expected one of {SOURCES}")
+    return [(local[0], keys[0]), (local[1], keys[1])]
 
 
 def _make_r2_client():
@@ -139,19 +172,65 @@ def _make_r2_client():
     )
 
 
-def publish_tactical_store_to_r2(season: str = CURRENT_SEASON) -> TacticalSyncResult:
-    """Upload the local tactical store to R2. Loud on failure (operator path).
+def calendar_location() -> tuple[object, str, str]:
+    """(R2 client, bucket, base prefix) for the private European calendar object. Raises when R2 is not set."""
+    client = _make_r2_client()
+    return client, os.environ.get(ENV_R2_BUCKET, "").strip(), _r2_prefix()
 
-    Both files are mandatory — a parquet without its provenance pointer (or
-    vice versa) is not a valid publish.
+
+def strikerapi_raw_location(season: str) -> tuple[object, str, str]:
+    """(R2 client, bucket, key prefix) of the PRIVATE kept responses of *season*.
+
+    Only the ingest reads or writes ``raw/``; publish and the server's sync
+    move the pointer and parquet pair, nothing else. Raises when R2 is not
+    configured.
     """
     client = _make_r2_client()
     bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
-    plan = _season_transfer_plan(season)
+    return client, bucket, f"{_r2_prefix()}{_TACTICAL_SEGMENT}{season}/strikerapi/raw/"
+
+
+def _check_strikerapi_pair(pointer_path: Path, parquet_path: Path) -> None:
+    """Raise RuntimeError unless the pair is a validated StrikerAPI store.
+
+    The pointer must say source=strikerapi with validation ok, and the
+    parquet must hold exactly the pointer's ``n_shots`` rows. Used before a
+    publish (nothing unvalidated leaves) and before a sync replaces the
+    serving files (a half-copied pair never replaces a good one).
+    """
+    import json
+
+    import pandas as pd
+
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    if pointer.get("source") != SOURCE_STRIKERAPI:
+        raise RuntimeError(f"pointer source is {pointer.get('source')!r}, expected {SOURCE_STRIKERAPI!r}")
+    if (pointer.get("validation") or {}).get("status") != "ok":
+        raise RuntimeError("pointer carries no passed validation")
+    rows = len(pd.read_parquet(parquet_path))
+    if rows != pointer.get("n_shots"):
+        raise RuntimeError(f"parquet has {rows} rows, pointer says {pointer.get('n_shots')}")
+
+
+def publish_tactical_store_to_r2(
+    season: str = CURRENT_SEASON, source: str = SOURCE_UNDERSTAT
+) -> TacticalSyncResult:
+    """Upload the local tactical store to R2. Loud on failure (operator path).
+
+    Both files are mandatory — a parquet without its provenance pointer (or
+    vice versa) is not a valid publish. StrikerAPI publishes only a validated
+    working store, to its own ``strikerapi/`` keys; the Understat objects are
+    never touched by it.
+    """
+    client = _make_r2_client()
+    bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
+    plan = _season_transfer_plan(season, source, serving=False)
 
     for local_path, _ in plan:
         if not local_path.exists():
             raise RuntimeError(f"tactical store file missing locally: {local_path}")
+    if source == SOURCE_STRIKERAPI:
+        _check_strikerapi_pair(plan[0][0], plan[1][0])
 
     for local_path, r2_key in plan:
         client.upload_file(str(local_path), bucket, r2_key)
@@ -164,37 +243,83 @@ def publish_tactical_store_to_r2(season: str = CURRENT_SEASON) -> TacticalSyncRe
     return result
 
 
+def fetch_working_store_from_r2(season: str, source: str = SOURCE_STRIKERAPI) -> int:
+    """Restore a source's WORKING store from R2 (a CI runner starts empty).
+
+    Not the serving paths. Returns the number of files fetched; fewer than 2
+    means R2 holds no complete store for that source yet (the first load has
+    not happened).
+    """
+    client = _make_r2_client()
+    bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
+    n = 0
+    for local, key in _season_transfer_plan(season, source, serving=False):
+        local.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            client.download_file(bucket, key, str(local))
+            n += 1
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("tactical_fetch event=file_missing key=%s err=%s", key, exc)
+    return n
+
+
 def sync_tactical_store_from_r2(season: str = CURRENT_SEASON) -> TacticalSyncResult:
-    """Download the tactical store from R2 into the local store. FAIL-SOFT.
+    """Download the tactical store from R2 into the serving paths. FAIL-SOFT.
+
+    Which source is copied is decided by ``TACTICAL_SHOTS_SOURCE`` (default
+    ``understat``), so the switch to StrikerAPI and the rollback are an env
+    change plus a restart. The read path is: R2 object pair of the chosen
+    source -> serving ``understat_shots.parquet`` + ``_tactical_latest.json``
+    -> the zonal engine. For StrikerAPI the pair is downloaded to a temp
+    folder and checked (pointer says strikerapi + validation ok, row count =
+    ``n_shots``) before it replaces the serving files; on any failure the
+    files already on the volume are left exactly as they were, and the stamp
+    keeps describing them honestly (it reads the pointer on disk).
 
     Never raises — the zonal engine degrades to ``missing_context`` when the
     store is absent, so a failed sync must not take the server down.
     """
+    source = SOURCE_UNDERSTAT
     try:
+        source = configured_source()
+        if source not in SOURCES:
+            raise ValueError(f"{ENV_TACTICAL_SOURCE}={source!r} is not one of {SOURCES}")
         client = _make_r2_client()
         bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
-        plan = _season_transfer_plan(season)
+        plan = _season_transfer_plan(season, source)
         season_dir(season).mkdir(parents=True, exist_ok=True)
 
-        missing: list[str] = []
-        files_synced = 0
-        for local_path, r2_key in plan:
-            try:
-                client.download_file(bucket, r2_key, str(local_path))
-                files_synced += 1
-            except Exception as exc:  # noqa: BLE001 — record miss, keep going
-                missing.append(r2_key)
-                _LOGGER.warning(
-                    "tactical_sync event=file_missing season=%s key=%s err=%s",
-                    season, r2_key, exc,
-                )
-        ok = not missing
-        result = TacticalSyncResult(
-            ok=ok, season=season, files_synced=files_synced,
-            error=None if ok else f"missing files: {', '.join(missing)}",
-        )
+        if source == SOURCE_STRIKERAPI:
+            import tempfile
+
+            with tempfile.TemporaryDirectory(dir=season_dir(season)) as tmp:
+                staged = [(Path(tmp) / local.name, key, local) for local, key in plan]
+                for tmp_path, r2_key, _ in staged:
+                    client.download_file(bucket, r2_key, str(tmp_path))
+                _check_strikerapi_pair(staged[0][0], staged[1][0])
+                for tmp_path, _, local in staged:
+                    os.replace(str(tmp_path), str(local))
+            result = TacticalSyncResult(ok=True, season=season, files_synced=len(plan), error=None, source=source)
+        else:
+            missing: list[str] = []
+            files_synced = 0
+            for local_path, r2_key in plan:
+                try:
+                    client.download_file(bucket, r2_key, str(local_path))
+                    files_synced += 1
+                except Exception as exc:  # noqa: BLE001 — record miss, keep going
+                    missing.append(r2_key)
+                    _LOGGER.warning(
+                        "tactical_sync event=file_missing season=%s key=%s err=%s",
+                        season, r2_key, exc,
+                    )
+            ok = not missing
+            result = TacticalSyncResult(
+                ok=ok, season=season, files_synced=files_synced,
+                error=None if ok else f"missing files: {', '.join(missing)}", source=source,
+            )
     except Exception as exc:  # noqa: BLE001 — FAIL-SOFT: never raise
-        result = TacticalSyncResult(ok=False, season=season, files_synced=0, error=str(exc))
+        result = TacticalSyncResult(ok=False, season=season, files_synced=0, error=str(exc), source=source)
     global _LAST_TACTICAL_SYNC_RESULT
     _LAST_TACTICAL_SYNC_RESULT = result
     if result.ok:
@@ -218,13 +343,20 @@ def _main(argv: list[str] | None = None) -> int:
     for name, help_text in (
         ("publish", "Upload tactical store to R2 (operator/workflow)."),
         ("sync", "Download tactical store from R2 (fail-soft)."),
+        ("fetch", "Restore a source's working store from R2 (CI)."),
     ):
         cmd = sub.add_parser(name, help=help_text)
         cmd.add_argument("--season", default=CURRENT_SEASON)
+        if name in ("publish", "fetch"):
+            cmd.add_argument("--source", choices=SOURCES, default=SOURCE_UNDERSTAT)
 
     args = parser.parse_args(argv)
+    if args.command == "fetch":
+        n = fetch_working_store_from_r2(args.season, args.source)
+        print(f"fetched {n} files")
+        return 0 if n == 2 else 1
     if args.command == "publish":
-        result = publish_tactical_store_to_r2(args.season)
+        result = publish_tactical_store_to_r2(args.season, args.source)
     else:
         result = sync_tactical_store_from_r2(args.season)
     print(result)

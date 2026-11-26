@@ -381,6 +381,7 @@ class AskResponse(BaseModel):
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
+    player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
@@ -521,6 +522,7 @@ class SessionAskResponse(BaseModel):
     zonal_opportunity:    dict[str, Any] | None = None    # T4b: defensive zones card
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
+    player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
     # Guided Comparison flow: tappable player-name suggestions (compare clarification only).
@@ -1804,6 +1806,39 @@ def metrics() -> dict[str, Any]:
     }
 
 
+
+def _tactical_serving_info(sync_result: Any) -> dict[str, Any]:
+    """Which shot source the server is serving, and how old it is.
+
+    Read from the pointer ON DISK (the file the zonal engine stamps from), so a
+    failed sync that left an older store in place still shows what is really
+    being served. Additive keys only; counts and labels, no paths.
+    """
+    out: dict[str, Any] = {"source_requested": getattr(sync_result, "source", None)}
+    try:
+        from fpl_tactical import store as _tstore  # noqa: PLC0415
+        from fpl_tactical.paths import CURRENT_SEASON as _season  # noqa: PLC0415
+
+        ptr = _tstore.read_pointer(_season) or {}
+    except Exception:  # noqa: BLE001 - health must never fail on this
+        ptr = {}
+    src = ptr.get("source")
+    out["source_serving"] = "strikerapi" if src == "strikerapi" else ("understat" if src else None)
+    out["ingested_at"] = ptr.get("ingested_at")
+    out["data_through_gw"] = ptr.get("data_through_gw")
+    out["newest_shot_date"] = ptr.get("newest_shot_date")
+    out["canaries"] = {
+        k: (v or {}).get("status") for k, v in (ptr.get("canaries") or {}).items()
+    } or None
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        ts = datetime.strptime(ptr["ingested_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        out["age_hours"] = round((datetime.now(tz=timezone.utc) - ts).total_seconds() / 3600, 1)
+    except Exception:  # noqa: BLE001
+        out["age_hours"] = None
+    return out
+
 @app.get("/healthz")
 def healthz() -> dict[str, Any]:
     """Phase M5 (MCP_architecture): decision-tree telemetry and graduation status.
@@ -1934,6 +1969,7 @@ def healthz() -> dict[str, Any]:
                 "files_synced": _tac.files_synced,
                 "error":        _tac.error,
             }
+            tactical_store_sync_info.update(_tactical_serving_info(_tac))
 
     # i57: which mode the orchestrator runs in, read from the environment AT
     # THIS REQUEST (orch_config getters are env reads, nothing is cached at
@@ -3041,6 +3077,7 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         # a thinner card than /ask for the same DefensiveZonesMeta.
         zonal_opportunity=_to_dict(r.zonal_opportunity),  # T4b
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
+        player_zonal=_to_dict(r.player_zonal),  # focused zonal card
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
         table_conclusions=r.table_conclusions,  # metric ranking's verdict (already plain JSON)

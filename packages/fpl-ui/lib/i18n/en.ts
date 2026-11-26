@@ -45,7 +45,13 @@ export const en: typeof es = {
   'panel.at.form.desc': 'Best recent form',
   'panel.at.xg.command': '@xg',
   'panel.at.xg.label': 'Goal threat',
-  'panel.at.xg.desc': 'xG + xA per 90 leaders',
+  'panel.at.xg.desc': 'Season total xG',
+  'panel.at.xa.command': '@xa',
+  'panel.at.xa.label': 'Assist threat',
+  'panel.at.xa.desc': 'Season total xA',
+  'panel.at.xgi.command': '@xgi',
+  'panel.at.xgi.label': 'Goals + assists',
+  'panel.at.xgi.desc': 'Season total xG + xA',
   'panel.at.points.command': '@points',
   'panel.at.points.label': 'Most points',
   'panel.at.points.desc': 'Season totals',
@@ -487,6 +493,8 @@ export const en: typeof es = {
   'fx.extra.timeTbc': 'time to be verified',
   'fx.comp.cupsNone': 'Cups: no matches scheduled yet',
   'fx.comp.coverage': 'Partial coverage · Europe from the list of {date}',
+  'fx.comp.europeUntil': 'Europe confirmed up to {date}',
+  'fx.comp.europePartial': 'Partial Europe coverage',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
   'fx.q.teamAttack': "How does {team}'s attacking fixture run look over the next gameweeks?",
@@ -575,7 +583,8 @@ export const en: typeof es = {
 
   // --- The player's Zonas section ---
   'pz.title': 'Zones',
-  'pz.window': 'Fixtures in the next 3 gameweeks · {range}',
+  'pz.window': 'Fixtures in the next {n} gameweeks · {range}',
+  'pz.windowOne': 'Fixtures in the next gameweek · {range}',
   'pz.chip': '{zone} · {pct}% of his non-penalty xG',
   'pz.favourable': 'Favourable matchup',
   'pz.noData': 'No data on the opponent',

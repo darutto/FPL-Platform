@@ -50,14 +50,17 @@ _CLIENT: Any = None
 _CLIENT_LOCK = threading.Lock()
 
 
-def _client_config() -> Any:
+def _client_config(total_attempts: int | None = None) -> Any:
+    """The short timeouts. ``total_attempts`` (1 = no retry) replaces this reader's own retry setting for a
+    caller that must not retry; left out, the config is this reader's."""
     from botocore.config import Config  # noqa: PLC0415  (lazy, like boto3)
 
-    return Config(connect_timeout=CONNECT_TIMEOUT_S, read_timeout=READ_TIMEOUT_S,
-                  retries={"max_attempts": MAX_ATTEMPTS, "mode": "standard"})
+    retries = ({"max_attempts": MAX_ATTEMPTS, "mode": "standard"} if total_attempts is None
+               else {"total_max_attempts": total_attempts, "mode": "standard"})
+    return Config(connect_timeout=CONNECT_TIMEOUT_S, read_timeout=READ_TIMEOUT_S, retries=retries)
 
 
-def _make_client() -> Any:
+def _make_client(total_attempts: int | None = None) -> Any:
     """A boto3 S3 client for R2 from the same ``OWNED_STORE_R2_*`` variables as ``owned_store_sync``, with short timeouts."""
     from . import owned_store_sync as sync  # noqa: PLC0415
 
@@ -70,7 +73,8 @@ def _make_client() -> Any:
 
     return boto3.client(
         "s3", endpoint_url=values[sync.ENV_R2_ENDPOINT], aws_access_key_id=values[sync.ENV_R2_ACCESS_KEY_ID],
-        aws_secret_access_key=values[sync.ENV_R2_SECRET_ACCESS_KEY], region_name="auto", config=_client_config())
+        aws_secret_access_key=values[sync.ENV_R2_SECRET_ACCESS_KEY], region_name="auto",
+        config=_client_config(total_attempts))
 
 
 def _get_client() -> Any:

@@ -17,7 +17,7 @@ import fpl_grounded_assistant.resource_registry as registry
 
 
 _EXISTING = (
-    "injuries", "top_form", "top_xg", "top_points", "top_minutes", "popular",
+    "injuries", "top_form", "top_xg", "top_xa", "top_xgi", "top_points", "top_minutes", "popular",
 )
 _MINUTES_COLUMNS = [
     "web_name", "team_short", "position", "value", "unit", "scope", "provenance",
@@ -44,7 +44,7 @@ def _payload(question: str, bootstrap: dict) -> dict:
 def test_registration_order_public_forms_and_internal_keys() -> None:
     assert list_resources() == _EXISTING + ("player_minutes", "player_role")
     assert tuple(spec.name for spec in list_resource_specs()) == list_resources()
-    assert len(set(list_resources())) == 8
+    assert len(set(list_resources())) == 10
     assert resolve_resource("minutes") == "top_minutes"
     assert resolve_resource("player_minutes") is None
     assert resolve_resource("player_role") is None
@@ -174,7 +174,7 @@ def test_minutes_success_envelope_zero_and_order(fi_bootstrap: dict) -> None:
     ]
     assert payload == {
         "resource": "player_minutes",
-        "title": "Player Minutes",
+        "title": "Minutos del jugador",
         "columns": _MINUTES_COLUMNS,
         "rows": [{
             "web_name": "Haaland",

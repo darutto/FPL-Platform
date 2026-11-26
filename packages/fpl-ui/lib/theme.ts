@@ -266,6 +266,8 @@ export const RESOURCE_ACCENT: Record<string, Accent> = {
   injuries: 'coralSoft',
   top_form: 'gold',
   top_xg: 'coral',
+  top_xa: 'coral',
+  top_xgi: 'coral',
   top_points: 'turquoise',
   top_minutes: 'cyan',
   popular: 'purple',

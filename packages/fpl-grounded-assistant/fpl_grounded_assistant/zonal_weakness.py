@@ -4,8 +4,8 @@ fpl_grounded_assistant.zonal_weakness
 Tactical track (T2a) — zonal defensive-weakness engine.
 
 Pure and deterministic — no LLM, no tool registry, no network. Reads the
-owned tactical parquet store built by ``packages/fpl-tactical`` (Understat
-shot events) and turns it into a **relative** zonal-weakness signal. The
+owned tactical parquet store built by ``packages/fpl-tactical`` (shot events;
+the store keeps Understat's coordinate frame whichever source filled it) and turns it into a **relative** zonal-weakness signal. The
 tool wrapper (T2b, ``zonal_weakness_tool.py``) is where ``TOOL_REGISTRY``
 is touched — mirroring the ``fixture_outlook`` engine/tool split of Track D.
 
@@ -784,12 +784,20 @@ def compute_player_zone_shares(
         zone_xg: dict[str, float] = {zone: 0.0 for zone in ZONES}
         zone_sp_xg: dict[str, float] = {zone: 0.0 for zone in ZONES}
         zone_shots: dict[str, int] = {zone: 0 for zone in ZONES}
+        # Origin is only meaningful when EVERY shot in the zone has a known
+        # situation. A source with no situation field (StrikerAPI) stores
+        # None; unknown must never read as open play, so such a zone gets no
+        # origin at all (see get_zonal_opportunity).
+        zone_origin_known: dict[str, bool] = {zone: True for zone in ZONES}
         for row in rows.itertuples(index=False):
             zone = zone_of(row.x, row.y)
             if zone is not None:
                 zone_xg[zone] += float(row.xg)
                 zone_shots[zone] += 1
-                if str(getattr(row, "situation", "")) in SET_PIECE_SITUATIONS:
+                situation = getattr(row, "situation", None)
+                if situation is None or pd.isna(situation):
+                    zone_origin_known[zone] = False
+                elif str(situation) in SET_PIECE_SITUATIONS:
                     zone_sp_xg[zone] += float(row.xg)
         out[str(player)] = {
             # a player's team = the side they shot for most recently
@@ -803,6 +811,7 @@ def compute_player_zone_shares(
             "zone_set_piece_share": {
                 z: (zone_sp_xg[z] / xg if xg > 0 else 0.0) for z, xg in zone_xg.items()
             },
+            "zone_origin_known": zone_origin_known,
         }
     return out
 
@@ -1130,13 +1139,14 @@ def get_zonal_opportunity(
             # set pieces. A row can be a real fit and still be "two corner
             # headers"; the reader must be able to see which.
             "zone_shots": shares[player]["zone_shots"][zone],
-            "set_piece_share": round(shares[player]["zone_set_piece_share"][zone], 3),
-            "origin": _origin_label(shares[player]["zone_set_piece_share"][zone]),
             # i90: which fixture earns this row a place under fixture-scope
             # (attacker-perspective is_home). None outside that scope.
             "gameweek": None,
             "is_home": None,
         }
+        if shares[player]["zone_origin_known"][zone]:
+            row["set_piece_share"] = round(shares[player]["zone_set_piece_share"][zone], 3)
+            row["origin"] = _origin_label(shares[player]["zone_set_piece_share"][zone])
         team_fixtures = fixtures_by_team.get(team_name)
         if team_fixtures:
             row["gameweek"] = team_fixtures[0]["gameweek"]

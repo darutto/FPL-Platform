@@ -1,4 +1,12 @@
-"""Probe whether Understat has published a season, and whether we hold it (i77).
+"""RETIRED (no workflow runs it). Kept for reference and its tests.
+
+Understat stopped answering on 2026-11-02 and 2026-27 shots now come from
+StrikerAPI, so ``tactical-store-refresh.yml`` no longer runs this probe.
+Before removing the step, its ``$GITHUB_OUTPUT`` values were searched for
+readers: none (no later step or script used them). Nothing now announces that
+Understat has published a new season.
+
+Probe whether Understat has published a season, and whether we hold it (i77).
 
     python scripts/probe_understat_season.py --next-after 2026-2027
     python scripts/probe_understat_season.py --season 2027-2028 --control 2026-2027

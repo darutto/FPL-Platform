@@ -44,7 +44,13 @@ export const es = {
   'panel.at.form.desc': 'Mejor forma reciente',
   'panel.at.xg.command': '@xg',
   'panel.at.xg.label': 'Peligro de gol',
-  'panel.at.xg.desc': 'Líderes xG + xA por 90',
+  'panel.at.xg.desc': 'xG total de la temporada',
+  'panel.at.xa.command': '@xa',
+  'panel.at.xa.label': 'Peligro de asistencia',
+  'panel.at.xa.desc': 'xA total de la temporada',
+  'panel.at.xgi.command': '@xgi',
+  'panel.at.xgi.label': 'Goles + asistencias',
+  'panel.at.xgi.desc': 'xG + xA, total de la temporada',
   'panel.at.points.command': '@puntos',
   'panel.at.points.label': 'Más puntos',
   'panel.at.points.desc': 'Acumulados temporada',
@@ -487,6 +493,8 @@ export const es = {
   'fx.extra.timeTbc': 'hora por verificar',
   'fx.comp.cupsNone': 'Copas: sin partidos programados por ahora',
   'fx.comp.coverage': 'Cobertura parcial · Europa según la lista del {date}',
+  'fx.comp.europeUntil': 'Europa confirmada hasta el {date}',
+  'fx.comp.europePartial': 'Cobertura parcial de Europa',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
   'fx.q.teamAttack': '¿Cómo pinta el calendario ofensivo del {team} en las próximas jornadas?',
@@ -576,7 +584,8 @@ export const es = {
 
   // --- The player's Zonas section ---
   'pz.title': 'Zonas',
-  'pz.window': 'Partidos de las próximas 3 jornadas · {range}',
+  'pz.window': 'Partidos de las próximas {n} jornadas · {range}',
+  'pz.windowOne': 'Partidos de la próxima jornada · {range}',
   'pz.chip': '{zone} · {pct}% de su xG sin penalti',
   'pz.favourable': 'Cruce favorable',
   'pz.noData': 'Sin datos del rival',

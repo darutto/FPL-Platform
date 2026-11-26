@@ -43,8 +43,10 @@ from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mi
 #: 2026-11-13: PLAYER_CARD_NO_STATS generalised to CARD_NO_RESTATE for every card (only values the shown card
 #:   displays; off-card evidence stays), and MATCH_COMPOSITION's calendar read no longer lists the card's values,
 #:   on purpose (Leo: "se recita dos veces los datos, debemos consolidar").
-ES_ORCH_PROMPT_SHA256 = "b4b09715d1acd6691787b50f0fc237a97029a4c9c62def3c7b4c6f5c4ea9b956"
-ES_ORCH_LOOP_PROMPT_SHA256 = "25641eca803d135604d79f15f7e10859881951ca1b1ee1dbe7f4bbbd49e014b3"
+#: 2026-11-26: CARD_NO_RESTATE names the player zonal card (get_player_zonal_outlook), on purpose (Leo: the
+#:   zonal question gets the «Zonas» card, so the prose must not re-list it).
+ES_ORCH_PROMPT_SHA256 = "cbbf657b1273d589d1da59b4ace7f583c2b478ba04b45bf5de329ba8d9c6eacf"
+ES_ORCH_LOOP_PROMPT_SHA256 = "30da1c992b69c5d01826c1fd9af1b449fb0b78389a180472e41f97666b899411"
 ES_EVALUATOR_PROMPT_SHA256 = "82efcffa20f74632ce9e023ab49115f3e208dff00dbac668f2fbd30617726707"
 
 
