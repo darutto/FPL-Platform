@@ -50,11 +50,13 @@ interface PanelCommand {
 }
 
 // @ quick views: the resource router accepts both spellings; the panel inserts the one in the language showing.
-type AtId = 'injuries' | 'form' | 'xg' | 'points' | 'minutes' | 'popular';
+type AtId = 'injuries' | 'form' | 'xg' | 'xa' | 'xgi' | 'points' | 'minutes' | 'popular';
 const AT_COMMANDS: Array<{ id: AtId; Icon: IconComponent; accent: Accent }> = [
   { id: 'injuries', Icon: IconInjury, accent: 'coralSoft' },
   { id: 'form', Icon: IconForm, accent: 'gold' },
   { id: 'xg', Icon: IconXG, accent: 'coral' },
+  { id: 'xa', Icon: IconXG, accent: 'coral' },
+  { id: 'xgi', Icon: IconXG, accent: 'coral' },
   { id: 'points', Icon: IconPoints, accent: 'turquoise' },
   { id: 'minutes', Icon: IconMinutes, accent: 'cyan' },
   { id: 'popular', Icon: IconPopular, accent: 'purple' },

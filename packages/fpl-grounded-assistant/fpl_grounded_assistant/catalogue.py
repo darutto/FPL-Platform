@@ -2038,6 +2038,18 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
     },
 
+    # -- resource_registry.py: @resource card titles (also final_text) --
+    "resource.title.injuries": {"en": "Injuries & Availability", "es": "Lesiones y disponibilidad"},
+    "resource.title.player_minutes": {"en": "Player Minutes", "es": "Minutos del jugador"},
+    "resource.title.player_role": {"en": "Player Role", "es": "Rol del jugador"},
+    "resource.title.top_form": {"en": "Top Form", "es": "Top forma"},
+    "resource.title.top_xg": {"en": "Top xG — expected goals", "es": "Top xG — goles esperados"},
+    "resource.title.top_xgi": {"en": "Top Expected Goal Involvements", "es": "Top xGI — goles + asistencias esperados"},
+    "resource.title.top_xa": {"en": "Top Expected Assists", "es": "Top xA — asistencias esperadas"},
+    "resource.title.top_points": {"en": "Top Points", "es": "Top puntos"},
+    "resource.title.top_minutes": {"en": "Top Minutes", "es": "Top minutos"},
+    "resource.title.popular": {"en": "Most Selected", "es": "Más seleccionados"},
+
     # -- Brief 0a: the season ranking cannot apply a condition ------------
     "rank_guard.kind.single_gw": {"en": "a single gameweek", "es": "una jornada concreta"},
     "rank_guard.kind.last_n": {"en": "the last few gameweeks", "es": "las últimas jornadas"},

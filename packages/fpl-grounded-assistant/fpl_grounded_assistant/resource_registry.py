@@ -17,7 +17,7 @@ Rules
 -----
 * Deterministic, read-only, argument-free, LLM-free.
 * Reuses existing helpers where present (`injury_list.get_injury_list`).
-* For ranking resources (top_form/xg/points/minutes/popular) we read
+* For ranking resources (top_form/xg/xa/xgi/points/minutes/popular) we read
   bootstrap.elements directly — there is no existing rank-form helper
   that matches this thin-wrapper shape.
 
@@ -39,7 +39,8 @@ from typing import Any, Callable
 from fpl_tool_contract import tool_resolve_player
 
 from .injury_list import get_injury_list, _POSITION_LABEL, _STATUS_LABEL
-from .locale_types import bootstrap_locale
+from .catalogue import t
+from .locale_types import Locale, bootstrap_locale
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +200,7 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
     rows = tuple({k: r.get(k) for k in cols} for r in raw_rows)
     return ResourceResult(
         resource="injuries",
-        title="Injuries & Availability",
+        title=t("resource.title.injuries", _locale),
         columns=cols,
         rows=rows,
     )
@@ -209,7 +210,6 @@ def _rank_by(
     bootstrap: dict[str, Any],
     *,
     field_name: str,
-    title: str,
     canonical: str,
     cast: Callable[[Any], float] = _as_float,
     extra_columns: tuple[str, ...] = (),
@@ -241,7 +241,7 @@ def _rank_by(
     cols: tuple[str, ...] = ("web_name", "team_short", "position", "value") + extra_columns
     return ResourceResult(
         resource=canonical,
-        title=title,
+        title=t(f"resource.title.{canonical}", bootstrap_locale(bootstrap)),
         columns=cols,
         rows=rows,
     )
@@ -250,14 +250,28 @@ def _rank_by(
 def _resource_top_form(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="form",
-        title="Top Form", canonical="top_form",
+        canonical="top_form",
     )
 
 
 def _resource_top_xg(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
+        bootstrap, field_name="expected_goals",
+        canonical="top_xg",
+    )
+
+
+def _resource_top_xa(bootstrap: dict[str, Any]) -> ResourceResult:
+    return _rank_by(
+        bootstrap, field_name="expected_assists",
+        canonical="top_xa",
+    )
+
+
+def _resource_top_xgi(bootstrap: dict[str, Any]) -> ResourceResult:
+    return _rank_by(
         bootstrap, field_name="expected_goal_involvements",
-        title="Top Expected Goal Involvements", canonical="top_xg",
+        canonical="top_xgi",
     )
 
 
@@ -265,7 +279,7 @@ def _resource_top_points(bootstrap: dict[str, Any]) -> ResourceResult:
     # total_points may not be in test fixtures — _as_float handles None.
     return _rank_by(
         bootstrap, field_name="total_points",
-        title="Top Points", canonical="top_points",
+        canonical="top_points",
         cast=lambda v: float(_as_int(v)),
     )
 
@@ -273,7 +287,7 @@ def _resource_top_points(bootstrap: dict[str, Any]) -> ResourceResult:
 def _resource_top_minutes(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="minutes",
-        title="Top Minutes", canonical="top_minutes",
+        canonical="top_minutes",
         cast=lambda v: float(_as_int(v)),
     )
 
@@ -281,7 +295,7 @@ def _resource_top_minutes(bootstrap: dict[str, Any]) -> ResourceResult:
 def _resource_popular(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="selected_by_percent",
-        title="Most Selected", canonical="popular",
+        canonical="popular",
     )
 
 
@@ -297,11 +311,12 @@ _POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 def _unavailable_player_resource(
     canonical: str,
     reason: str,
+    locale: Locale,
 ) -> PlayerResourceResult:
     is_minutes = canonical == "player_minutes"
     return PlayerResourceResult(
         resource=canonical,
-        title="Player Minutes" if is_minutes else "Player Role",
+        title=t(f"resource.title.{canonical}", locale),
         columns=_PLAYER_MINUTES_COLUMNS if is_minutes else _PLAYER_ROLE_COLUMNS,
         rows=(),
         status="unavailable",
@@ -316,41 +331,42 @@ def _player_resource(
     shape_reason: str | None,
 ) -> PlayerResourceResult:
     """Resolve and serialize one deterministic FI-7f bootstrap fact."""
+    locale = bootstrap_locale(bootstrap)
     if shape_reason is not None:
-        return _unavailable_player_resource(canonical, shape_reason)
+        return _unavailable_player_resource(canonical, shape_reason, locale)
 
     # This fallback is defensive for direct registry callers.  Normalized
     # command traffic supplies the governed missing-argument reason above.
     if argument is None or not argument:
-        return _unavailable_player_resource(canonical, "missing_player_argument")
+        return _unavailable_player_resource(canonical, "missing_player_argument", locale)
 
     if not isinstance(bootstrap, dict):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     elements = bootstrap.get("elements")
     teams = bootstrap.get("teams")
     if not isinstance(elements, list) or not elements or not isinstance(teams, list):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     if any(not isinstance(element, dict) for element in elements):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     try:
         resolved = tool_resolve_player(argument, bootstrap)
     except (AttributeError, KeyError, TypeError, ValueError):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     if not isinstance(resolved, dict):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     status = resolved.get("status")
     if status == "ambiguous":
-        return _unavailable_player_resource(canonical, "ambiguous_player")
+        return _unavailable_player_resource(canonical, "ambiguous_player", locale)
     if status == "not_found":
-        return _unavailable_player_resource(canonical, "unresolved_player")
+        return _unavailable_player_resource(canonical, "unresolved_player", locale)
     if status != "ok":
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     player_id = resolved.get("player_id")
     if isinstance(player_id, bool) or not isinstance(player_id, int):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     matches = [
         element for element in elements
         if isinstance(element.get("id"), int)
@@ -358,7 +374,7 @@ def _player_resource(
         and element.get("id") == player_id
     ]
     if len(matches) != 1:
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     web_name = resolved.get("web_name")
     team_short = resolved.get("team_short")
@@ -367,15 +383,15 @@ def _player_resource(
         not isinstance(web_name, str) or not web_name
         or not isinstance(team_short, str) or not team_short
     ):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     element = matches[0]
     if canonical == "player_minutes":
         if position not in _POSITIONS.values():
-            return _unavailable_player_resource(canonical, "resource_data_unavailable")
+            return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
         minutes = element.get("minutes")
         if isinstance(minutes, bool) or not isinstance(minutes, int) or minutes < 0:
-            return _unavailable_player_resource(canonical, "minutes_unavailable")
+            return _unavailable_player_resource(canonical, "minutes_unavailable", locale)
         row = {
             "web_name": web_name,
             "team_short": team_short,
@@ -387,14 +403,14 @@ def _player_resource(
         }
         return PlayerResourceResult(
             resource=canonical,
-            title="Player Minutes",
+            title=t("resource.title.player_minutes", locale),
             columns=_PLAYER_MINUTES_COLUMNS,
             rows=(row,),
         )
 
     element_type = element.get("element_type")
     if isinstance(element_type, bool) or element_type not in _POSITIONS:
-        return _unavailable_player_resource(canonical, "role_unavailable")
+        return _unavailable_player_resource(canonical, "role_unavailable", locale)
     row = {
         "web_name": web_name,
         "team_short": team_short,
@@ -404,7 +420,7 @@ def _player_resource(
     }
     return PlayerResourceResult(
         resource=canonical,
-        title="Player Role",
+        title=t("resource.title.player_role", locale),
         columns=_PLAYER_ROLE_COLUMNS,
         rows=(row,),
     )
@@ -430,6 +446,18 @@ RESOURCE_SPECS: tuple[ResourceSpec, ...] = (
     ),
     ResourceSpec(
         name="top_xg",
+        title="Top xG — expected goals",
+        description="Available players ranked by expected_goals (descending).",
+        columns=("web_name", "team_short", "position", "value"),
+    ),
+    ResourceSpec(
+        name="top_xa",
+        title="Top Expected Assists",
+        description="Available players ranked by expected_assists (descending).",
+        columns=("web_name", "team_short", "position", "value"),
+    ),
+    ResourceSpec(
+        name="top_xgi",
         title="Top Expected Goal Involvements",
         description="Available players ranked by expected_goal_involvements (descending).",
         columns=("web_name", "team_short", "position", "value"),
@@ -471,6 +499,8 @@ _RESOURCE_HANDLERS: dict[str, Callable[[dict[str, Any]], ResourceResult]] = {
     "injuries":    _resource_injuries,
     "top_form":    _resource_top_form,
     "top_xg":      _resource_top_xg,
+    "top_xa":      _resource_top_xa,
+    "top_xgi":     _resource_top_xgi,
     "top_points":  _resource_top_points,
     "top_minutes": _resource_top_minutes,
     "popular":     _resource_popular,
@@ -478,7 +508,7 @@ _RESOURCE_HANDLERS: dict[str, Callable[[dict[str, Any]], ResourceResult]] = {
 
 
 def list_resource_specs() -> tuple[ResourceSpec, ...]:
-    """Return the eight ResourceSpec entries in stable registration order."""
+    """Return the ten ResourceSpec entries in stable registration order."""
     return RESOURCE_SPECS
 
 

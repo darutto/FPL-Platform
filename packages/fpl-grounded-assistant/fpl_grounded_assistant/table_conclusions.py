@@ -65,7 +65,9 @@ _POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 #: The ranked metric of each ``@resource`` ranking (canonical bootstrap field). ``injuries`` is not a ranking.
 RESOURCE_METRICS: dict[str, str] = {
     "top_form":    "form",
-    "top_xg":      "expected_goal_involvements",
+    "top_xg":      "expected_goals",
+    "top_xa":      "expected_assists",
+    "top_xgi":     "expected_goal_involvements",
     "top_points":  "total_points",
     "top_minutes": "minutes",
     "popular":     "selected_by_percent",

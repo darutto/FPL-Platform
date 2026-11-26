@@ -170,6 +170,12 @@ describe('the command panel', () => {
     expect(screen.queryByText(/brought in/i)).toBeNull();
     await user.click(screen.getByRole('button', { name: /Injuries/ }));
     expect(onSend).toHaveBeenCalledWith('@injuries');
+    await user.click(screen.getByRole('button', { name: /Assist threat/ }));
+    expect(onSend).toHaveBeenCalledWith('@xa');
+    await user.click(screen.getByRole('button', { name: /Goal threat Season total xG ›/ }));
+    expect(onSend).toHaveBeenLastCalledWith('@xg');
+    await user.click(screen.getByRole('button', { name: /Goals \+ assists.*Season total xG \+ xA/ }));
+    expect(onSend).toHaveBeenLastCalledWith('@xgi');
     await user.click(screen.getByRole('button', { name: /Who gets the armband\?/ }));
     expect(onInsert).toHaveBeenCalledWith('/captain ', 'e.g. Haaland');
     await user.click(screen.getByRole('button', { name: /Use a chip\?/ }));
@@ -184,6 +190,12 @@ describe('the command panel', () => {
     expect(screen.getByText('Comandos rápidos')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Lesionados/ }));
     expect(onSend).toHaveBeenCalledWith('@lesionados');
+    await user.click(screen.getByRole('button', { name: /Peligro de asistencia/ }));
+    expect(onSend).toHaveBeenCalledWith('@xa');
+    await user.click(screen.getByRole('button', { name: /Peligro de gol.*xG total de la temporada/ }));
+    expect(onSend).toHaveBeenLastCalledWith('@xg');
+    await user.click(screen.getByRole('button', { name: /Goles \+ asistencias.*xG \+ xA, total/ }));
+    expect(onSend).toHaveBeenLastCalledWith('@xgi');
     await user.click(screen.getByRole('button', { name: /¿A quién le doy la cinta\?/ }));
     expect(onInsert).toHaveBeenCalledWith('/capitan ', 'p.ej. Haaland');
   });
