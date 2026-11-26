@@ -333,7 +333,7 @@ def get_team_results(
                                 f"Available seasons: {', '.join(available) if available else 'none'}.")}
         source = "owned_store"
         # n_matches is left out on purpose: the stamp's "thin" rule is about a
-        # league-wide read (Understat shots); a results list of the last N
+        # league-wide read (zonal shots); a results list of the last N
         # games is not thin because the season is young. played_total says
         # how many finished games the source holds.
         provenance = build_data_provenance(

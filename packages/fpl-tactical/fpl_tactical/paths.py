@@ -70,3 +70,32 @@ def shots_parquet_path(season: str) -> Path:
 def latest_pointer_path(season: str) -> Path:
     """Return ``.../seasons/<season>/_tactical_latest.json``."""
     return season_dir(season) / "_tactical_latest.json"
+
+
+# ---------------------------------------------------------------------------
+# Per-source ingest stores (StrikerAPI)
+# ---------------------------------------------------------------------------
+# The files above are the SERVING paths: the zonal engine reads exactly
+# ``shots_parquet_path(CURRENT_SEASON)`` whichever source filled it (the
+# legacy ``understat_`` filename is kept so no reader changes). An ingest
+# never writes there. StrikerAPI ingest has its own directory so its rows can
+# never be appended to, or mixed with, another source's rows.
+
+SOURCE_UNDERSTAT = "understat"
+SOURCE_STRIKERAPI = "strikerapi"
+SOURCES = (SOURCE_UNDERSTAT, SOURCE_STRIKERAPI)
+
+
+def source_dir(season: str, source: str) -> Path:
+    """``.../seasons/<season>/<source>`` (ingest working store for *source*)."""
+    if source not in SOURCES:
+        raise ValueError(f"unknown shot source {source!r}; expected one of {SOURCES}")
+    return season_dir(season) / source
+
+
+def source_shots_path(season: str, source: str) -> Path:
+    return source_dir(season, source) / "shots.parquet"
+
+
+def source_pointer_path(season: str, source: str) -> Path:
+    return source_dir(season, source) / "_tactical_latest.json"

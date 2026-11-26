@@ -98,7 +98,7 @@ class TestRenderZonalWeakness:
 
     def test_missing_context(self):
         out = {"status": "missing_context", "team": "Crystal Palace",
-               "message": "Tactical (Understat zonal) store not available on this deployment."}
+               "message": "Tactical (zonal) store not available on this deployment."}
         text = render("get_zonal_weakness", out)
         assert text == out["message"]
 

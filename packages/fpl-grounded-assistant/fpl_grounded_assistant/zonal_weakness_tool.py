@@ -465,7 +465,7 @@ def _get_zonal_weakness_handler(
         result["message"] = f"No zonal data for '{team_query}' in the tactical store."
     elif result["status"] == "missing_context":
         result["message"] = (
-            "Tactical (Understat zonal) store not available on this deployment."
+            "Tactical (zonal) store not available on this deployment."
         )
     elif result["status"] == "ok":
         # i91: card-shaped enrichment under distinct keys -- `zones` here
@@ -570,7 +570,7 @@ def _get_zonal_opportunity_handler(
         )
     elif result["status"] == "missing_context":
         result["message"] = (
-            "Tactical (Understat zonal) store not available on this deployment."
+            "Tactical (zonal) store not available on this deployment."
         )
     elif result["status"] == "ok":
         if result.get("exploiters"):
@@ -617,7 +617,7 @@ GET_ZONAL_WEAKNESS_SPEC = ToolSpec(
         "Use only when the user asks purely which zones a team concedes in, "
         "with no mention of players or exploiting (those → "
         "get_zonal_opportunity). Where the attacking opportunity is per zone: "
-        "xGA/game vs league baseline, owned Understat data; penalties "
+        "xGA/game vs league baseline, owned shot data; penalties "
         "excluded and reported separately. Opportunity read only — no buy/sell advice."
     ),
     parameters={
