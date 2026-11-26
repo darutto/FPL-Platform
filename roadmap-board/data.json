@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-23",
+  "updated": "2026-11-26",
   "cards": [
     {
       "id": "s1",
@@ -2801,6 +2801,74 @@
       "col": "shipped",
       "title": "Rendimiento de local vs visita por jugador y por rival: medido y descartado",
       "desc": "Idea de Leo (23/11): cruzar si un jugador rinde más de local o de visita contra rivales mejores de local o de visita, para elegir y rotar a corto plazo. Backtest pre-registrado sobre la tienda propia (datos públicos de FPL, 4 temporadas con xG, primera mitad → segunda mitad, 2025-26 reservada): ninguna puerta pasa. La diferencia local/visita propia de un jugador o de un equipo no se repite de una mitad a la otra y, sumada a la dificultad de FPL, empeora la predicción; solo la ventaja de local general es real. No se construye; reabrir solo con datos nuevos.",
+      "tags": [
+        "Datos",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s97",
+      "col": "shipped",
+      "title": "EO: arreglos de la prueba en vivo de Leo",
+      "desc": "Fusionada (PR #705, #706, #709, #710, #711, #712; 24/11). El retry automático deja marcador y picker también sin liga guardada, el poll renderiza tarjeta/texto/chips con el outcome correcto, un cambio real de equipo limpia picker, poll y plan_state, la liga principal se guarda por equipo, cada fila de EO trae disponibilidad (un jugador out nunca se ofrece como cobertura) y se suman el chip «Cambiar de liga» y los taps deterministas de EO.",
+      "tags": [
+        "Backend",
+        "UI",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s98",
+      "col": "shipped",
+      "title": "Líneas de EO en la tarjeta plan_to_sign",
+      "desc": "Fusionada (PR #707, #714; 24/11). plan_to_sign suma hasta una línea de EO cache-only en un cupo reservado: cobertura del objetivo (cerca de tu puesto o top 10K), sin exposición al vender un premium que casi nadie tiene cerca de tu puesto, o un diferencial con condiciones (baja propiedad, disponible, calendario favorable, xGI de top) que declara hechos y no un pronóstico.",
+      "tags": [
+        "Backend",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s99",
+      "col": "shipped",
+      "title": "Fix de doble jornada en el merge histórico",
+      "desc": "Fusionada (PR #708, 24/11). merge.py deduplicaba player_gw_stats por (player_id, event_id) y perdía la segunda fecha de una doble jornada; la clave pasa a (player_id, event_id, fixture) y get_player_season_points/historical_gameweek_top_scorer se corrigen para no sumar ni rankear por fila cuando hay dos partidos en la misma jornada.",
+      "tags": [
+        "Backend",
+        "Datos"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s100",
+      "col": "shipped",
+      "title": "Freno al ranking de temporada con pregunta condicionada (brief 0a)",
+      "desc": "Fusionada (PR #715, 25/11). rank_players_by_metric deja de contestar cuando el texto crudo pide una jornada puntual, últimas N, un rango, local/visitante o por millón: devuelve condition_not_applied con una línea que nombra la condición no aplicada, detrás de FPL_RANK_CONDITION_GUARD (encendido por defecto).",
+      "tags": [
+        "Backend",
+        "IA",
+        "FPL Asistente"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s101",
+      "col": "shipped",
+      "title": "El toggle de web también bloquea web_fetch",
+      "desc": "Fusionada (PR #716, 25/11). Con el toggle de web apagado el modelo deja de recibir también web_fetch (antes solo se le quitaba search_web) en /ask y en /session/{id}/ask, y una línea del prompt le dice que no puede consultar la web en vez de dejarlo seguir instrucciones fijas que ya no tiene herramienta para cumplir.",
+      "tags": [
+        "Backend",
+        "IA"
+      ],
+      "progress": 100
+    },
+    {
+      "id": "s102",
+      "col": "shipped",
+      "title": "Edad honesta del dato zonal",
+      "desc": "Fusionada (PR #717, #718; 25/11). El sello zonal dice cuántas jornadas de atraso tiene el dato (label «aged» desde 2 GWs atrás) y, desde 4 atrás, el lado del equipo pasa a tiempo pasado y la celda de fixture no ofrece tap zonal, mientras el lado del jugador deja de afirmar un cruce futuro y muestra solo su perfil zonal y el sello.",
       "tags": [
         "Datos",
         "FPL Asistente"
