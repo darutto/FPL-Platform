@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -141,9 +142,13 @@ ENV_EUROPE_FLAG = "FPL_EUROPE_CALENDAR_STRIKERAPI"
 ENV_EUROPE_PATH = "FPL_EUROPE_CALENDAR_PATH"
 DEFAULT_EUROPE_PATH = "data/europe-calendar/europe.json"
 EUROPE_COVERED = ("UCL", "UEL", "UECL")
-#: How often the private R2 object is read again (the job refreshes it a few times a week).
+#: How often the private R2 object is read again (the job refreshes it a few times a week), and how soon after
+#: a failed read.
 _EUROPE_R2_TTL_SECONDS = 6 * 3600
-_europe_r2: dict[str, float] = {"at": 0.0}
+_EUROPE_R2_RETRY_SECONDS = 600
+_europe_r2: dict[str, Any] = {"next_at": 0.0, "client": None}
+#: Held while a refresh runs: at most one at a time, and nobody ever waits for it.
+_europe_r2_lock = threading.Lock()
 
 
 def europe_enabled() -> bool:
@@ -154,24 +159,62 @@ def _europe_path() -> Path:
     return Path(os.environ.get(ENV_EUROPE_PATH, "").strip() or DEFAULT_EUROPE_PATH)
 
 
-def _refresh_europe_file(season: str) -> None:
-    """Copy the private R2 object over the local file, at most once per TTL. Never raises; a failure keeps the file."""
-    now = time.time()
-    if now - _europe_r2["at"] < _EUROPE_R2_TTL_SECONDS:
-        return
-    _europe_r2["at"] = now
-    try:
-        from fpl_tactical.europe_calendar import r2_key
-        from fpl_tactical.publish import calendar_location
+def _europe_fetch(season: str) -> bytes:
+    """One GET of the private object, on a client with the tier-EO reader's short timeouts and NO retry.
 
-        client, bucket, prefix = calendar_location()
+    ``get_object``, not ``download_file``: the transfer manager retries downloads on its own.
+    """
+    from fpl_tactical.europe_calendar import r2_key
+
+    from . import owned_store_sync as sync
+    from . import tier_eo_reader
+
+    if _europe_r2["client"] is None:
+        _europe_r2["client"] = tier_eo_reader._make_client(total_attempts=1)
+    answer = _europe_r2["client"].get_object(
+        Bucket=os.environ.get(sync.ENV_R2_BUCKET, "").strip(), Key=r2_key(tier_eo_reader._r2_prefix(), season))
+    return answer["Body"].read()
+
+
+def _refresh_worker(season: str) -> None:
+    """Fetch and swap the local file. Holds ``_europe_r2_lock`` on entry and releases it. Never raises."""
+    wait = _EUROPE_R2_RETRY_SECONDS
+    try:
+        raw = _europe_fetch(season)
+        if not isinstance(json.loads(raw), dict):          # never replace a good file with something unreadable
+            raise ValueError("not a calendar object")
         path = _europe_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         part = path.with_suffix(".json.part")
-        client.download_file(bucket, r2_key(prefix, season), str(part))
+        part.write_bytes(raw)
         os.replace(str(part), str(path))
-    except Exception as exc:  # noqa: BLE001 -- no R2, no object, no package: keep whatever file there is
+        wait = _EUROPE_R2_TTL_SECONDS
+    except Exception as exc:  # noqa: BLE001 -- no R2, no object, no package, a timeout: keep whatever file there is
         _LOG.info("europe calendar not refreshed: %s", type(exc).__name__)
+    finally:
+        _europe_r2["next_at"] = time.time() + wait
+        _europe_r2_lock.release()
+
+
+def _refresh_europe_file(season: str) -> "threading.Thread | None":
+    """Start a background copy of the private R2 object when one is due. Returns at once, ALWAYS.
+
+    This runs on a user's request, so the request never waits for R2: it serves the file that is there now and
+    a later request sees the new one. At most one refresh is in flight. Returns the thread it started, or None.
+    """
+    if time.time() < _europe_r2["next_at"] or not _europe_r2_lock.acquire(blocking=False):
+        return None
+    try:
+        if time.time() < _europe_r2["next_at"]:              # another request finished one just now
+            _europe_r2_lock.release()
+            return None
+        thread = threading.Thread(target=_refresh_worker, args=(season,), name="europe-calendar-refresh", daemon=True)
+        thread.start()
+        return thread
+    except Exception as exc:  # noqa: BLE001 -- could not even start: free the slot
+        _europe_r2_lock.release()
+        _LOG.info("europe calendar refresh not started: %s", type(exc).__name__)
+        return None
 
 
 def _europe_season() -> str:

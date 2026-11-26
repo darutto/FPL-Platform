@@ -5,6 +5,8 @@ Synthetic snapshot file in the job's shape, a fake licensed store and a stub for
 from __future__ import annotations
 
 import json
+import threading
+import time
 from datetime import timedelta, timezone
 
 import pytest
@@ -15,6 +17,7 @@ from fpl_grounded_assistant import competition_calendar as cc
 from test_competition_calendar_licensed import _fa, _install, _layer, _snap
 
 SEASON = "2026-2027"
+REAL_REFRESH = cc._refresh_europe_file       # captured before the autouse fixture replaces it
 PL_SATURDAY = "2099-01-03T15:00:00Z"          # the stub's Premier League match (ARS v CHE)
 TUESDAY = "2098-12-30T20:00:00Z"              # 91 hours before it: 3 whole days
 
@@ -210,3 +213,127 @@ def test_a_new_snapshot_is_not_hidden_by_the_cached_calendar(monkeypatch, tmp_pa
     assert _premium()["teams"]["ARS"]["matches"][0]["kickoff_utc"] == TUESDAY
     _europe_file(tmp_path, monkeypatch, _ucl(kickoff="2098-12-29T20:00:00Z", minutes=5))
     assert _premium()["teams"]["ARS"]["matches"][0]["kickoff_utc"] == "2098-12-29T20:00:00Z"
+
+
+# -- the R2 refresh never holds a request ----------------------------------------
+
+class SlowR2:
+    """A client whose get_object blocks until the test lets it go, then answers (or raises)."""
+
+    def __init__(self, body=b"{}", error=None):
+        self.release, self.entered = threading.Event(), threading.Event()
+        self.body, self.error, self.calls = body, error, 0
+
+    def get_object(self, Bucket, Key):
+        self.calls += 1
+        self.key = Key
+        self.entered.set()
+        assert self.release.wait(30), "the test never released the fake client"
+        if self.error:
+            raise self.error
+        return {"Body": type("B", (), {"read": lambda _self: self.body})()}
+
+
+@pytest.fixture
+def real_refresh(monkeypatch):
+    from fpl_grounded_assistant import tier_eo_reader
+
+    made: list = []
+
+    def install(client):
+        def make(total_attempts=None):
+            made.append(total_attempts)
+            return client
+
+        monkeypatch.setattr(cc, "_refresh_europe_file", REAL_REFRESH)
+        monkeypatch.setattr(tier_eo_reader, "_make_client", make)
+        monkeypatch.setenv("OWNED_STORE_R2_BUCKET", "synthetic-bucket")
+        monkeypatch.delenv("OWNED_STORE_R2_PREFIX", raising=False)
+        cc._europe_r2.update(next_at=0.0, client=None)
+        return made
+
+    yield install
+    for thread in threading.enumerate():
+        if thread.name == "europe-calendar-refresh":
+            thread.join(5)
+    cc._europe_r2.update(next_at=0.0, client=None)
+    assert not cc._europe_r2_lock.locked()
+
+
+def _join_refresh():
+    for thread in threading.enumerate():
+        if thread.name == "europe-calendar-refresh":
+            thread.join(10)
+            assert not thread.is_alive()
+
+
+def test_a_slow_r2_does_not_hold_the_request_and_the_old_file_is_served(monkeypatch, tmp_path, real_refresh):
+    _install(monkeypatch, [_snap()], [])
+    _europe_file(tmp_path, monkeypatch, _ucl())
+    old = (tmp_path / "strikerapi-europe.json").read_bytes()
+    slow = SlowR2()
+    made = real_refresh(slow)
+    started = time.monotonic()
+    first = _premium()
+    assert slow.entered.wait(5)                          # a refresh really is in flight, and stuck
+    second = _premium()                                  # does not wait for it, and starts no other
+    assert time.monotonic() - started < 5
+    assert slow.calls == 1 and made == [1]               # one client, no retry
+    assert slow.key == f"calendar/{SEASON}/europe.json"
+    for out in (first, second):
+        assert out["teams"]["ARS"]["matches"][0]["kickoff_utc"] == TUESDAY
+    assert (tmp_path / "strikerapi-europe.json").read_bytes() == old
+    assert cc._refresh_europe_file(SEASON) is None        # still the one in flight
+    slow.release.set()
+    _join_refresh()
+
+
+@pytest.mark.parametrize("client", [
+    SlowR2(error=TimeoutError("read timed out")), SlowR2(body=b"<html>not json</html>"), SlowR2(body=b"[1, 2]"),
+], ids=["timeout", "not-json", "not-an-object"])
+def test_a_failed_or_unreadable_refresh_keeps_the_old_file(monkeypatch, tmp_path, real_refresh, client):
+    _install(monkeypatch, [_snap()], [])
+    _europe_file(tmp_path, monkeypatch, _ucl())
+    old = (tmp_path / "strikerapi-europe.json").read_bytes()
+    real_refresh(client)
+    client.release.set()
+    _premium()
+    _join_refresh()
+    assert (tmp_path / "strikerapi-europe.json").read_bytes() == old
+    wait = cc._europe_r2["next_at"] - time.time()
+    assert 0 < wait <= cc._EUROPE_R2_RETRY_SECONDS      # tried again soon, not in six hours
+
+
+def test_a_good_refresh_replaces_the_file_and_the_next_request_sees_it(monkeypatch, tmp_path, real_refresh):
+    _install(monkeypatch, [_snap()], [])
+    _europe_file(tmp_path, monkeypatch, _ucl(kickoff="2098-12-29T20:00:00Z", minutes=5))
+    newer = (tmp_path / "strikerapi-europe.json").read_bytes()
+    _europe_file(tmp_path, monkeypatch, _ucl())
+    client = SlowR2(body=newer)
+    real_refresh(client)
+    assert _premium()["teams"]["ARS"]["matches"][0]["kickoff_utc"] == TUESDAY     # served before the swap
+    client.release.set()
+    _join_refresh()
+    assert _premium()["teams"]["ARS"]["matches"][0]["kickoff_utc"] == "2098-12-29T20:00:00Z"
+    assert client.calls == 1                                                      # not due again for the TTL
+    assert cc._europe_r2["next_at"] - time.time() > cc._EUROPE_R2_RETRY_SECONDS
+
+
+def test_the_flag_off_path_starts_no_refresh(monkeypatch, tmp_path, real_refresh):
+    _install(monkeypatch, [_snap()], [])
+    _europe_file(tmp_path, monkeypatch, _ucl(), flag=None)
+    client = SlowR2()
+    made = real_refresh(client)
+    _premium()
+    assert client.calls == 0 and made == []
+
+
+def test_the_client_has_the_short_timeouts_and_no_retry():
+    pytest.importorskip("botocore")
+    from fpl_grounded_assistant import tier_eo_reader as reader
+
+    config = reader._client_config(total_attempts=1)
+    assert (config.connect_timeout, config.read_timeout) == (reader.CONNECT_TIMEOUT_S, reader.READ_TIMEOUT_S)
+    assert config.retries["total_max_attempts"] == 1
+    # the tier-EO reader's own setting is what it was
+    assert reader._client_config().retries["max_attempts"] == reader.MAX_ATTEMPTS
