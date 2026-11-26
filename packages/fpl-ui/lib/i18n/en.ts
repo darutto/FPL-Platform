@@ -487,6 +487,8 @@ export const en: typeof es = {
   'fx.extra.timeTbc': 'time to be verified',
   'fx.comp.cupsNone': 'Cups: no matches scheduled yet',
   'fx.comp.coverage': 'Partial coverage · Europe from the list of {date}',
+  'fx.comp.europeUntil': 'Europe confirmed up to {date}',
+  'fx.comp.europePartial': 'Partial Europe coverage',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
   'fx.q.teamAttack': "How does {team}'s attacking fixture run look over the next gameweeks?",

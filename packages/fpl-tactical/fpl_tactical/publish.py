@@ -172,6 +172,12 @@ def _make_r2_client():
     )
 
 
+def calendar_location() -> tuple[object, str, str]:
+    """(R2 client, bucket, base prefix) for the private European calendar object. Raises when R2 is not set."""
+    client = _make_r2_client()
+    return client, os.environ.get(ENV_R2_BUCKET, "").strip(), _r2_prefix()
+
+
 def strikerapi_raw_location(season: str) -> tuple[object, str, str]:
     """(R2 client, bucket, key prefix) of the PRIVATE kept responses of *season*.
 

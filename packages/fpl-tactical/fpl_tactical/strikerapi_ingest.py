@@ -42,6 +42,7 @@ from fpl_tactical.paths import (
     source_pointer_path,
     source_shots_path,
 )
+from fpl_tactical.strikerapi_budget import affordable, within_ceiling
 from fpl_tactical.strikerapi_client import (
     COST_LIST_GAMES,
     COST_SHOT_MAP,
@@ -655,7 +656,7 @@ def sync(
     unpaid = [f for f in due
               if (f.home, f.away) not in by_pair or cache.get(by_pair[(f.home, f.away)]) is None]
     estimate = (COST_LIST_GAMES if need_list else 0) + COST_SHOT_MAP * len(unpaid)
-    if estimate > max_credits:
+    if not within_ceiling(0, estimate, max_credits):
         raise SyncRefused(
             f"{len(unpaid)} matches to fetch need {estimate} credits, over the ceiling of {max_credits}; "
             f"raise --max-credits on purpose"
@@ -679,7 +680,7 @@ def sync(
             continue
         todo.append(gid)
     need = COST_SHOT_MAP * sum(cache.get(gid) is None for gid in todo)
-    if client.credits_remaining is not None and need > client.credits_remaining:
+    if not affordable(need, client.credits_remaining):
         raise SyncRefused(
             f"the matches to fetch need {need} credits, the source reports {client.credits_remaining} remaining"
         )
@@ -751,7 +752,7 @@ def load_by_team(
     if need_list:
         sched = schedule_from_games(client.list_games(_api_season(season)))
     need = COST_SHOT_MAP * len(unpaid_teams)
-    if client.credits_remaining is not None and need > client.credits_remaining:
+    if not affordable(need, client.credits_remaining):
         raise SyncRefused(
             f"first load needs {need} more credits, the source reports {client.credits_remaining}"
         )
@@ -784,8 +785,8 @@ def load_by_team(
         else:
             later.append(gid)
     extra = COST_SHOT_MAP * sum(cache.get(gid) is None for gid in later)
-    if client.credits_spent + extra > max_credits or (
-            client.credits_remaining is not None and extra > client.credits_remaining):
+    if not within_ceiling(client.credits_spent, extra, max_credits) or not affordable(
+            extra, client.credits_remaining):
         raise SyncRefused(
             f"{len(later)} matches became due after the team files were fetched and need {extra} more credits; "
             f"raise --max-credits on purpose"
