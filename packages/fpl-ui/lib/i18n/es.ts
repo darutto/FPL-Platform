@@ -487,6 +487,8 @@ export const es = {
   'fx.extra.timeTbc': 'hora por verificar',
   'fx.comp.cupsNone': 'Copas: sin partidos programados por ahora',
   'fx.comp.coverage': 'Cobertura parcial · Europa según la lista del {date}',
+  'fx.comp.europeUntil': 'Europa confirmada hasta el {date}',
+  'fx.comp.europePartial': 'Cobertura parcial de Europa',
 
   // --- Questions the board hands to the chat (a tapped team or cell) ---
   'fx.q.teamAttack': '¿Cómo pinta el calendario ofensivo del {team} en las próximas jornadas?',

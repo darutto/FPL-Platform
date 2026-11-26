@@ -59,6 +59,11 @@ export interface CompetitionsView {
   manualListDate: string | null;
   /** True when the licensed cups (FA, Carabao) are only partly covered AND the answer carries no cup match at all. */
   cupsNoneScheduled: boolean;
+  /**
+   * Europe from the StrikerAPI source (`data.europe`), when the server used it: `until` is the earliest date every
+   * European competition's list is whole up to, or null when any of the three is not whole. Absent otherwise.
+   */
+  europe?: { until: string | null };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -119,7 +124,34 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
   const coverage = isRecord(payload.data) && isRecord(payload.data.coverage) ? payload.data.coverage : null;
   const cupsPartial = coverage !== null && (coverage.FA === 'partial' || coverage.EFL === 'partial');
   const anyCup = [...teams.values()].some((t) => t.extras.some((m) => m.competition === 'FA' || m.competition === 'EFL'));
-  return { tier, teams, manualListDate: listDate, cupsNoneScheduled: cupsPartial && !anyCup };
+  const europe = parseEurope(isRecord(payload.data) ? payload.data.europe : null);
+  return {
+    tier,
+    teams,
+    manualListDate: listDate,
+    cupsNoneScheduled: cupsPartial && !anyCup,
+    ...(europe ? { europe } : {}),
+  };
+}
+
+const EUROPE = ['UCL', 'UEL', 'UECL'] as const;
+
+function parseEurope(raw: unknown): { until: string | null } | null {
+  if (!isRecord(raw) || !isRecord(raw.competitions)) return null;
+  const bounds: string[] = [];
+  for (const code of EUROPE) {
+    const c = raw.competitions[code];
+    if (
+      !isRecord(c) ||
+      c.status !== 'complete' ||
+      typeof c.complete_as_of !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(c.complete_as_of)
+    ) {
+      return { until: null };
+    }
+    bounds.push(c.complete_as_of);
+  }
+  return { until: bounds.sort()[0] };
 }
 
 /**
@@ -128,6 +160,14 @@ export function parseCompetitions(payload: unknown): CompetitionsView | null {
  */
 export function coverageNote(view: CompetitionsView | null, locale: Locale = DEFAULT_LOCALE): string | null {
   const parts: string[] = [];
+  if (view?.europe) {
+    if (view.europe.until) {
+      const [y, m, d] = view.europe.until.split('-');
+      parts.push(translate(locale, 'fx.comp.europeUntil', { date: `${d}/${m}/${y}` }));
+    } else {
+      parts.push(translate(locale, 'fx.comp.europePartial'));
+    }
+  }
   if (view?.manualListDate) {
     const [y, m, d] = view.manualListDate.split('-');
     parts.push(translate(locale, 'fx.comp.coverage', { date: `${d}/${m}/${y}` }));
