@@ -487,3 +487,72 @@ def test_session_state_never_holds_the_answer_text(server, model):
     assert all(isinstance(h, tuple) and len(h) == 2 and all(isinstance(x, str) for x in h) for h in state.history)
     again = server.post(f"/session/{sid}/ask", json={"question": "¿y los porteros?"}, headers={"X-User-Id": "hist"})
     assert again.status_code == 200
+
+
+# -- a heading that only names the dropped block goes with it -------------------
+
+XA = [{"web_name": n, "metric_value": v} for n, v in (("Alder", 4.1), ("Birch", 3.6), ("Cedar", 3.2))]
+XA_LIST = "1. Alder \u2014 4.1\n2. Birch \u2014 3.6\n3. Cedar \u2014 3.2"
+XA_TITLE = "TOP 3 \u00b7 Asistencias esperadas (xA)"
+
+
+@pytest.mark.parametrize("heading", [
+    "### Top 10 por asistencias esperadas (xA)",          # the live case: this was all that stayed
+    "## Ranking de xA",
+    "**Top 10 por xA**",
+    "**Top 10 por xA:**",
+    "Top 3 por asistencias esperadas",                    # a plain line restating the card's title
+    "### Los mejores jugadores de la temporada por asistencias esperadas",   # long, but only the title's words
+])
+def test_a_heading_over_a_fully_dropped_list_goes_and_nothing_remains(heading):
+    out = trim_card_restatement(f"{heading}\n\n{XA_LIST}", XA, metric="expected_assists", card_title=XA_TITLE)
+    assert out.fired and out.text == "" and out.dropped_lines == 4
+
+
+def test_the_heading_and_the_intro_go_and_the_judgement_after_stays():
+    text = f"### Top 3 por xA\n\nAs\u00ed quedan:\n\n{XA_LIST}\n\nAlder crea mucho m\u00e1s que el resto."
+    out = trim_card_restatement(text, XA, metric="expected_assists", card_title=XA_TITLE)
+    assert out.text == "Alder crea mucho m\u00e1s que el resto."
+
+
+def test_a_heading_over_prose_that_stays_is_kept():
+    text = f"### Lectura\n\nAlder crea mucho m\u00e1s que el resto.\n\n{XA_LIST}"
+    out = trim_card_restatement(text, XA, metric="expected_assists", card_title=XA_TITLE)
+    assert out.fired and out.text == "### Lectura\n\nAlder crea mucho m\u00e1s que el resto."
+
+
+def test_a_heading_over_a_list_with_a_line_that_stays_is_kept():
+    text = (
+        "### Top 4\n\n1. Alder: 76 puntos\n2. Birch: 70 puntos\n3. Van Cedar: 68 puntos\n"
+        "4. Dogwood: 66 puntos, titular fijo y con calendario suave hasta la GW15"
+    )
+    out = trim(text)
+    assert out.fired and out.text.startswith("### Top 4\n\n4. Dogwood")
+
+
+def test_a_heading_that_says_something_of_its_own_stays():
+    heading = "### El que m\u00e1s crea juega en un equipo que apenas remata"
+    out = trim_card_restatement(f"{heading}\n\n{XA_LIST}", XA, metric="expected_assists", card_title=XA_TITLE)
+    assert out.fired and out.text == heading
+
+
+def test_a_heading_over_a_dropped_sentence_goes_too_and_the_next_section_stays():
+    text = "### Top 3\n\nAlder (4.1), Birch (3.6) y Cedar (3.2).\n\n### Lectura\n\nAlder crea mucho m\u00e1s que el resto."
+    out = trim_card_restatement(text, XA, metric="expected_assists", card_title=XA_TITLE)
+    assert out.text == "### Lectura\n\nAlder crea mucho m\u00e1s que el resto."
+
+
+def test_a_title_alone_without_a_dropped_block_is_untouched():
+    text = "### Top 3 por xA\n\nAlder crea mucho m\u00e1s que el resto."
+    out = trim_card_restatement(text, XA, metric="expected_assists", card_title=XA_TITLE)
+    assert not out.fired and out.text == text
+
+
+@pytest.mark.parametrize("route", ["ask", "session"])
+def test_only_a_heading_and_the_list_falls_back_to_the_conclusions(server, model, monkeypatch, route):
+    ranked = _real_ranked()
+    rows = "\n".join(f"{i + 1}. {r['web_name']}: {int(r['metric_value'])} puntos" for i, r in enumerate(ranked[:4]))
+    model["text"] = f"### Top 5 por puntos\n\n{rows}"
+    monkeypatch.setattr(harness_mod, "_tool_table_conclusions", lambda *a, **k: CONCLUSIONS)
+    body = _post(server, route).json()
+    assert body["final_text"] == "" and body["table_conclusions"] == CONCLUSIONS

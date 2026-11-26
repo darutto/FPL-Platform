@@ -190,8 +190,11 @@ def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any, b
             if isinstance(team, dict)
             for key in ("name", "short_name")
         ]
+        card = result.get("generic_card")
+        title = card.get("title") if isinstance(card, dict) else getattr(card, "title", None)
         trimmed = trim_card_restatement(
             original, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""), extra_terms=clubs,
+            card_title=str(title or ""),
         )
         if not trimmed.fired:
             return

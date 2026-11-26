@@ -25,6 +25,13 @@ not, and stays. The pure rows of the same block still go; if fewer than three pu
 commented row is left whole (dropping some rows would break it), and the intro line stays
 whenever a line of its block stays.
 
+A heading that only names what went goes with it
+-------------------------------------------------
+A markdown heading, a bold-only line, or a plain line that restates the card's title, whose
+list, table or sentences were removed with nothing of them left, is removed too when it says
+nothing of its own: fewer than six words after the same count, or only words of the card's
+title. A heading over prose that stays, or over a list with a line that stays, is kept.
+
 What it never touches
 ---------------------
 * Sentences with judgement that name players with no value beside them («Haaland lidera
@@ -66,6 +73,14 @@ _ROW_WORDS: frozenset[str] = frozenset(
     "defenders midfielder midfielders forward forwards striker strikers "
     "punto puntos pts pt points point gol goles goal goals asistencia asistencias assist assists minuto "
     "minutos minute minutes tarjeta tarjetas parada paradas save saves xg xa xgi bonus bps total totales".split()
+)
+
+_HEADING = re.compile(r"^\s*#{1,6}\s+")
+_BOLD_LINE = re.compile(r"^\s*\*\*[^*]+\*\*\s*:?\s*$")
+#: Words a title adds around what it names; with the card title's own words they make a restatement.
+_TITLE_FILLER: frozenset[str] = frozenset(
+    "top ranking clasificacion lista tabla los las el la de del por en con y a the of by in for and "
+    "jugador jugadores player players temporada season mejores mejor best".split()
 )
 
 _LIST_MARK = re.compile(r"^\s*(?:\d{1,2}[.)]|[-*•])\s+")
@@ -179,6 +194,53 @@ def _residual_words(text: str, rows: Sequence[Row], extra_terms: Sequence[str]) 
     return sum(1 for w in re.findall(r"[a-z0-9]+", s) if not w.isdigit() and w not in _ROW_WORDS)
 
 
+def _restates_title(text: str, card_title: str) -> bool:
+    """True when every word of *text* is a word of the card's title or a title filler / row word."""
+    title = {w for w in re.findall(r"[a-z0-9]+", _fold(card_title))}
+    words = [w for w in re.findall(r"[a-z0-9]+", _fold(_HEADING.sub("", text))) if not w.isdigit()]
+    named = [w for w in words if w in title and w not in _TITLE_FILLER]
+    return bool(words) and bool(named) and all(w in title or w in _TITLE_FILLER or w in _ROW_WORDS for w in words)
+
+
+def _is_title_line(line: str, card_title: str) -> bool:
+    if _LIST_MARK.match(line) or _TABLE_ROW.match(line):
+        return False
+    if _HEADING.match(line) or _BOLD_LINE.match(line):
+        return True
+    return len(line.strip()) <= _SHORT_LINE and _restates_title(line, card_title)
+
+
+def _drop_emptied_titles(
+    lines: list[str], out: "list[str | None]", rows: Sequence[Row], terms: Sequence[str], card_title: str,
+) -> int:
+    """Set to None each title line whose content was removed entirely and that says nothing of its own."""
+    titles = [i for i, line in enumerate(lines) if line.strip() and _is_title_line(line, card_title)]
+    removed = 0
+    for i in reversed(titles):                       # innermost first: a title over a removed title goes too
+        if out[i] is None:
+            continue
+        gone = survivor = False
+        for j in range(i + 1, len(lines)):
+            if not lines[j].strip():
+                continue
+            if out[j] is None:
+                gone = True
+                continue
+            if j in titles:
+                break                                # the next section starts here
+            item = bool(_LIST_MARK.match(lines[j]) or _TABLE_ROW.match(lines[j]))
+            if item or not gone:
+                survivor = True                      # part of the named list, or prose it heads, stays
+            break
+        if not gone or survivor:
+            continue
+        text = _HEADING.sub("", lines[i])
+        if _residual_words(text, rows, terms) < _JUDGEMENT_WORDS or _restates_title(text, card_title):
+            out[i] = None
+            removed += 1
+    return removed
+
+
 @dataclass(frozen=True)
 class Trim:
     text: str
@@ -188,6 +250,7 @@ class Trim:
 
 def trim_card_restatement(
     text: str, ranked: Sequence[dict[str, Any]], *, metric: str = "", extra_terms: Sequence[str] = (),
+    card_title: str = "",
 ) -> Trim:
     """*text* without the blocks and sentences that reprint the card's rows.
 
@@ -271,11 +334,12 @@ def trim_card_restatement(
             drop[prev] = True
 
     # --- sentences: one sentence naming 3+ card players each beside his value ---
-    out_lines: list[str] = []
+    out_lines: "list[str | None]" = []          # one slot per source line; None = removed
     dropped = 0
     for idx, line in enumerate(lines):
         if drop[idx]:
             dropped += 1
+            out_lines.append(None)
             continue
         if not line.strip() or _LIST_MARK.match(line) or _TABLE_ROW.match(line):
             out_lines.append(line)
@@ -301,13 +365,13 @@ def trim_card_restatement(
             kept.append(sentence)
         if removed_any:
             dropped += 1
-            if kept:
-                out_lines.append(" ".join(kept))
+            out_lines.append(" ".join(kept) if kept else None)
         else:
             out_lines.append(line)
 
     if dropped == 0:
         return Trim(text, 0, False)
-    result = "\n".join(out_lines)
+    dropped += _drop_emptied_titles(lines, out_lines, rows, terms, card_title)
+    result = "\n".join(line for line in out_lines if line is not None)
     result = re.sub(r"\n{3,}", "\n\n", result).strip()
     return Trim(result, dropped, True)
