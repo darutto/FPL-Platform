@@ -1428,3 +1428,30 @@ export interface PositionPitchMeta {
   associations?: string | null;
   claim_status: string;
 }
+
+// --- Query layer: the reading line (backend query_reading.render_reading) ---
+
+/** A typed query spec. Opaque to the UI: a tap sends it back exactly as received. */
+export type QuerySpecDict = Record<string, unknown>;
+
+export interface QueryReadingAlternative {
+  label: string;
+  spec: QuerySpecDict;
+}
+
+export interface QueryReadingPart {
+  /** The backend may add kinds; the UI draws any part from its label. */
+  kind: string;
+  label: string;
+  value: unknown;
+  editable: boolean;
+  alternatives: QueryReadingAlternative[];
+  /** This part stopped a non-complete answer. */
+  braked: boolean;
+}
+
+export interface QueryReading {
+  parts: QueryReadingPart[];
+  text: string;
+  lang: 'es' | 'en';
+}
