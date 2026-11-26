@@ -56,6 +56,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                       help="the other source's rows for this season; the first-load canary compares against it")
     load.add_argument("--yes-spend-credits", action="store_true", required=True,
                       help="required: this command spends 202 of the monthly credits")
+    for cmd in (sync, load):
+        cmd.add_argument("--require-r2", action="store_true",
+                         help="refuse to run unless paid responses can be kept on R2 (CI)")
     act = sub.add_parser("strikerapi-activate", help="Copy the StrikerAPI working store onto the serving paths")
     act.add_argument("--season", default=CURRENT_SEASON)
     return parser.parse_args(argv)
@@ -92,22 +95,25 @@ def _cmd_verify(season: str) -> int:
 def _cmd_strikerapi(args: argparse.Namespace) -> int:
     from fpl_tactical import strikerapi_ingest as si  # lazy: network helpers
     from fpl_tactical.strikerapi_client import StrikerApiClient, StrikerApiError
+    from fpl_tactical.strikerapi_raw import RawCacheError
 
     try:
         if args.command == "strikerapi-activate":
             return _activate(args.season)
+        cache = _raw_cache(args.season, args.require_r2)
         fixtures = si.fetch_fpl_fixtures()
         client = StrikerApiClient()
         if args.command == "strikerapi-sync":
-            report = si.sync(args.season, client, fixtures, max_credits=args.max_credits)
+            report = si.sync(args.season, client, fixtures, max_credits=args.max_credits, cache=cache)
         else:
             import pandas as pd
 
-            report = si.load_by_team(args.season, client, fixtures, pd.read_parquet(args.backup_parquet))
+            report = si.load_by_team(args.season, client, fixtures, pd.read_parquet(args.backup_parquet),
+                                     cache=cache)
     except si.SyncRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 3
-    except (si.IngestError, StrikerApiError, KeyError, OSError) as exc:
+    except (si.IngestError, StrikerApiError, RawCacheError, KeyError, OSError) as exc:
         print(f"{args.command} FAILED, nothing published: {exc}", file=sys.stderr)
         return 1
     import dataclasses
@@ -118,6 +124,21 @@ def _cmd_strikerapi(args: argparse.Namespace) -> int:
             print(f"ALERT: {line}", file=sys.stderr)
         return 4
     return 0
+
+
+def _raw_cache(season: str, require_r2: bool):
+    """Paid responses go to R2 when it is configured; otherwise local only (a developer machine)."""
+    from fpl_tactical.publish import strikerapi_raw_location
+    from fpl_tactical.strikerapi_raw import RawCache, RawCacheError
+
+    try:
+        r2, bucket, key_base = strikerapi_raw_location(season)
+    except RuntimeError as exc:
+        if require_r2:
+            raise RawCacheError(f"paid responses cannot be kept on R2: {exc}") from None
+        print(f"raw responses are kept on this machine only ({exc})", file=sys.stderr)
+        return RawCache(season)
+    return RawCache(season, r2, bucket, key_base)
 
 
 def _activate(season: str) -> int:

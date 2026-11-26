@@ -46,7 +46,11 @@ from fpl_tactical.strikerapi_client import (
     COST_LIST_GAMES,
     COST_SHOT_MAP,
     StrikerApiClient,
+    games_page,
+    parse_data,
+    shots_of,
 )
+from fpl_tactical.strikerapi_raw import RawCache
 from fpl_tactical.teams import API_CODE_TO_STORE, store_name_from_api, store_name_from_fpl
 
 SHOT_COLUMNS: list[str] = [
@@ -564,6 +568,45 @@ def _build_pointer(df: pd.DataFrame, season: str, canaries: dict, fixtures: list
 
 
 # ---------------------------------------------------------------------------
+# Kept responses first: a match with a raw file is never fetched again
+# ---------------------------------------------------------------------------
+
+def _keep_responses(client: StrikerApiClient, cache: RawCache, now: datetime) -> None:
+    client.on_response = lambda tool, request, text: cache.put(tool, request, text, now)
+
+
+def _kept_games(cache: RawCache) -> list[dict] | None:
+    """The kept ``list_games`` pages, or None when the chain is incomplete."""
+    games: list[dict] = []
+    offset = 0
+    for _ in range(10):
+        kept = cache.get(f"list_games_{offset}")
+        if kept is None:
+            return None
+        page, nxt = games_page(parse_data("list_games", kept["body"]))
+        games.extend(page)
+        if not nxt:
+            return games
+        offset = int(nxt)  # type: ignore[arg-type]
+    return None
+
+
+def _final_pairs(sched: dict[str, dict]) -> dict[tuple[str, str], str]:
+    return {(g["home"], g["away"]): gid for gid, g in sched.items() if g["final"]}
+
+
+def _kept_schedule(cache: RawCache) -> dict[str, dict]:
+    return schedule_from_games(_kept_games(cache) or [])
+
+
+def _shots_for_game(client: StrikerApiClient, cache: RawCache, gid: str) -> list[dict]:
+    kept = cache.get(gid)
+    if kept is not None:
+        return shots_of(parse_data("get_shot_map", kept["body"]))
+    return client.shot_map_for_game(gid)
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -585,14 +628,19 @@ def sync(
     fixtures: list[FplFixture],
     now: datetime | None = None,
     max_credits: int = DEFAULT_MAX_CREDITS,
+    cache: RawCache | None = None,
 ) -> SyncReport:
-    """Daily job: fetch finished matches that are >= 36 h past full time and not stored.
+    """Daily job: store finished matches that are >= 36 h past full time and not stored.
 
-    Nothing due -> no API call, zero credits. Otherwise ``list_games`` (2) plus
-    10 per due match, refused up front when over *max_credits* or over the
-    credits the source reports remaining. A stored match is never refetched.
+    Nothing due -> no API call, zero credits. A match whose response is already
+    kept costs nothing, whatever an earlier validation said of it; so a run that
+    failed a check re-validates from the kept files for free. ``list_games`` (2)
+    is asked only when a due match is not in the kept list. Only what must be
+    paid counts against *max_credits* and the source's remaining credits. A
+    stored match is never refetched.
     """
     now = now or datetime.now(tz=timezone.utc)
+    cache = cache or RawCache(season)
     current, prior = read_working_store(season)
     if current is None:
         raise SyncRefused("no StrikerAPI store yet: run strikerapi-load first (explicit, 202 credits)")
@@ -600,15 +648,25 @@ def sync(
     due = due_fixtures(fixtures, current, now)
     if not due:
         return SyncReport(action="nothing_due")
-    estimate = COST_LIST_GAMES + COST_SHOT_MAP * len(due)
+
+    sched = _kept_schedule(cache)
+    by_pair = _final_pairs(sched)
+    need_list = any((f.home, f.away) not in by_pair for f in due)
+    unpaid = [f for f in due
+              if (f.home, f.away) not in by_pair or cache.get(by_pair[(f.home, f.away)]) is None]
+    estimate = (COST_LIST_GAMES if need_list else 0) + COST_SHOT_MAP * len(unpaid)
     if estimate > max_credits:
         raise SyncRefused(
-            f"{len(due)} matches due need {estimate} credits, over the ceiling of {max_credits}; "
+            f"{len(unpaid)} matches to fetch need {estimate} credits, over the ceiling of {max_credits}; "
             f"raise --max-credits on purpose"
         )
+    if estimate:
+        cache.check_writable()
+        _keep_responses(client, cache, now)
 
-    sched = schedule_from_games(client.list_games(_api_season(season)))
-    by_pair = {(g["home"], g["away"]): gid for gid, g in sched.items() if g["final"]}
+    if need_list:
+        sched = schedule_from_games(client.list_games(_api_season(season)))
+        by_pair = _final_pairs(sched)
     alerts: list[str] = []
     todo: list[str] = []
     for f in due:
@@ -620,18 +678,19 @@ def sync(
                 )
             continue
         todo.append(gid)
-    need = COST_SHOT_MAP * len(todo)
+    need = COST_SHOT_MAP * sum(cache.get(gid) is None for gid in todo)
     if client.credits_remaining is not None and need > client.credits_remaining:
         raise SyncRefused(
-            f"{len(todo)} matches need {need} credits, the source reports {client.credits_remaining} remaining"
+            f"the matches to fetch need {need} credits, the source reports {client.credits_remaining} remaining"
         )
     base = dict(due=len(due), credits_estimated=estimate, missing_alerts=alerts)
     if not todo:
         return SyncReport(action="nothing_due", credits_spent=client.credits_spent,
                           credits_remaining=client.credits_remaining, **base)
 
-    frames = [normalize_shots(client.shot_map_for_game(gid), sched, season) for gid in todo]
-    merged = pd.concat([_store_frame(current)] + frames, ignore_index=True)
+    frames = [normalize_shots(_shots_for_game(client, cache, gid), sched, season) for gid in todo]
+    # An empty answer has untyped columns: leave it out, validate_store reports the match as missing.
+    merged = pd.concat([_store_frame(current)] + [f for f in frames if len(f)], ignore_index=True)
     problems = validate_store(merged, fixtures, now)
     players = (prior or {}).get("flank_players")
     pending = {int(m) for m in (prior or {}).get("flank_pending_matches") or []}
@@ -660,6 +719,7 @@ def load_by_team(
     backup: pd.DataFrame,
     now: datetime | None = None,
     max_credits: int = FIRST_LOAD_MAX_CREDITS,
+    cache: RawCache | None = None,
 ) -> SyncReport:
     """One-time whole-season load: list_games + one get_shot_map per team (202 credits).
 
@@ -667,31 +727,73 @@ def load_by_team(
     here is later revised. *backup* is the other source's rows for the same
     season: the first-load canary must say ``ok`` (``not_checked`` also
     refuses) before anything is written. Replaces the whole working store.
+
+    Every response is kept, so running it again after a failed check costs
+    nothing. A team file only counts for the matches that were due when it was
+    fetched; a match that became due later is fetched on its own (10, once).
     """
     now = now or datetime.now(tz=timezone.utc)
+    cache = cache or RawCache(season)
     check_backup(backup, season)
     names = sorted({f.home for f in fixtures} | {f.away for f in fixtures})
-    cost = COST_LIST_GAMES + COST_SHOT_MAP * len(names)
+    code_of = {v: k for k, v in API_CODE_TO_STORE.items()}
+    due = due_fixtures(fixtures, None, now)
+    due_pairs = {(f.home, f.away) for f in due}
+
+    sched = _kept_schedule(cache)
+    need_list = not due_pairs <= set(_final_pairs(sched))
+    unpaid_teams = [n for n in names if cache.get(f"team_{code_of[n]}") is None]
+    cost = (COST_LIST_GAMES if need_list else 0) + COST_SHOT_MAP * len(unpaid_teams)
     if cost > max_credits:
         raise SyncRefused(f"first load needs {cost} credits, over {max_credits}")
-    code_of = {v: k for k, v in API_CODE_TO_STORE.items()}
-    sched = schedule_from_games(client.list_games(_api_season(season)))
-    if client.credits_remaining is not None and cost - COST_LIST_GAMES > client.credits_remaining:
+    cache.check_writable()
+    _keep_responses(client, cache, now)
+    if need_list:
+        sched = schedule_from_games(client.list_games(_api_season(season)))
+    need = COST_SHOT_MAP * len(unpaid_teams)
+    if client.credits_remaining is not None and need > client.credits_remaining:
         raise SyncRefused(
-            f"first load needs {cost - COST_LIST_GAMES} more credits, the source reports {client.credits_remaining}"
+            f"first load needs {need} more credits, the source reports {client.credits_remaining}"
         )
-    due_pairs = {(f.home, f.away) for f in due_fixtures(fixtures, None, now)}
-    due_ids = {gid for gid, g in sched.items() if (g["home"], g["away"]) in due_pairs}
-    frames = []
+
+    team_shots: dict[str, list[dict]] = {}
+    team_fetched: dict[str, datetime] = {}
     for name in names:
         code = code_of[name]
-        raw = client.shot_map_for_team(code, _api_season(season))
+        key = f"team_{code}"
+        kept = cache.get(key)
+        if kept is None:
+            client.shot_map_for_team(code, _api_season(season))
+            kept = cache.get(key)
+        team_fetched[name] = datetime.fromisoformat(kept["fetched_at"])
         # A match is in both teams' calls: each call contributes only the asked
         # team's shots, so a shot can never be taken twice. (The captures hold
         # one side only; a missing side fails validate_store.)
-        mine = [s for s in raw if s.get("team") == code and str(s.get("game_id")) in due_ids]
-        frames.append(normalize_shots(mine, sched, season))
-    df = pd.concat(frames, ignore_index=True)
+        team_shots[name] = [s for s in shots_of(parse_data("get_shot_map", kept["body"]))
+                            if s.get("team") == code]
+
+    pair_ids = _final_pairs(sched)
+    from_teams: set[str] = set()
+    later: list[str] = []  # due now, but not yet due when a team file was fetched
+    for f in due:
+        gid = pair_ids.get((f.home, f.away))
+        if gid is None:
+            continue  # validate_store reports it as missing
+        if f.due_at <= min(team_fetched[f.home], team_fetched[f.away]):
+            from_teams.add(gid)
+        else:
+            later.append(gid)
+    extra = COST_SHOT_MAP * sum(cache.get(gid) is None for gid in later)
+    if client.credits_spent + extra > max_credits or (
+            client.credits_remaining is not None and extra > client.credits_remaining):
+        raise SyncRefused(
+            f"{len(later)} matches became due after the team files were fetched and need {extra} more credits; "
+            f"raise --max-credits on purpose"
+        )
+    frames = [normalize_shots([s for s in team_shots[n] if str(s.get("game_id")) in from_teams], sched, season)
+              for n in names]
+    frames += [normalize_shots(_shots_for_game(client, cache, gid), sched, season) for gid in later]
+    df = pd.concat([f for f in frames if len(f)] or frames[:1], ignore_index=True)
     problems = validate_store(df, fixtures, now)
     overlap = compare_with_backup(df, backup)
     if overlap["status"] != "ok":
@@ -704,6 +806,6 @@ def load_by_team(
         raise ValidationFailed(problems)
     canaries = {"backup_overlap": overlap, "known_flank": flank}
     write_working_store(df, _build_pointer(df, season, canaries, fixtures, now, flank_players), season)
-    return SyncReport(action="synced", due=len(due_pairs), fetched=len(names), credits_estimated=cost,
-                      credits_spent=client.credits_spent, credits_remaining=client.credits_remaining,
-                      canaries=canaries)
+    return SyncReport(action="synced", due=len(due_pairs), fetched=len(unpaid_teams) + len(later),
+                      credits_estimated=cost + extra, credits_spent=client.credits_spent,
+                      credits_remaining=client.credits_remaining, canaries=canaries)

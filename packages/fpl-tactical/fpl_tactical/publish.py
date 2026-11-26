@@ -172,6 +172,18 @@ def _make_r2_client():
     )
 
 
+def strikerapi_raw_location(season: str) -> tuple[object, str, str]:
+    """(R2 client, bucket, key prefix) of the PRIVATE kept responses of *season*.
+
+    Only the ingest reads or writes ``raw/``; publish and the server's sync
+    move the pointer and parquet pair, nothing else. Raises when R2 is not
+    configured.
+    """
+    client = _make_r2_client()
+    bucket = os.environ.get(ENV_R2_BUCKET, "").strip()
+    return client, bucket, f"{_r2_prefix()}{_TACTICAL_SEGMENT}{season}/strikerapi/raw/"
+
+
 def _check_strikerapi_pair(pointer_path: Path, parquet_path: Path) -> None:
     """Raise RuntimeError unless the pair is a validated StrikerAPI store.
 

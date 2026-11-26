@@ -67,6 +67,16 @@ One season is one source; the Understat objects on R2 stay untouched as a backup
 
 - `strikerapi-load` (once, explicit, 202 credits) and `strikerapi-sync` (daily, only what is due: finished,
   at least 36 h past full time, not stored; nothing due = no call, no credits; default ceiling 130).
+- Never pay twice: each paid response is kept verbatim before it is read (`seasons/<season>/strikerapi/raw/`
+  and, in CI, R2 `tactical/<season>/strikerapi/raw/`, private; publish and serving never touch it). A kept
+  match is never fetched again, so a failed check costs nothing on later runs. To force one refetch on
+  purpose, delete that `<game_id>.json` in both places.
+- Go-live order: secret `STRIKERAPI_KEY`; manual workflow run, mode `first-load`; compare on the local
+  stack; set the repository variable `TACTICAL_SHOTS_SOURCE=strikerapi` (until then the schedule only
+  leaves a notice); Railway `TACTICAL_SHOTS_SOURCE=strikerapi`. If more matches are due by then than the
+  sync ceiling covers, run one manual sync with a higher `max_credits`.
+- The card's 15 % / 1 % levels are defaults carried over, not calibrated for this source (four clubs of
+  data cannot); revisit after the first load of all 20 clubs.
 - Working store: `seasons/<season>/strikerapi/` (never the serving files). R2: `tactical/<season>/strikerapi/`.
 - Serving: `TACTICAL_SHOTS_SOURCE=strikerapi|understat` (default `understat`) decides which R2 pair
   `publish sync` copies to the serving files at startup. Switch or roll back = change the variable and restart.

@@ -53,6 +53,9 @@ class StrikerApiClient:
     transport: Transport = _urllib_transport
     credits_remaining: int | None = None
     credits_spent: int = 0
+    #: ``callable(tool, request_body, response_text)``, run for every HTTP 200
+    #: BEFORE the text is parsed: the paid response is kept first.
+    on_response: Callable[[str, dict, str], None] | None = None
     _calls: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -81,13 +84,9 @@ class StrikerApiClient:
         self._calls.append(tool)
         if status != 200:
             raise StrikerApiError(f"{tool} answered HTTP {status}")
-        try:
-            payload = json.loads(text)
-        except ValueError:
-            raise StrikerApiError(f"{tool} answered with a non-JSON body") from None
-        if not isinstance(payload, dict) or "data" not in payload:
-            raise StrikerApiError(f"{tool} answered without a data field")
-        return payload["data"]
+        if self.on_response is not None:
+            self.on_response(tool, body, text)
+        return parse_data(tool, text)
 
     def list_games(self, season: int) -> list[dict]:
         """Finished games of the season (PL is the default league), paged 200 at a time."""
@@ -98,11 +97,8 @@ class StrikerApiClient:
             if offset:
                 body["offset"] = offset
             data = self.call("list_games", body)
-            page = data.get("games") if isinstance(data, dict) else None
-            if not isinstance(page, list):
-                raise StrikerApiError("list_games answered without a games list")
+            page, nxt = games_page(data)
             games.extend(page)
-            nxt = data.get("next_offset")
             if not nxt:
                 return games
             offset = int(nxt)
@@ -110,14 +106,32 @@ class StrikerApiClient:
 
     def shot_map_for_game(self, game_id: str) -> list[dict]:
         data = self.call("get_shot_map", {"game_id": str(game_id)})
-        return _shots_of(data)
+        return shots_of(data)
 
     def shot_map_for_team(self, team_code: str, season: int) -> list[dict]:
         data = self.call("get_shot_map", {"team": team_code, "season": season})
-        return _shots_of(data)
+        return shots_of(data)
 
 
-def _shots_of(data: object) -> list[dict]:
+def parse_data(tool: str, text: str) -> dict:
+    """The ``data`` field of a 200 response's text."""
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        raise StrikerApiError(f"{tool} answered with a non-JSON body") from None
+    if not isinstance(payload, dict) or "data" not in payload:
+        raise StrikerApiError(f"{tool} answered without a data field")
+    return payload["data"]
+
+
+def games_page(data: object) -> tuple[list[dict], object]:
+    page = data.get("games") if isinstance(data, dict) else None
+    if not isinstance(page, list):
+        raise StrikerApiError("list_games answered without a games list")
+    return page, data.get("next_offset")  # type: ignore[union-attr]
+
+
+def shots_of(data: object) -> list[dict]:
     shots = data.get("shots") if isinstance(data, dict) else None
     if not isinstance(shots, list):
         raise StrikerApiError("get_shot_map answered without a shots list")
