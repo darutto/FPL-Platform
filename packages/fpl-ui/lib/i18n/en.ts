@@ -45,7 +45,7 @@ export const en: typeof es = {
   'panel.at.form.desc': 'Best recent form',
   'panel.at.xg.command': '@xg',
   'panel.at.xg.label': 'Goal threat',
-  'panel.at.xg.desc': 'xG + xA per 90 leaders',
+  'panel.at.xg.desc': 'xGI leaders (xG + xA)',
   'panel.at.xa.command': '@xa',
   'panel.at.xa.label': 'Assist threat',
   'panel.at.xa.desc': 'xA leaders',

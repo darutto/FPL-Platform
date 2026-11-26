@@ -28,7 +28,7 @@ def test_xa_commands_rank_season_expected_assists(command: str) -> None:
     result = decide(command, _bootstrap())
     assert result["outcome"] == "ok" and result["resource"] == "top_xa"
     payload = result["resource_rows"]
-    assert payload["title"] == "Top Expected Assists"
+    assert payload["title"] == "Top xA — asistencias esperadas"
     assert payload["columns"] == ["web_name", "team_short", "position", "value"]
     assert [(r["web_name"], r["value"]) for r in payload["rows"][:3]] == [
         ("Alfa", 9.0), ("Charlie", 2.5), ("Echo", 2.0)]

@@ -39,6 +39,7 @@ from typing import Any, Callable
 from fpl_tool_contract import tool_resolve_player
 
 from .injury_list import get_injury_list, _POSITION_LABEL, _STATUS_LABEL
+from .catalogue import t
 from .locale_types import bootstrap_locale
 
 
@@ -209,7 +210,6 @@ def _rank_by(
     bootstrap: dict[str, Any],
     *,
     field_name: str,
-    title: str,
     canonical: str,
     cast: Callable[[Any], float] = _as_float,
     extra_columns: tuple[str, ...] = (),
@@ -241,7 +241,7 @@ def _rank_by(
     cols: tuple[str, ...] = ("web_name", "team_short", "position", "value") + extra_columns
     return ResourceResult(
         resource=canonical,
-        title=title,
+        title=t(f"resource.title.{canonical}", bootstrap_locale(bootstrap)),
         columns=cols,
         rows=rows,
     )
@@ -250,21 +250,21 @@ def _rank_by(
 def _resource_top_form(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="form",
-        title="Top Form", canonical="top_form",
+        canonical="top_form",
     )
 
 
 def _resource_top_xg(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="expected_goal_involvements",
-        title="Top Expected Goal Involvements", canonical="top_xg",
+        canonical="top_xg",
     )
 
 
 def _resource_top_xa(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="expected_assists",
-        title="Top Expected Assists", canonical="top_xa",
+        canonical="top_xa",
     )
 
 
@@ -272,7 +272,7 @@ def _resource_top_points(bootstrap: dict[str, Any]) -> ResourceResult:
     # total_points may not be in test fixtures — _as_float handles None.
     return _rank_by(
         bootstrap, field_name="total_points",
-        title="Top Points", canonical="top_points",
+        canonical="top_points",
         cast=lambda v: float(_as_int(v)),
     )
 
@@ -280,7 +280,7 @@ def _resource_top_points(bootstrap: dict[str, Any]) -> ResourceResult:
 def _resource_top_minutes(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="minutes",
-        title="Top Minutes", canonical="top_minutes",
+        canonical="top_minutes",
         cast=lambda v: float(_as_int(v)),
     )
 
@@ -288,7 +288,7 @@ def _resource_top_minutes(bootstrap: dict[str, Any]) -> ResourceResult:
 def _resource_popular(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="selected_by_percent",
-        title="Most Selected", canonical="popular",
+        canonical="popular",
     )
 
 

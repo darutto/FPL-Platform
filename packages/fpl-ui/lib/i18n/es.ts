@@ -44,7 +44,7 @@ export const es = {
   'panel.at.form.desc': 'Mejor forma reciente',
   'panel.at.xg.command': '@xg',
   'panel.at.xg.label': 'Peligro de gol',
-  'panel.at.xg.desc': 'Líderes xG + xA por 90',
+  'panel.at.xg.desc': 'Líderes en xGI (xG + xA)',
   'panel.at.xa.command': '@xa',
   'panel.at.xa.label': 'Peligro de asistencia',
   'panel.at.xa.desc': 'Líderes en xA',
