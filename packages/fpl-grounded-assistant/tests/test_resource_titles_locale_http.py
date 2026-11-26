@@ -11,7 +11,8 @@ from fpl_grounded_assistant.quota import reset_quota
 #: command -> (es, en)
 TITLES = {
     "@form": ("Top forma", "Top Form"),
-    "@xg": ("Top xGI — goles + asistencias esperados", "Top Expected Goal Involvements"),
+    "@xg": ("Top xG — goles esperados", "Top xG — expected goals"),
+    "@xgi": ("Top xGI — goles + asistencias esperados", "Top Expected Goal Involvements"),
     "@xa": ("Top xA — asistencias esperadas", "Top Expected Assists"),
     "@points": ("Top puntos", "Top Points"),
     "@minutes": ("Top minutos", "Top Minutes"),

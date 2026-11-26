@@ -14,6 +14,7 @@ const SAME_IN_BOTH = new Set<string>([
   'concl.metric.xgi_per_90',
   'panel.at.xg.command',
   'panel.at.xa.command',
+  'panel.at.xgi.command',
   'chat.heading',
   'wizard.pickPlan',
   'pager.squad',

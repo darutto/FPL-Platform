@@ -17,7 +17,7 @@ Rules
 -----
 * Deterministic, read-only, argument-free, LLM-free.
 * Reuses existing helpers where present (`injury_list.get_injury_list`).
-* For ranking resources (top_form/xg/xa/points/minutes/popular) we read
+* For ranking resources (top_form/xg/xa/xgi/points/minutes/popular) we read
   bootstrap.elements directly — there is no existing rank-form helper
   that matches this thin-wrapper shape.
 
@@ -256,7 +256,7 @@ def _resource_top_form(bootstrap: dict[str, Any]) -> ResourceResult:
 
 def _resource_top_xg(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
-        bootstrap, field_name="expected_goal_involvements",
+        bootstrap, field_name="expected_goals",
         canonical="top_xg",
     )
 
@@ -265,6 +265,13 @@ def _resource_top_xa(bootstrap: dict[str, Any]) -> ResourceResult:
     return _rank_by(
         bootstrap, field_name="expected_assists",
         canonical="top_xa",
+    )
+
+
+def _resource_top_xgi(bootstrap: dict[str, Any]) -> ResourceResult:
+    return _rank_by(
+        bootstrap, field_name="expected_goal_involvements",
+        canonical="top_xgi",
     )
 
 
@@ -439,14 +446,20 @@ RESOURCE_SPECS: tuple[ResourceSpec, ...] = (
     ),
     ResourceSpec(
         name="top_xg",
-        title="Top Expected Goal Involvements",
-        description="Available players ranked by expected_goal_involvements (descending).",
+        title="Top xG — expected goals",
+        description="Available players ranked by expected_goals (descending).",
         columns=("web_name", "team_short", "position", "value"),
     ),
     ResourceSpec(
         name="top_xa",
         title="Top Expected Assists",
         description="Available players ranked by expected_assists (descending).",
+        columns=("web_name", "team_short", "position", "value"),
+    ),
+    ResourceSpec(
+        name="top_xgi",
+        title="Top Expected Goal Involvements",
+        description="Available players ranked by expected_goal_involvements (descending).",
         columns=("web_name", "team_short", "position", "value"),
     ),
     ResourceSpec(
@@ -487,6 +500,7 @@ _RESOURCE_HANDLERS: dict[str, Callable[[dict[str, Any]], ResourceResult]] = {
     "top_form":    _resource_top_form,
     "top_xg":      _resource_top_xg,
     "top_xa":      _resource_top_xa,
+    "top_xgi":     _resource_top_xgi,
     "top_points":  _resource_top_points,
     "top_minutes": _resource_top_minutes,
     "popular":     _resource_popular,
@@ -494,7 +508,7 @@ _RESOURCE_HANDLERS: dict[str, Callable[[dict[str, Any]], ResourceResult]] = {
 
 
 def list_resource_specs() -> tuple[ResourceSpec, ...]:
-    """Return the nine ResourceSpec entries in stable registration order."""
+    """Return the ten ResourceSpec entries in stable registration order."""
     return RESOURCE_SPECS
 
 
