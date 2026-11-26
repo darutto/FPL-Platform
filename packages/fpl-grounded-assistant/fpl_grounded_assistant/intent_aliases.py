@@ -38,6 +38,7 @@ from typing import Iterable
 INJURIES     = "injuries"
 TOP_FORM     = "top_form"
 TOP_XG       = "top_xg"
+TOP_XA       = "top_xa"
 TOP_POINTS   = "top_points"
 TOP_MINUTES  = "top_minutes"
 POPULAR      = "popular"
@@ -45,13 +46,13 @@ PLAYER_MINUTES = "player_minutes"
 PLAYER_ROLE    = "player_role"
 
 RESOURCE_CANONICAL: frozenset[str] = frozenset({
-    INJURIES, TOP_FORM, TOP_XG, TOP_POINTS, TOP_MINUTES, POPULAR,
+    INJURIES, TOP_FORM, TOP_XG, TOP_XA, TOP_POINTS, TOP_MINUTES, POPULAR,
     PLAYER_MINUTES, PLAYER_ROLE,
 })
 
 # Registration order — used for `list_resources()` and `GET /resources`.
 _RESOURCE_ORDER: tuple[str, ...] = (
-    INJURIES, TOP_FORM, TOP_XG, TOP_POINTS, TOP_MINUTES, POPULAR,
+    INJURIES, TOP_FORM, TOP_XG, TOP_XA, TOP_POINTS, TOP_MINUTES, POPULAR,
     PLAYER_MINUTES, PLAYER_ROLE,
 )
 
@@ -80,6 +81,12 @@ _RAW_ALIASES: dict[str, tuple[str, ...]] = {
         "xg", "top_xg_es", "expectativa", "esperados",
         # English
         "top_xg", "xgi", "expected_goals", "expected_goal_involvements",
+    ),
+    TOP_XA: (
+        # Spanish
+        "asistencias_esperadas",
+        # English
+        "top_xa", "xa", "expected_assists",
     ),
     TOP_POINTS: (
         # Spanish

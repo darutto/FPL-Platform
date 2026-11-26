@@ -66,6 +66,7 @@ _POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 RESOURCE_METRICS: dict[str, str] = {
     "top_form":    "form",
     "top_xg":      "expected_goal_involvements",
+    "top_xa":      "expected_assists",
     "top_points":  "total_points",
     "top_minutes": "minutes",
     "popular":     "selected_by_percent",

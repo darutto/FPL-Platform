@@ -1176,7 +1176,7 @@ export interface PlayerZonalOutlookMeta {
 // Resource rows types (A2 post-graduation — @resource rendering)
 // ---------------------------------------------------------------------------
 
-/** One row in a metric-ranked resource (top_form/top_xg/top_points/top_minutes/popular). */
+/** One row in a metric-ranked resource (top_form/top_xg/top_xa/top_points/top_minutes/popular). */
 export interface ResourceRankingRow {
   web_name: string;
   team_short: string;
@@ -1195,10 +1195,11 @@ export interface InjuryRow {
   news_added: string | null;
 }
 
-/** Identifier for the 6 supported resources. */
+/** Identifier for the 7 supported resources. */
 export type ResourceKind =
   | 'top_form'
   | 'top_xg'
+  | 'top_xa'
   | 'top_points'
   | 'top_minutes'
   | 'popular'
