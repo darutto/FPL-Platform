@@ -1,0 +1,116 @@
+{
+  "captain": null,
+  "captain_ranking": null,
+  "chip": null,
+  "clarification_asked": false,
+  "classifier_confidence": null,
+  "comparison": null,
+  "degraded": false,
+  "differential": null,
+  "final_text": "",
+  "fixture_outlook": null,
+  "fixture_run": null,
+  "generic_card": null,
+  "injury_list": null,
+  "intent": "player_zonal_outlook",
+  "llm_used": true,
+  "orch_outcome": "ok",
+  "outcome": "ok",
+  "pending": null,
+  "plan_state": null,
+  "player_form": null,
+  "player_snapshot": null,
+  "player_zonal": {
+    "id": 10,
+    "position": "MID",
+    "signals": [
+      {
+        "kind": "zone",
+        "label": "Quién del CHE explota al TOT",
+        "send_text": "¿Qué jugadores del Chelsea pueden explotar las zonas débiles del Spurs?"
+      }
+    ],
+    "team_short": "CHE",
+    "web_name": "Palmer",
+    "zonal": {
+      "data_provenance": {
+        "ingested_at": "2026-09-12T06:00:00Z",
+        "is_current": true,
+        "label": "Datos: temporada 2026-27",
+        "live_season": "2026-2027",
+        "n_matches": 380,
+        "n_shots": 163,
+        "season": "2026-2027",
+        "season_label": "2026-27",
+        "status": "current"
+      },
+      "fixtures": [
+        {
+          "fixture_id": 103,
+          "gameweek": 6,
+          "is_home": true,
+          "matches": [],
+          "opponent": "Bournemouth",
+          "opponent_short": "BOU",
+          "status": "neutral"
+        },
+        {
+          "fixture_id": 104,
+          "gameweek": 7,
+          "is_home": false,
+          "matches": [],
+          "opponent": "Everton",
+          "opponent_short": "EVE",
+          "status": "neutral"
+        },
+        {
+          "fixture_id": 105,
+          "gameweek": 8,
+          "is_home": true,
+          "matches": [
+            {
+              "delta_vs_avg": 0.512,
+              "player_share": 1.0,
+              "zone": "in-box / central"
+            }
+          ],
+          "opponent": "Spurs",
+          "opponent_short": "TOT",
+          "status": "favorable"
+        }
+      ],
+      "gw_from": 6,
+      "gw_to": 8,
+      "verdict": "Palmer genera su xG justo en zonas donde el rival concede por encima de la media — cruce favorable en J8 (Spurs).",
+      "verdict_kind": "favorable",
+      "zones": [
+        {
+          "share": 1.0,
+          "zone": "in-box / central"
+        }
+      ]
+    }
+  },
+  "pool_size": null,
+  "pool_source": null,
+  "position_fixture_run": null,
+  "presentation": null,
+  "price_changes": null,
+  "resource_rows": null,
+  "review_passed": true,
+  "route_conflict": false,
+  "route_source": null,
+  "squad_excluded": null,
+  "squad_source": null,
+  "sub_responses": null,
+  "suggestions": null,
+  "supported": true,
+  "synthesis_turn": true,
+  "table_conclusions": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "transfer": null,
+  "transfer_suggestion": null,
+  "web_search": null,
+  "zonal_opportunity": null
+}

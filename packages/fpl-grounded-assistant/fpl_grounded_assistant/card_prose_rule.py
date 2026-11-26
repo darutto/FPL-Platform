@@ -1,4 +1,9 @@
-"""A ranking card's prose must not print the card's rows again.
+"""A card's prose must not print the card's rows again.
+
+One engine (``trim_restatement``) and one row matcher per card (``CardRows``): the ranking
+table here (``RankingRows``), the player zonal card in ``card_prose_zonal``. What follows
+is written for the ranking card; the block, comment, intro and heading rules are the
+engine's and hold for every card.
 
 The card (``rank_players_by_metric``) shows every row. The prompt already says so
 (``CARD_NO_RESTATE``), but a prompt line is advice: on «mejores defensas de menos de
@@ -51,7 +56,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Protocol, Sequence
 
 #: Audit enum: the rule fired and removed something.
 REASON_ROWS_RESTATED = "rows_restated"
@@ -202,19 +207,43 @@ def _restates_title(text: str, card_title: str) -> bool:
     return bool(words) and bool(named) and all(w in title or w in _TITLE_FILLER or w in _ROW_WORDS for w in words)
 
 
-def _is_title_line(line: str, card_title: str) -> bool:
+class CardRows(Protocol):
+    """What the engine asks about one card's rows."""
+
+    def __len__(self) -> int: ...
+
+    def hits(self, line: str) -> "set[int]":
+        """The card rows *line* restates."""
+        ...
+
+    def bridges(self, line: str) -> bool:
+        """A list line that joins a block of restating lines without being a hit itself."""
+        ...
+
+    def residual_words(self, text: str) -> int:
+        """How many words *text* says beyond what the card shows."""
+        ...
+
+    def sentence_restates(self, sentence: str) -> bool:
+        """One prose sentence that on its own reprints the card's rows."""
+        ...
+
+    def restates_title(self, text: str) -> bool:
+        """*text* only names what the card is."""
+        ...
+
+
+def _is_title_line(line: str, card: CardRows) -> bool:
     if _LIST_MARK.match(line) or _TABLE_ROW.match(line):
         return False
     if _HEADING.match(line) or _BOLD_LINE.match(line):
         return True
-    return len(line.strip()) <= _SHORT_LINE and _restates_title(line, card_title)
+    return len(line.strip()) <= _SHORT_LINE and card.restates_title(line)
 
 
-def _drop_emptied_titles(
-    lines: list[str], out: "list[str | None]", rows: Sequence[Row], terms: Sequence[str], card_title: str,
-) -> int:
+def _drop_emptied_titles(lines: list[str], out: "list[str | None]", card: CardRows) -> int:
     """Set to None each title line whose content was removed entirely and that says nothing of its own."""
-    titles = [i for i, line in enumerate(lines) if line.strip() and _is_title_line(line, card_title)]
+    titles = [i for i, line in enumerate(lines) if line.strip() and _is_title_line(line, card)]
     removed = 0
     for i in reversed(titles):                       # innermost first: a title over a removed title goes too
         if out[i] is None:
@@ -235,7 +264,7 @@ def _drop_emptied_titles(
         if not gone or survivor:
             continue
         text = _HEADING.sub("", lines[i])
-        if _residual_words(text, rows, terms) < _JUDGEMENT_WORDS or _restates_title(text, card_title):
+        if card.residual_words(text) < _JUDGEMENT_WORDS or card.restates_title(text):
             out[i] = None
             removed += 1
     return removed
@@ -248,39 +277,82 @@ class Trim:
     fired: bool
 
 
+class RankingRows:
+    """The rows of a ``rank_players_by_metric`` card: a player beside HIS OWN value."""
+
+    def __init__(
+        self, ranked: Sequence[dict[str, Any]], *, metric: str = "", extra_terms: Sequence[str] = (),
+        card_title: str = "",
+    ) -> None:
+        self.rows = rows_from_ranked(ranked)
+        self.strip_prices = metric not in ("now_cost", "price")
+        #: Club names / codes: what the caller knows, plus the codes on the card itself.
+        self.terms = [*extra_terms, *(str(e.get("team_short") or "") for e in ranked or ())]
+        self.card_title = card_title
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def _folded(self, text: str) -> str:
+        folded = _fold(text)
+        return _PRICE.sub(" ", folded) if self.strip_prices else folded
+
+    def hits(self, line: str) -> "set[int]":
+        return set(_hits(line, self.rows, strip_prices=self.strip_prices))
+
+    def bridges(self, line: str) -> bool:
+        # A list line that carries a card value: the prose spelled its player some other way
+        # ("Bruno Fernandes" for "B.Fernandes").
+        if not (_LIST_MARK.match(line) or _TABLE_ROW.match(line)):
+            return False
+        folded = self._folded(line)
+        return any(r.value.search(folded) for r in self.rows)
+
+    def residual_words(self, text: str) -> int:
+        return _residual_words(text, self.rows, self.terms)
+
+    def sentence_restates(self, sentence: str) -> bool:
+        hits = self.hits(sentence)
+        folded = self._folded(sentence)
+        near = 0
+        for i in hits:
+            for npos in _name_positions(folded, self.rows[i]):
+                window = folded[max(0, npos - _BESIDE): npos + len(self.rows[i].name) + _BESIDE]
+                if self.rows[i].value.search(window):
+                    near += 1
+                    break
+        return len(hits) >= _MIN_ROWS and near >= _MIN_ROWS
+
+    def restates_title(self, text: str) -> bool:
+        return _restates_title(text, self.card_title)
+
+
 def trim_card_restatement(
     text: str, ranked: Sequence[dict[str, Any]], *, metric: str = "", extra_terms: Sequence[str] = (),
     card_title: str = "",
 ) -> Trim:
-    """*text* without the blocks and sentences that reprint the card's rows.
+    """*text* without the blocks and sentences that reprint the ranking card's rows.
 
     ``fired`` is False (and the text unchanged) when nothing matched. Never returns the
     rows' own values for a different player: a line must carry a player beside his own
     value to count.
     """
-    rows = rows_from_ranked(ranked)
-    if len(rows) < _MIN_ROWS or not text or not text.strip():
+    return trim_restatement(
+        text, RankingRows(ranked, metric=metric, extra_terms=extra_terms, card_title=card_title),
+    )
+
+
+def trim_restatement(text: str, card: CardRows) -> Trim:
+    """*text* without what reprints *card*'s rows (blocks, sentences, and the titles left empty)."""
+    if len(card) < _MIN_ROWS or not text or not text.strip():
         return Trim(text, 0, False)
-    strip_prices = metric not in ("now_cost", "price")
-    #: Club names / codes: what the caller knows, plus the codes on the card itself.
-    terms = [*extra_terms, *(str(e.get("team_short") or "") for e in ranked or ())]
 
     lines = text.split("\n")
     n = len(lines)
-    def _carries_a_value(line: str) -> bool:
-        text = _fold(line)
-        if strip_prices:
-            text = _PRICE.sub(" ", text)
-        return any(r.value.search(text) for r in rows)
-
-    qualifies = [False] * n   # a card player beside his own value
-    member = [False] * n      # qualifies, or a list-marked line that carries a card value (the prose spelled
-    for idx, line in enumerate(lines):  # its player some other way: "Bruno Fernandes" for "B.Fernandes")
+    member = [False] * n      # restates a card row, or joins a block of lines that do
+    for idx, line in enumerate(lines):
         if line.strip() and _is_listy(line):
-            qualifies[idx] = bool(_hits(line, rows, strip_prices=strip_prices))
-            member[idx] = qualifies[idx] or (
-                bool(_LIST_MARK.match(line) or _TABLE_ROW.match(line)) and _carries_a_value(line)
-            )
+            member[idx] = bool(card.hits(line)) or card.bridges(line)
 
     drop = [False] * n
 
@@ -298,17 +370,17 @@ def trim_card_restatement(
     if run:
         runs.append(run)
     for run in runs:
-        players: set[int] = set()
+        named: set[int] = set()
         for i in run:
-            players |= set(_hits(lines[i], rows, strip_prices=strip_prices))
-        if len(run) < _MIN_ROWS or len(players) < _MIN_ROWS:
+            named |= card.hits(lines[i])
+        if len(run) < _MIN_ROWS or len(named) < _MIN_ROWS:
             continue
-        commented = {i for i in run if _residual_words(lines[i], rows, terms) >= _JUDGEMENT_WORDS}
+        commented = {i for i in run if card.residual_words(lines[i]) >= _JUDGEMENT_WORDS}
         pure = [i for i in run if i not in commented]
-        pure_players: set[int] = set()
+        pure_named: set[int] = set()
         for i in pure:
-            pure_players |= set(_hits(lines[i], rows, strip_prices=strip_prices))
-        if len(pure) < _MIN_ROWS or len(pure_players) < _MIN_ROWS:
+            pure_named |= card.hits(lines[i])
+        if len(pure) < _MIN_ROWS or len(pure_named) < _MIN_ROWS:
             continue                                            # too few pure rows left: touch nothing
         if commented and any(_TABLE_ROW.match(lines[i]) for i in run):
             continue                                            # a table with a comment column stays whole
@@ -347,19 +419,7 @@ def trim_card_restatement(
         kept: list[str] = []
         removed_any = False
         for sentence in _SENTENCE_SPLIT.split(line):
-            hits = _hits(sentence, rows, strip_prices=strip_prices)
-            folded = _PRICE.sub(" ", _fold(sentence)) if strip_prices else _fold(sentence)
-            near = 0
-            for i in hits:
-                for npos in _name_positions(folded, rows[i]):
-                    window = folded[max(0, npos - _BESIDE): npos + len(rows[i].name) + _BESIDE]
-                    if rows[i].value.search(window):
-                        near += 1
-                        break
-            if (
-                len(hits) >= _MIN_ROWS and near >= _MIN_ROWS
-                and _residual_words(sentence, rows, terms) < _JUDGEMENT_WORDS
-            ):
+            if card.sentence_restates(sentence) and card.residual_words(sentence) < _JUDGEMENT_WORDS:
                 removed_any = True
                 continue
             kept.append(sentence)
@@ -371,7 +431,7 @@ def trim_card_restatement(
 
     if dropped == 0:
         return Trim(text, 0, False)
-    dropped += _drop_emptied_titles(lines, out_lines, rows, terms, card_title)
+    dropped += _drop_emptied_titles(lines, out_lines, card)
     result = "\n".join(line for line in out_lines if line is not None)
     result = re.sub(r"\n{3,}", "\n\n", result).strip()
     return Trim(result, dropped, True)
