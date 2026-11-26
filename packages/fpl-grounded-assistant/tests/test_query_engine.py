@@ -156,6 +156,12 @@ def test_since_date_cuts_by_kickoff():
     assert sum(r.matches for r in later.rows) == sum(r.matches for r in first.rows) - 2
 
 
+@pytest.mark.parametrize("metric", ["total_points", "team_goals"])
+def test_a_window_with_no_match_in_it_is_not_a_table_of_zeros(metric):
+    result = run({"metric": metric, "match_set": [pred("since_date", "2026-11-01")]})
+    assert (result.state, result.reason, result.rows) == (DATA_UNAVAILABLE, "no_matches", ())
+
+
 def test_synthetic_blank_gameweek():
     teams_ = run({"metric": "team_goals", "match_set": [pred("gw", 3)]})
     assert sorted(r.club for r in teams_.rows) == ["ALD", "BIR", "CED", "DUN"]
@@ -235,7 +241,7 @@ def test_a_player_total_still_counts_what_he_did_at_his_old_club():
 def test_matches_before_he_joined_are_not_without_him():
     bootstrap, batch = world()
     result = run({"metric": "team_goals", "match_set": [pred("player_absent", "Mover")]}, bootstrap, batch)
-    assert result.state == COMPLETE and result.rows == ()               # he played every match since joining
+    assert (result.state, result.reason) == (DATA_UNAVAILABLE, "no_matches")   # he played every one since
     compare = run({"metric": "team_goals", "shape": "comparison", "match_set": [pred("player_played_60", "Mover")],
                    "compare_to": [pred("player_absent", "Mover")]}, bootstrap, batch)
     assert (compare.state, compare.reason) == (DATA_UNAVAILABLE, "too_few_matches")

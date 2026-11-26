@@ -413,6 +413,12 @@ def _ordered(rows: list[Row], order: str) -> list[Row]:
     return sorted(rows, key=lambda r: (sign * r.value, -(r.minutes or 0), r.name, r.id))
 
 
+def _require_matches(chosen: list[_Match]) -> None:
+    """A window with no match played in it has no values: a table of zeros would not be an answer."""
+    if not chosen:
+        raise _Stop(DATA_UNAVAILABLE, "no_matches")
+
+
 # ------------------------------------------------------------------------------------------------ player rows
 
 def _static_candidates(run: _Run) -> list[int]:
@@ -497,6 +503,7 @@ def _player_list(run: _Run) -> dict[str, Any]:
     metrics = [m for m in (spec.metric, spec.second_metric) if m is not None]
     has_player_set = any(p.pred in PLAYER_PREDICATES for p in spec.match_set)
     gameweeks, chosen = run.select(spec.match_set)
+    _require_matches(chosen)
     selected = {(m.gameweek, m.fixture) for m in chosen}
     club_fixtures: dict[tuple[int, int], set[int]] = {}
     for m in run.matches:
@@ -589,6 +596,7 @@ def _team_list(run: _Run) -> dict[str, Any]:
     run.load_matches(needed_gameweeks(spec, run.bootstrap))
     _team_metrics_needed(run)
     gameweeks, chosen = run.select(spec.match_set)
+    _require_matches([m for m in chosen if subject is None or m.team == subject])
     ranked = []
     for team in run.teams:
         if (subject is not None and team != subject) or not all(_in_set(team, op, ids) for op, ids in clubs):
