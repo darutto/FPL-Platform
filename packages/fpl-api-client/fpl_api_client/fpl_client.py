@@ -21,6 +21,7 @@ Sources:   fpl-video-repurposer/build_fpl_kb.py (fetch_json, build_master_squad)
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -84,6 +85,82 @@ def fetch_json(url: str, timeout: int = _DEFAULT_TIMEOUT) -> Any:
             if attempt < _RETRY_ATTEMPTS:
                 time.sleep(_RETRY_BACKOFF * attempt)
     raise last_exc  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Bounded fetch (opt-in)
+# ---------------------------------------------------------------------------
+
+BOUNDED_CONNECT_TIMEOUT_S: float = 3.0
+BOUNDED_READ_TIMEOUT_S: float = 5.0
+
+
+class FetchDeadlineExceeded(requests.Timeout):
+    """The overall deadline of a bounded fetch passed before the response was complete."""
+
+
+def _stop_reading(resp: Any) -> None:
+    """Unblock a read in progress on *resp* (``HTTPResponse.shutdown``, urllib3 >= 2.3)."""
+    shutdown = getattr(resp.raw, "shutdown", None)
+    if shutdown is not None:
+        try:
+            shutdown()
+        except (OSError, RuntimeError, ValueError):
+            pass  # the response finished or was closed in the meantime
+
+
+def fetch_json_bounded(
+    url: str,
+    *,
+    session: requests.Session,
+    deadline: float,
+    connect_timeout: float = BOUNDED_CONNECT_TIMEOUT_S,
+    read_timeout: float = BOUNDED_READ_TIMEOUT_S,
+    retries: int = 1,
+) -> Any:
+    """GET *url* on *session* and return parsed JSON, never running past *deadline*.
+
+    *deadline* is a ``time.monotonic()`` value covering every attempt. The
+    per-socket timeouts alone do not bound a request (each received byte
+    restarts the read timeout), so a timer shuts the response's read side
+    down when the deadline passes. A failed attempt is retried *retries* times, without
+    back-off, while time remains.
+
+    Raises ``FetchDeadlineExceeded``, another ``requests.RequestException``,
+    or ``ValueError`` for a body that is not JSON.
+    """
+    last_exc: Exception | None = None
+    for _attempt in range(retries + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        watchdog: threading.Timer | None = None
+        resp = None
+        try:
+            resp = session.get(
+                url,
+                timeout=(min(connect_timeout, remaining), min(read_timeout, remaining)),
+                stream=True,
+            )
+            watchdog = threading.Timer(max(deadline - time.monotonic(), 0), _stop_reading, (resp,))
+            watchdog.daemon = True
+            watchdog.start()
+            resp.raise_for_status()
+            payload = resp.json()
+            if time.monotonic() <= deadline:
+                return payload
+        except Exception as exc:  # noqa: BLE001 -- a stopped read surfaces as several types
+            if not isinstance(exc, (requests.RequestException, ValueError, OSError)) and time.monotonic() < deadline:
+                raise
+            last_exc = exc
+        finally:
+            if watchdog is not None:
+                watchdog.cancel()
+            if resp is not None:
+                resp.close()
+    if time.monotonic() >= deadline or last_exc is None:
+        raise FetchDeadlineExceeded(f"deadline passed fetching {url}") from last_exc
+    raise last_exc
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +339,9 @@ def get_fixtures(gameweek: int) -> list[dict[str, Any]]:
     return fetch_json(FIXTURES_URL.format(gameweek=gameweek))
 
 
-def get_all_fixtures() -> list[dict[str, Any]]:
+def get_all_fixtures(
+    *, session: requests.Session | None = None, deadline: float | None = None,
+) -> list[dict[str, Any]]:
     """Return all fixtures for the current season from the FPL API.
 
     Unlike ``get_fixtures(gameweek)``, this call fetches every fixture
@@ -271,11 +350,17 @@ def get_all_fixtures() -> list[dict[str, Any]]:
     id), ``team_a`` (away team id), and ``event`` (gameweek number).
 
     Source: fpl-api-client — ALL_FIXTURES_URL (Track A H1 historical pipeline)
+
+    Passing *session* and *deadline* opts into :func:`fetch_json_bounded`.
     """
+    if session is not None and deadline is not None:
+        return fetch_json_bounded(ALL_FIXTURES_URL, session=session, deadline=deadline)
     return fetch_json(ALL_FIXTURES_URL)
 
 
-def get_event_live(gameweek: int) -> dict[str, Any]:
+def get_event_live(
+    gameweek: int, *, session: requests.Session | None = None, deadline: float | None = None,
+) -> dict[str, Any]:
     """Return the live event data for *gameweek* from the FPL API.
 
     The response is a JSON object with a top-level ``elements`` key
@@ -296,8 +381,13 @@ def get_event_live(gameweek: int) -> dict[str, Any]:
 
     Source: FPL API — event/{gameweek}/live/ endpoint
             (Track A H2a incremental GW puller)
+
+    Passing *session* and *deadline* opts into :func:`fetch_json_bounded`.
     """
-    return fetch_json(EVENT_LIVE_URL.format(gameweek=gameweek))
+    url = EVENT_LIVE_URL.format(gameweek=gameweek)
+    if session is not None and deadline is not None:
+        return fetch_json_bounded(url, session=session, deadline=deadline)
+    return fetch_json(url)
 
 
 def get_entry_picks(team_id: int, gameweek: int) -> dict[str, Any]:
