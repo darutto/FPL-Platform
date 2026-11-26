@@ -188,8 +188,9 @@ def test_due_only_after_full_time_plus_36_hours_and_never_twice():
 class FakeApi:
     """A transport answering list_games / get_shot_map from canned data and counting credits."""
 
-    def __init__(self, games, shots_by_game, credits=500, pages=None):
+    def __init__(self, games, shots_by_game, credits=500, pages=None, both_sides=False):
         self.games, self.shots, self.credits, self.calls, self.pages = games, shots_by_game, credits, [], pages
+        self.both_sides = both_sides
 
     def __call__(self, url, headers, body):
         tool = url.rsplit("/", 1)[1]
@@ -200,6 +201,13 @@ class FakeApi:
         hdr = {"x-credits-used": str(cost), "x-credits-remaining": str(self.credits)}
         if tool == "list_games":
             data = {"games": self.games, "count": len(self.games), "next_offset": None}
+        elif "team" in req:
+            mine = [s for rows in self.shots.values() for s in rows
+                    if self.both_sides or s["team"] == req["team"]]
+            if self.both_sides:  # every match the asked team played, both sides of it
+                played = {s["game_id"] for s in mine if s["team"] == req["team"]}
+                mine = [s for s in mine if s["game_id"] in played]
+            data = {"shots": mine}
         else:
             data = {"shots": self.shots.get(req.get("game_id"), [])}
         return 200, hdr, json.dumps({"data": data})
@@ -418,3 +426,43 @@ def test_sync_fails_closed_when_the_flank_canary_sees_a_flip(tmp_tactical_root):
     api = FakeApi([G1, G2], {"2": flipped})
     with pytest.raises(si.ValidationFailed, match="flank canary"):
         si.sync(SEASON, client_for(api), [fixture("Liverpool", "Everton", 1, 0, gw=9)], now=NOW)
+
+
+# ---------------------------------------------------------------- first load: one call per team
+
+
+def double_meeting():
+    """Arsenal v City and, later, City v Arsenal: the same two clubs, two matches, in both teams' calls."""
+    later = KICKOFF + timedelta(days=14)
+    games = [game(1, "ARS", "MNC"), game(2, "MNC", "ARS", kickoff=later)]
+    shots = {
+        gid: [shot(gid, "ARS", player="Left Winger", minute=m, y=0.1 + m / 1000) for m in range(5)]
+        + [shot(gid, "MNC", player="Right Winger", minute=50 + m, y=0.9 - m / 1000) for m in range(5)]
+        for gid in (1, 2)
+    }
+    fixtures = [fixture("Arsenal", "Manchester City", 0, 0),
+                fixture("Manchester City", "Arsenal", 0, 0, kickoff=later, gw=10)]
+    return games, shots, fixtures, later + timedelta(days=3)
+
+
+@pytest.mark.parametrize("both_sides", [False, True])
+def test_first_load_takes_each_shot_once_though_both_team_calls_carry_the_match(
+        tmp_tactical_root, monkeypatch, both_sides):
+    games, shots, fixtures, now = double_meeting()
+    monkeypatch.setattr(si, "CANARY_MIN_MATCHES", 2)
+    monkeypatch.setattr(si, "CANARY_MIN_MATCHED_SHOTS", 1)
+    backup = si.normalize_shots([s for rows in shots.values() for s in rows], si.schedule_from_games(games), SEASON)
+    api = FakeApi(games, shots, both_sides=both_sides)
+    rep = si.load_by_team(SEASON, client_for(api), fixtures, backup, now=now)
+    df, ptr = si.read_working_store(SEASON)
+    assert [t for t, _ in api.calls] == ["list_games", "get_shot_map", "get_shot_map"]
+    assert len(df) == 20 and ptr["n_shots"] == 20 and ptr["n_matches"] == 2
+    assert df.groupby(["match_id", "shooting_team"]).size().tolist() == [5, 5, 5, 5]
+    assert rep.canaries["backup_overlap"]["overlap_matches"] == 2  # home and away are two matches
+
+
+def test_the_reverse_fixture_is_still_due_when_only_the_first_meeting_is_stored():
+    games, shots, fixtures, now = double_meeting()
+    first = si.normalize_shots(shots[1], si.schedule_from_games(games), SEASON)
+    assert si.due_fixtures(fixtures, first, now) == [fixtures[1]]
+    assert any("missing match Manchester City-Arsenal" in p for p in si.validate_store(first, fixtures, now))

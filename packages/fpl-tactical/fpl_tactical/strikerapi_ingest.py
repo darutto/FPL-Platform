@@ -634,8 +634,13 @@ def load_by_team(
     due_ids = {gid for gid, g in sched.items() if (g["home"], g["away"]) in due_pairs}
     frames = []
     for name in names:
-        raw = client.shot_map_for_team(code_of[name], _api_season(season))
-        frames.append(normalize_shots([s for s in raw if str(s.get("game_id")) in due_ids], sched, season))
+        code = code_of[name]
+        raw = client.shot_map_for_team(code, _api_season(season))
+        # A match is in both teams' calls: each call contributes only the asked
+        # team's shots, so a shot can never be taken twice. (The captures hold
+        # one side only; a missing side fails validate_store.)
+        mine = [s for s in raw if s.get("team") == code and str(s.get("game_id")) in due_ids]
+        frames.append(normalize_shots(mine, sched, season))
     df = pd.concat(frames, ignore_index=True)
     problems = validate_store(df, fixtures, now)
     overlap = compare_with_backup(df, backup)
