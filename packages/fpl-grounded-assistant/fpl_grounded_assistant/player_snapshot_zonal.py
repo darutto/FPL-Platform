@@ -410,7 +410,8 @@ def _valid_zonal(zonal: dict[str, Any]) -> bool:
 
 
 def _verdict(
-    web_name: str, fixtures: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE
+    web_name: str, fixtures: list[dict[str, Any]], locale: Locale = DEFAULT_LOCALE,
+    window_gws: int = WINDOW_GWS,
 ) -> "tuple[str, str]":
     favorable = [f for f in fixtures if f["status"] == "favorable"]
     if favorable:
@@ -421,7 +422,11 @@ def _verdict(
         return "favorable", t("zonal.player_favorable", locale, player=web_name, gws=gws)
     if all(f["status"] == "no_data" for f in fixtures):
         return "no_data", t("zonal.snap_no_data", locale)
-    return "neutral", t("zonal.snap_neutral", locale, player=web_name)
+    if window_gws == WINDOW_GWS:
+        return "neutral", t("zonal.snap_neutral", locale, player=web_name)
+    if window_gws == 1:
+        return "neutral", t("zonal.window_neutral_one", locale, player=web_name)
+    return "neutral", t("zonal.window_neutral", locale, player=web_name, n=window_gws)
 
 
 def _compose(
@@ -494,7 +499,7 @@ def _compose(
         # player's own profile and the stamp (see build_player_outlook).
         out_fixtures, kind, verdict = [], "profile", ""
     else:
-        kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale)
+        kind, verdict = _verdict(str(element.get("web_name") or name), out_fixtures, locale, window_gws)
     zonal = {
         "zones": zones,
         "window": {"gw_from": window[0], "gw_to": window[1]},

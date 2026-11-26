@@ -23,6 +23,7 @@ import { selectIntentView } from '@/lib/intent-renderer';
 import CaptainCard from '@/components/intents/CaptainCard';
 import ComparisonCard from '@/components/intents/ComparisonCard';
 import PlayerCard from '@/components/intents/PlayerCard';
+import PlayerZonalCard from '@/components/intents/PlayerZonalCard';
 import RankingTable from '@/components/intents/RankingTable';
 import TransferCard from '@/components/intents/TransferCard';
 import ChipCard from '@/components/intents/ChipCard';
@@ -82,6 +83,9 @@ function renderSubView(
   }
   if (view === 'player_snapshot' && response.player_snapshot != null) {
     return <PlayerCard data={response.player_snapshot} />;
+  }
+  if (view === 'player_zonal' && response.player_zonal != null) {
+    return <PlayerZonalCard data={response.player_zonal} />;
   }
   if (view === 'ranking' && response.captain_ranking != null) {
     return (

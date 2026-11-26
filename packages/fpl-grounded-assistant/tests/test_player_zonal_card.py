@@ -123,6 +123,14 @@ def test_the_horizon_sets_the_window_of_the_same_block():
     assert [f["gameweek"] for f in five["outlook"]] == [6, 7, 8, 9]
 
 
+@pytest.mark.parametrize("horizon,words", [
+    (1, "en la próxima jornada"), (2, "las próximas 2 jornadas"), (3, "las próximas 3 jornadas"),
+])
+def test_a_neutral_verdict_names_the_window_it_read(horizon, words):
+    raw = _run(boot=_bootstrap(_no_favourable), horizon=horizon)
+    assert raw["verdict_kind"] == "neutral" and words in raw["verdict"]
+
+
 # --- HTTP: both routes, and the model reads what the card shows -------------------
 
 

@@ -576,7 +576,8 @@ export const es = {
 
   // --- The player's Zonas section ---
   'pz.title': 'Zonas',
-  'pz.window': 'Partidos de las próximas 3 jornadas · {range}',
+  'pz.window': 'Partidos de las próximas {n} jornadas · {range}',
+  'pz.windowOne': 'Partidos de la próxima jornada · {range}',
   'pz.chip': '{zone} · {pct}% de su xG sin penalti',
   'pz.favourable': 'Cruce favorable',
   'pz.noData': 'Sin datos del rival',

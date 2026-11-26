@@ -2007,6 +2007,15 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "en": "No standout zonal matchup for {player} in the fixtures of the next 3 GWs.",
         "es": "Sin cruce zonal destacado para {player} en los partidos de las pr\u00f3ximas 3 jornadas.",
     },
+    # The same neutral verdict for a window other than 3 gameweeks (get_player_zonal_outlook's horizon).
+    "zonal.window_neutral": {
+        "en": "No standout zonal matchup for {player} in the fixtures of the next {n} GWs.",
+        "es": "Sin cruce zonal destacado para {player} en los partidos de las pr\u00f3ximas {n} jornadas.",
+    },
+    "zonal.window_neutral_one": {
+        "en": "No standout zonal matchup for {player} in the next GW.",
+        "es": "Sin cruce zonal destacado para {player} en la pr\u00f3xima jornada.",
+    },
     "zonal.club_note": {"en": "previously at {club}", "es": "antes en {club}"},
     "zonal.fixtures_empty": {
         "en": "{team} have no fixtures in the next {horizon} GWs: league-wide ranking.",
