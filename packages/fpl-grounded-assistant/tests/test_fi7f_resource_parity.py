@@ -174,7 +174,7 @@ def test_minutes_success_envelope_zero_and_order(fi_bootstrap: dict) -> None:
     ]
     assert payload == {
         "resource": "player_minutes",
-        "title": "Player Minutes",
+        "title": "Minutos del jugador",
         "columns": _MINUTES_COLUMNS,
         "rows": [{
             "web_name": "Haaland",

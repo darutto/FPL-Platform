@@ -2038,7 +2038,10 @@ _CATALOGUE: dict[str, dict[Locale, str]] = {
         "es": "¿Qué jugadores del {team} pueden explotar las zonas débiles del {opp}?",
     },
 
-    # -- resource_registry.py: @resource ranking card titles (also final_text) --
+    # -- resource_registry.py: @resource card titles (also final_text) --
+    "resource.title.injuries": {"en": "Injuries & Availability", "es": "Lesiones y disponibilidad"},
+    "resource.title.player_minutes": {"en": "Player Minutes", "es": "Minutos del jugador"},
+    "resource.title.player_role": {"en": "Player Role", "es": "Rol del jugador"},
     "resource.title.top_form": {"en": "Top Form", "es": "Top forma"},
     "resource.title.top_xg": {"en": "Top Expected Goal Involvements", "es": "Top xGI — goles + asistencias esperados"},
     "resource.title.top_xa": {"en": "Top Expected Assists", "es": "Top xA — asistencias esperadas"},

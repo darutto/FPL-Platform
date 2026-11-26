@@ -40,7 +40,7 @@ from fpl_tool_contract import tool_resolve_player
 
 from .injury_list import get_injury_list, _POSITION_LABEL, _STATUS_LABEL
 from .catalogue import t
-from .locale_types import bootstrap_locale
+from .locale_types import Locale, bootstrap_locale
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ def _resource_injuries(bootstrap: dict[str, Any]) -> ResourceResult:
     rows = tuple({k: r.get(k) for k in cols} for r in raw_rows)
     return ResourceResult(
         resource="injuries",
-        title="Injuries & Availability",
+        title=t("resource.title.injuries", _locale),
         columns=cols,
         rows=rows,
     )
@@ -304,11 +304,12 @@ _POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 def _unavailable_player_resource(
     canonical: str,
     reason: str,
+    locale: Locale,
 ) -> PlayerResourceResult:
     is_minutes = canonical == "player_minutes"
     return PlayerResourceResult(
         resource=canonical,
-        title="Player Minutes" if is_minutes else "Player Role",
+        title=t(f"resource.title.{canonical}", locale),
         columns=_PLAYER_MINUTES_COLUMNS if is_minutes else _PLAYER_ROLE_COLUMNS,
         rows=(),
         status="unavailable",
@@ -323,41 +324,42 @@ def _player_resource(
     shape_reason: str | None,
 ) -> PlayerResourceResult:
     """Resolve and serialize one deterministic FI-7f bootstrap fact."""
+    locale = bootstrap_locale(bootstrap)
     if shape_reason is not None:
-        return _unavailable_player_resource(canonical, shape_reason)
+        return _unavailable_player_resource(canonical, shape_reason, locale)
 
     # This fallback is defensive for direct registry callers.  Normalized
     # command traffic supplies the governed missing-argument reason above.
     if argument is None or not argument:
-        return _unavailable_player_resource(canonical, "missing_player_argument")
+        return _unavailable_player_resource(canonical, "missing_player_argument", locale)
 
     if not isinstance(bootstrap, dict):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     elements = bootstrap.get("elements")
     teams = bootstrap.get("teams")
     if not isinstance(elements, list) or not elements or not isinstance(teams, list):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     if any(not isinstance(element, dict) for element in elements):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     try:
         resolved = tool_resolve_player(argument, bootstrap)
     except (AttributeError, KeyError, TypeError, ValueError):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     if not isinstance(resolved, dict):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     status = resolved.get("status")
     if status == "ambiguous":
-        return _unavailable_player_resource(canonical, "ambiguous_player")
+        return _unavailable_player_resource(canonical, "ambiguous_player", locale)
     if status == "not_found":
-        return _unavailable_player_resource(canonical, "unresolved_player")
+        return _unavailable_player_resource(canonical, "unresolved_player", locale)
     if status != "ok":
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     player_id = resolved.get("player_id")
     if isinstance(player_id, bool) or not isinstance(player_id, int):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
     matches = [
         element for element in elements
         if isinstance(element.get("id"), int)
@@ -365,7 +367,7 @@ def _player_resource(
         and element.get("id") == player_id
     ]
     if len(matches) != 1:
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     web_name = resolved.get("web_name")
     team_short = resolved.get("team_short")
@@ -374,15 +376,15 @@ def _player_resource(
         not isinstance(web_name, str) or not web_name
         or not isinstance(team_short, str) or not team_short
     ):
-        return _unavailable_player_resource(canonical, "resource_data_unavailable")
+        return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
 
     element = matches[0]
     if canonical == "player_minutes":
         if position not in _POSITIONS.values():
-            return _unavailable_player_resource(canonical, "resource_data_unavailable")
+            return _unavailable_player_resource(canonical, "resource_data_unavailable", locale)
         minutes = element.get("minutes")
         if isinstance(minutes, bool) or not isinstance(minutes, int) or minutes < 0:
-            return _unavailable_player_resource(canonical, "minutes_unavailable")
+            return _unavailable_player_resource(canonical, "minutes_unavailable", locale)
         row = {
             "web_name": web_name,
             "team_short": team_short,
@@ -394,14 +396,14 @@ def _player_resource(
         }
         return PlayerResourceResult(
             resource=canonical,
-            title="Player Minutes",
+            title=t("resource.title.player_minutes", locale),
             columns=_PLAYER_MINUTES_COLUMNS,
             rows=(row,),
         )
 
     element_type = element.get("element_type")
     if isinstance(element_type, bool) or element_type not in _POSITIONS:
-        return _unavailable_player_resource(canonical, "role_unavailable")
+        return _unavailable_player_resource(canonical, "role_unavailable", locale)
     row = {
         "web_name": web_name,
         "team_short": team_short,
@@ -411,7 +413,7 @@ def _player_resource(
     }
     return PlayerResourceResult(
         resource=canonical,
-        title="Player Role",
+        title=t("resource.title.player_role", locale),
         columns=_PLAYER_ROLE_COLUMNS,
         rows=(row,),
     )

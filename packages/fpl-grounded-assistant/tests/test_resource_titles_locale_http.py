@@ -16,6 +16,12 @@ TITLES = {
     "@points": ("Top puntos", "Top Points"),
     "@minutes": ("Top minutos", "Top Minutes"),
     "@popular": ("Más seleccionados", "Most Selected"),
+    "@injuries": ("Lesiones y disponibilidad", "Injuries & Availability"),
+    "@minutes Saka": ("Minutos del jugador", "Player Minutes"),
+    "@role Saka": ("Rol del jugador", "Player Role"),
+    # The degraded envelopes carry the same titles.
+    "@minutes Nadie Inventado": ("Minutos del jugador", "Player Minutes"),
+    "@role": ("Rol del jugador", "Player Role"),
 }
 
 
