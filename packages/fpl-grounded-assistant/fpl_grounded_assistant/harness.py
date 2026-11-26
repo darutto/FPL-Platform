@@ -166,39 +166,81 @@ def _tool_table_conclusions(tool: Any, raw_output: Any, bootstrap: Any) -> "list
     return tool_ranking_conclusions(raw_output, bootstrap) or None
 
 
-def _apply_card_prose_rule(result: dict[str, Any], tool: Any, raw_output: Any, bootstrap: Any = None) -> None:
-    """Drop the lines of a ranking turn's prose that reprint the card's rows (card_prose_rule).
+def _club_terms(bootstrap: Any) -> list[str]:
+    return [
+        str(team.get(key) or "")
+        for team in ((bootstrap or {}).get("teams") or [])
+        if isinstance(team, dict)
+        for key in ("name", "short_name")
+    ]
 
-    Only a ``rank_players_by_metric`` turn whose card is on screen (``generic_card`` composed), whose text the
-    model wrote and the final-text guard did not replace. If nothing would remain, the turn needs the table's
-    conclusions (#648) to be what the user reads; without them the text is left as it is. Never raises: any
-    failure sends the original text. The original goes to the audit line (``card_prose_raw_answer_text``).
+
+def _trim_ranking_prose(text: str, result: dict[str, Any], raw_output: dict, bootstrap: Any) -> Any:
+    """The ranking card on screen (``generic_card``). An emptied answer needs the table's conclusions (#648)
+    to be what the user reads; without them the text is left as it is (None)."""
+    card = result.get("generic_card")
+    if card is None:
+        return None
+    from .card_prose_rule import trim_card_restatement  # noqa: PLC0415
+
+    title = card.get("title") if isinstance(card, dict) else getattr(card, "title", None)
+    trimmed = trim_card_restatement(
+        text, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""),
+        extra_terms=_club_terms(bootstrap), card_title=str(title or ""),
+    )
+    if not trimmed.text.strip() and not result.get("table_conclusions"):
+        return None
+    return trimmed
+
+
+def _trim_zonal_prose(
+    text: str, result: dict[str, Any], raw_output: dict, bootstrap: Any, trace: Any,
+) -> Any:
+    """The player zonal card on screen (``player_zonal``). Only when that one player's zonal read is all the
+    turn ran: with a second player (or another tool) a matching line may be about something the card does not
+    show. An emptied answer is fine: the card carries its own verdict."""
+    card = result.get("player_zonal")
+    if card is None:
+        return None
+    for call in trace or ():
+        if call.get("name") == "get_current_gameweek":
+            continue
+        output = call.get("output") or {}
+        if call.get("name") != "get_player_zonal_outlook" or output.get("player") != raw_output.get("player"):
+            return None
+    from .card_prose_zonal import trim_zonal_restatement  # noqa: PLC0415
+
+    return trim_zonal_restatement(
+        text, card, store_name=str(raw_output.get("player") or ""), club_terms=_club_terms(bootstrap),
+    )
+
+
+def _apply_card_prose_rule(
+    result: dict[str, Any], tool: Any, raw_output: Any, bootstrap: Any = None, trace: Any = None,
+) -> None:
+    """Drop the lines of a card turn's prose that reprint the card's rows (card_prose_rule).
+
+    Only a ``rank_players_by_metric`` or ``get_player_zonal_outlook`` turn whose card is on screen, whose text
+    the model wrote and the final-text guard did not replace. Never raises: any failure sends the original
+    text. The original goes to the audit line (``card_prose_raw_answer_text``).
     """
     try:
-        if tool != "rank_players_by_metric" or not isinstance(raw_output, dict) or raw_output.get("status") != "ok":
+        if tool not in ("rank_players_by_metric", "get_player_zonal_outlook"):
             return
-        if result.get("generic_card") is None or not result.get("llm_used") or result.get("final_text_guard_reason"):
+        if not isinstance(raw_output, dict) or raw_output.get("status") != "ok":
+            return
+        if not result.get("llm_used") or result.get("final_text_guard_reason"):
             return
         original = result.get("answer_text")
         if not isinstance(original, str) or not original.strip():
             return
-        from .card_prose_rule import REASON_ROWS_RESTATED, trim_card_restatement  # noqa: PLC0415
+        from .card_prose_rule import REASON_ROWS_RESTATED  # noqa: PLC0415
 
-        clubs = [
-            str(team.get(key) or "")
-            for team in ((bootstrap or {}).get("teams") or [])
-            if isinstance(team, dict)
-            for key in ("name", "short_name")
-        ]
-        card = result.get("generic_card")
-        title = card.get("title") if isinstance(card, dict) else getattr(card, "title", None)
-        trimmed = trim_card_restatement(
-            original, raw_output.get("ranked") or [], metric=str(raw_output.get("metric") or ""), extra_terms=clubs,
-            card_title=str(title or ""),
-        )
-        if not trimmed.fired:
-            return
-        if not trimmed.text.strip() and not result.get("table_conclusions"):
+        if tool == "rank_players_by_metric":
+            trimmed = _trim_ranking_prose(original, result, raw_output, bootstrap)
+        else:
+            trimmed = _trim_zonal_prose(original, result, raw_output, bootstrap, trace)
+        if trimmed is None or not trimmed.fired:
             return
         result["answer_text"] = trimmed.text
         result["card_prose_reason"] = REASON_ROWS_RESTATED
@@ -1608,7 +1650,10 @@ def ask_v2(
                 },
                 **_orch_meta,
             }
-            _apply_card_prose_rule(result, _orch_tool, _orch_raw, actual_bootstrap)
+            _apply_card_prose_rule(
+                result, _orch_tool, _orch_raw, actual_bootstrap,
+                getattr(orch_result, "tool_calls_trace", None),
+            )
             _chips = _ambiguity_suggestions(orch_result.tool_chosen, _orch_raw, cleaned_text, actual_bootstrap, locale)
             if _chips is None:
                 _chips = _plan_to_sign_chips(_orch_tool, _orch_raw, locale)
