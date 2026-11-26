@@ -1,4 +1,9 @@
-/** @xa renders like @xg: its own accent and the shared ranking card. Synthetic rows. */
+/**
+ * @jest-environment jsdom
+ *
+ * @xa renders like @xg: its own accent and the shared ranking card. Synthetic rows.
+ */
+import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import ResourceRankingTable from '../components/intents/ResourceRankingTable';
 import { RESOURCE_ACCENT } from '@/lib/theme';
