@@ -104,6 +104,13 @@ class StrikerApiClient:
             offset = int(nxt)
         raise StrikerApiError("list_games kept paging")
 
+    def competition_games_page(self, league: str, season: int, offset: int = 0) -> tuple[list[dict], object]:
+        """One page (up to 200) of another competition's games, any status, and the next offset (falsy at the end)."""
+        body: dict = {"league": league, "season": season, "limit": 200}
+        if offset:
+            body["offset"] = offset
+        return games_page(self.call("list_games", body))
+
     def shot_map_for_game(self, game_id: str) -> list[dict]:
         data = self.call("get_shot_map", {"game_id": str(game_id)})
         return shots_of(data)

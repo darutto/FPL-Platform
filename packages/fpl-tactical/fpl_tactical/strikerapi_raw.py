@@ -9,7 +9,11 @@ Local: ``seasons/<season>/strikerapi/raw/<name>.json`` (git-ignored).
 R2 (when given): ``<prefix>tactical/<season>/strikerapi/raw/<name>.json`` --
 private. Neither the publish step nor the server's sync ever touches ``raw/``.
 
-Names: ``<game_id>``, ``team_<CODE>``, ``list_games_<offset>``.
+Names: ``<game_id>``, ``team_<CODE>``, ``list_games_<offset>`` (the Premier
+League list the shots job reads) and ``list_games_<league>_<utcdate>_<offset>``
+(the other competitions' calendar, which changes: a name without the league
+would collide across leagues, and one without the date would never be bought
+again, so the calendar would freeze).
 
 To force ONE refetch on purpose (for example the source answered a match with
 no shots), delete that file, both on R2 and locally; it costs its credits again.
@@ -34,9 +38,14 @@ class RawCacheError(RuntimeError):
     """The raw cache could not be read or written; nothing may be fetched."""
 
 
-def raw_name(tool: str, request: dict) -> str:
+def raw_name(tool: str, request: dict, day: str | None = None) -> str:
     if tool == "list_games":
-        return f"list_games_{int(request.get('offset') or 0)}"
+        offset = int(request.get("offset") or 0)
+        if "league" in request:
+            if not day:
+                raise RawCacheError("a competition list_games reply is kept per day; no day given")
+            return f"list_games_{request['league']}_{day}_{offset}"
+        return f"list_games_{offset}"
     if "game_id" in request:
         return str(request["game_id"])
     return f"team_{request['team']}"
@@ -98,7 +107,7 @@ class RawCache:
 
     def put(self, tool: str, request: dict, body: str, fetched_at: datetime) -> None:
         """Keep a response verbatim: local first, then R2 (which must succeed)."""
-        path = self._path(raw_name(tool, request))
+        path = self._path(raw_name(tool, request, fetched_at.strftime("%Y%m%d")))
         self._write_local(path, json.dumps(
             {"fetched_at": fetched_at.isoformat(), "tool": tool, "request": request, "body": body}))
         if self.r2 is not None:

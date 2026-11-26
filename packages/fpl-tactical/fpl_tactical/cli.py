@@ -59,6 +59,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     for cmd in (sync, load):
         cmd.add_argument("--require-r2", action="store_true",
                          help="refuse to run unless paid responses can be kept on R2 (CI)")
+    euro = sub.add_parser("europe-calendar",
+                          help="UCL/UEL/UECL calendar from list_games (about 6 credits), shared credit budget")
+    euro.add_argument("--season", default=CURRENT_SEASON)
+    euro.add_argument("--max-credits", type=int, default=20, help="hard ceiling per run (default %(default)s)")
+    euro.add_argument("--require-r2", action="store_true",
+                      help="refuse to run unless paid responses can be kept on R2 (CI)")
+    euro.add_argument("--publish", action="store_true",
+                      help="also upload the converted calendar to its private R2 object (operator decision)")
     act = sub.add_parser("strikerapi-activate", help="Copy the StrikerAPI working store onto the serving paths")
     act.add_argument("--season", default=CURRENT_SEASON)
     return parser.parse_args(argv)
@@ -157,8 +165,45 @@ def _activate(season: str) -> int:
     return 0
 
 
+def _cmd_europe_calendar(args: argparse.Namespace) -> int:
+    import dataclasses
+    import json
+    from datetime import datetime, timezone
+
+    from fpl_tactical import europe_calendar as euro
+    from fpl_tactical.publish import calendar_location
+    from fpl_tactical.strikerapi_client import StrikerApiClient
+    from fpl_tactical.strikerapi_raw import RawCacheError
+
+    try:
+        cache = _raw_cache(args.season, args.require_r2)
+        location: tuple = ()
+        if args.require_r2 or args.publish:
+            location = calendar_location()
+        previous = euro.read_previous(args.season, *location)
+        payload, report = euro.build(
+            args.season, StrikerApiClient(), cache, datetime.now(tz=timezone.utc),
+            previous=previous, max_credits=args.max_credits,
+        )
+        if payload is not None:
+            euro.write(payload, args.season, *(location if args.publish else ()))
+    except (RawCacheError, RuntimeError, OSError, ValueError) as exc:
+        print(f"europe-calendar FAILED, nothing published: {exc}", file=sys.stderr)
+        return 1
+    out = dataclasses.asdict(report)
+    out["published"] = bool(args.publish and payload is not None)
+    print(json.dumps(out, indent=2))
+    if report.alerts:
+        for line in report.alerts:
+            print(f"ALERT: {line}", file=sys.stderr)
+        return 4
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.command == "europe-calendar":
+        return _cmd_europe_calendar(args)
     if args.command.startswith("strikerapi-"):
         return _cmd_strikerapi(args)
     if args.command == "ingest":
