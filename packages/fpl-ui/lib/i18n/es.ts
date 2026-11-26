@@ -665,4 +665,12 @@ export const es = {
 
   // --- /fixtures page header ---
   'fx.page.intro': 'Dificultad de dos ejes con detección de rachas. Toca un equipo o una jornada para profundizar en el chat.',
+
+  // --- Query card (the answer's own words come from the server) ---
+  'query.notThis': 'No es esto',
+  'query.total': 'Total',
+  'query.perMatch': 'Por partido',
+  'query.matches': 'Partidos',
+  'query.homeAway': 'Local · visita',
+  'query.meanFdr': 'FDR medio',
 };

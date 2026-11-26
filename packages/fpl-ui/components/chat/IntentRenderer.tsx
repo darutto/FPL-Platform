@@ -20,6 +20,7 @@
  *   @injuries          → InjuriesTable         (A2 post-graduation)
  *   injury_list        → InjuryListTable       (Track B — generic_card adapter)
  *   * (no bespoke match) → GenericCard         (Track B — generic_card fallback)
+ *   query block        → QueryCard             (query layer; reading row first)
  *
  * TEXT-ONLY (Phase 2d — structured rendering deferred):
  *   current_gameweek, player_summary, player_resolve
@@ -43,6 +44,7 @@ import ResourceRankingTable from '@/components/intents/ResourceRankingTable';
 import InjuriesTable from '@/components/intents/InjuriesTable';
 import InjuryListTable from '@/components/intents/InjuryListTable';
 import GenericCard from '@/components/intents/GenericCard';
+import QueryCard from '@/components/intents/QueryCard';
 import WebSearchCard from '@/components/intents/WebSearchCard';
 
 interface Props {
@@ -52,6 +54,9 @@ interface Props {
 export default function IntentRenderer({ response }: Props) {
   const view = selectIntentView(response);
 
+  if (view === 'query' && response.query != null) {
+    return <QueryCard data={response.query} />;
+  }
   if (view === 'captain' && response.captain != null) {
     return <CaptainCard data={response.captain} />;
   }

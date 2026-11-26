@@ -663,4 +663,12 @@ export const en: typeof es = {
 
   // --- /fixtures page header ---
   'fx.page.intro': 'Two-axis difficulty with run detection. Tap a team or a gameweek to go deeper in the chat.',
+
+  // --- Query card (the answer's own words come from the server) ---
+  'query.notThis': 'Not this',
+  'query.total': 'Total',
+  'query.perMatch': 'Per match',
+  'query.matches': 'Matches',
+  'query.homeAway': 'Home · away',
+  'query.meanFdr': 'Mean FDR',
 };

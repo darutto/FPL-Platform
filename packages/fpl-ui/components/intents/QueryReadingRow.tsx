@@ -17,6 +17,8 @@ interface Props {
   reading: QueryReading;
   /** The tapped alternative's spec, with the part it replaces. */
   onPick?: (spec: QuerySpecDict, part: QueryReadingPart, alternative: QueryReadingAlternative) => void;
+  /** Part kinds the last tap or correction changed, ringed so the change is seen. */
+  changed?: readonly string[];
 }
 
 const SEGMENT = 'rounded-full px-2.5 py-1 text-[12px] font-extrabold leading-tight';
@@ -24,8 +26,9 @@ const PLAIN = 'text-bf-text';
 const BRAKED = 'border border-amber-400/60 bg-amber-400/10 text-amber-300';
 const PILL = 'border border-white/15 bg-black/30 text-bf-text hover:border-white/35';
 const PILL_OPEN = 'border border-bf-coral bg-bf-coral text-bf-ink';
+const CHANGED = 'ring-2 ring-bf-turquoise';
 
-export default function QueryReadingRow({ reading, onPick }: Props) {
+export default function QueryReadingRow({ reading, onPick, changed = [] }: Props) {
   const [open, setOpen] = useState<number | null>(null);
   const choicesId = useId();
   const openPart = open != null ? reading.parts[open] : undefined;
@@ -35,9 +38,15 @@ export default function QueryReadingRow({ reading, onPick }: Props) {
       <ul className="flex flex-wrap items-center gap-1.5">
         {reading.parts.map((part, i) => {
           const tappable = onPick != null && part.editable && part.alternatives.length > 0;
-          const tone = part.braked ? BRAKED : tappable ? PILL : PLAIN;
+          const isChanged = changed.includes(part.kind);
+          const tone = `${part.braked ? BRAKED : tappable ? PILL : PLAIN}${isChanged ? ` ${CHANGED}` : ''}`;
           return (
-            <li key={`${part.kind}-${i}`} data-kind={part.kind} data-braked={part.braked || undefined}>
+            <li
+              key={`${part.kind}-${i}`}
+              data-kind={part.kind}
+              data-braked={part.braked || undefined}
+              data-changed={isChanged || undefined}
+            >
               {tappable ? (
                 <button
                   type="button"

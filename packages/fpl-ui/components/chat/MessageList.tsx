@@ -276,6 +276,8 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
     message.text.trim().length > 0 &&
     message.response?.intent !== 'multi_intent' &&
     message.response?.synthesis_turn !== false &&
+    // A query card carries the answer itself; its final_text is the same reading for text-only clients.
+    !(message.response != null && selectIntentView(message.response) === 'query') &&
     !isDeterministicTableText(message.response) &&
     !looksLikeRenderedTable(message.text);
   // Structured FPL turn → combine the model's verdict and the deterministic
