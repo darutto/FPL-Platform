@@ -86,16 +86,24 @@ MISSING_ALERT_AFTER = timedelta(days=3)
 DEFAULT_MAX_CREDITS = 130
 FIRST_LOAD_MAX_CREDITS = COST_LIST_GAMES + 20 * COST_SHOT_MAP  # 202
 
-# First-load canary (overlap with the other source's rows)
+# First-load canary (overlap with the other source's rows).
+# Measured on 2025-26, four clubs, this source against the real store (paired
+# shots; whole season, first 6/11/13 matches, ten 11-match windows):
+# zone agreement 0.945-0.974, opposite flank 0.000, shots ratio 0.942-0.977.
+# The same rows with y mirrored: zone agreement 0.655, opposite flank 0.218.
 CANARY_MIN_MATCHES = 20
 CANARY_MIN_MATCHED_SHOTS = 200
 CANARY_ZONE_AGREE_MIN = 0.90
 CANARY_OPPOSITE_FLANK_MAX = 0.02
 CANARY_SHOTS_PER_MATCH_TOL = 0.15
-# Every-sync pooled known-flank canary
+# Every-sync pooled known-flank canary. The pool is the matches no verdict has
+# covered yet, never the whole store (old rows would hide a new flip). Every
+# pooled shot is on one flank or the other, so one limit says it all.
+# Measured as above: opposite share 0.115-0.12 over the season, up to 0.175 in
+# pools of about 40 shots (a 0.15 limit raised 1 false alarm in 5); mirrored
+# 0.885. Only four clubs' shots, so 3-13 known-flank players.
 FLANK_CANARY_MIN_POOLED = 40
-FLANK_CANARY_SAME_MIN = 0.75
-FLANK_CANARY_OPPOSITE_MAX = 0.15
+FLANK_CANARY_OPPOSITE_MAX = 0.25
 FLANK_PLAYER_MIN_SHOTS = 8
 FLANK_PLAYER_PURITY = 0.80
 FLANK_CANARY_MAX_PLAYERS = 25
@@ -469,7 +477,7 @@ def flank_canary(df: pd.DataFrame, players: dict[str, list[str]]) -> dict:
                 "reason": f"pooled sample {pooled} < {FLANK_CANARY_MIN_POOLED}"}
     result["same_flank"] = round(same / pooled, 4)
     result["opposite_flank"] = round(opp / pooled, 4)
-    ok = result["same_flank"] >= FLANK_CANARY_SAME_MIN and result["opposite_flank"] <= FLANK_CANARY_OPPOSITE_MAX
+    ok = result["opposite_flank"] <= FLANK_CANARY_OPPOSITE_MAX
     return {**result, "status": "ok" if ok else "mismatch"}
 
 
@@ -498,7 +506,8 @@ def _api_season(season: str) -> int:
 
 
 def _build_pointer(df: pd.DataFrame, season: str, canaries: dict, fixtures: list[FplFixture],
-                   now: datetime, flank_players: dict | None) -> dict:
+                   now: datetime, flank_players: dict | None,
+                   flank_pending: Iterable[int] = ()) -> dict:
     gw_by_pair = {(f.home, f.away): f.gameweek for f in fixtures if f.finished}
     gws = [gw_by_pair.get(p) for p in stored_pairs(df)]
     gws = [g for g in gws if g is not None]
@@ -514,6 +523,8 @@ def _build_pointer(df: pd.DataFrame, season: str, canaries: dict, fixtures: list
         "situation": "unknown",
         "validation": {"status": "ok", "checked_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")},
         "canaries": canaries,
+        # matches stored since the last known-flank verdict
+        "flank_pending_matches": sorted(int(m) for m in flank_pending),
     }
     if flank_players:
         ptr["flank_players"] = flank_players
@@ -590,8 +601,13 @@ def sync(
     merged = pd.concat([_store_frame(current)] + frames, ignore_index=True)
     problems = validate_store(merged, fixtures, now)
     players = (prior or {}).get("flank_players")
+    pending = {int(m) for m in (prior or {}).get("flank_pending_matches") or []}
+    pending |= {int(m) for frame in frames for m in frame["match_id"].unique()}
     if players:
-        flank = flank_canary(merged, players)
+        flank = flank_canary(merged[merged["match_id"].isin(pending)], players)
+        flank["pooled_matches"] = len(pending)
+        if flank["status"] == "ok":
+            pending = set()
         if flank["status"] == "mismatch":
             problems.append(f"flank canary mismatch: {flank}")
     else:
@@ -599,7 +615,7 @@ def sync(
     if problems:
         raise ValidationFailed(problems)
     canaries = {**(prior or {}).get("canaries", {}), "known_flank": flank}
-    write_working_store(merged, _build_pointer(merged, season, canaries, fixtures, now, players), season)
+    write_working_store(merged, _build_pointer(merged, season, canaries, fixtures, now, players, pending), season)
     return SyncReport(action="synced", fetched=len(todo), credits_spent=client.credits_spent,
                       credits_remaining=client.credits_remaining, canaries=canaries, **base)
 

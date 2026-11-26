@@ -466,3 +466,67 @@ def test_the_reverse_fixture_is_still_due_when_only_the_first_meeting_is_stored(
     first = si.normalize_shots(shots[1], si.schedule_from_games(games), SEASON)
     assert si.due_fixtures(fixtures, first, now) == [fixtures[1]]
     assert any("missing match Manchester City-Arsenal" in p for p in si.validate_store(first, fixtures, now))
+
+
+# ---------------------------------------------------------------- the pool: only what no verdict has covered
+
+FLANKS = {"left": ["left winger"], "right": ["right winger"]}
+
+
+def seed_large_good_store():
+    """One stored match with 400 correct known-flank shots: enough to hide any later flip if pooled."""
+    first = pd.DataFrame(player_rows("Left Winger", 200, 0.9) + player_rows("Right Winger", 200, 0.1))
+    first["match_id"] = 1
+    first["shooting_team"], first["conceding_team"] = "Arsenal", "Manchester City"
+    si.write_working_store(first, si._build_pointer(first, SEASON, {}, [], NOW, FLANKS), SEASON)
+
+
+def liv_eve_flank_shots(gid, n, y_api):
+    """*n* shots by the known left winger; y_api 0.1 is his side, 0.9 is the mirrored one."""
+    rows = [shot(gid, "LIV", player="Left Winger", y=y_api, minute=i, outcome="saved") for i in range(n)]
+    rows[0]["outcome"] = "goal"
+    return rows + [shot(gid, "EVE", minute=99)]
+
+
+def run_one(gid, home, away, shots, now=NOW):
+    api = FakeApi([game(gid, home, away)], {str(gid): shots})
+    names = {"LIV": "Liverpool", "EVE": "Everton", "CHE": "Chelsea", "FUL": "Fulham"}
+    return si.sync(SEASON, client_for(api), [fixture(names[home], names[away], 1, 0)], now=now)
+
+
+def test_a_flipped_new_batch_is_not_hidden_by_the_correct_rows_already_stored(tmp_tactical_root):
+    seed_large_good_store()
+    with pytest.raises(si.ValidationFailed, match="flank canary"):
+        run_one(2, "LIV", "EVE", liv_eve_flank_shots(2, 45, y_api=0.9))
+
+
+def test_small_batches_pool_until_the_sample_is_enough_then_the_flip_fails(tmp_tactical_root):
+    seed_large_good_store()
+    first = run_one(2, "LIV", "EVE", liv_eve_flank_shots(2, 25, y_api=0.9))
+    assert first.canaries["known_flank"]["status"] == "not_checked"
+    assert si.read_working_store(SEASON)[1]["flank_pending_matches"] == [2]
+    with pytest.raises(si.ValidationFailed, match="flank canary"):
+        run_one(3, "CHE", "FUL", [
+            {**s, "team": {"LIV": "CHE", "EVE": "FUL"}[s["team"]]}
+            for s in liv_eve_flank_shots(3, 25, y_api=0.9)])
+    assert si.read_working_store(SEASON)[1]["flank_pending_matches"] == [2]
+
+
+def test_a_passed_verdict_empties_the_pool(tmp_tactical_root):
+    seed_large_good_store()
+    rep = run_one(2, "LIV", "EVE", liv_eve_flank_shots(2, 45, y_api=0.1))
+    assert rep.canaries["known_flank"]["status"] == "ok"
+    assert si.read_working_store(SEASON)[1]["flank_pending_matches"] == []
+
+
+@pytest.mark.parametrize("opposite,status", [(7, "ok"), (10, "ok"), (11, "mismatch")])
+def test_the_opposite_flank_limit_is_the_measured_one(opposite, status):
+    rows = pd.DataFrame(player_rows("Left Winger", 40 - opposite, 0.9) + player_rows("Left Winger", opposite, 0.1))
+    assert si.flank_canary(rows, FLANKS)["status"] == status
+
+
+def test_the_same_mirrored_rows_fail_both_canaries():
+    new, backup = overlap_pair(mirror=True)
+    players = si.pick_flank_players(backup)
+    assert si.compare_with_backup(new, backup)["status"] == "mismatch"
+    assert si.flank_canary(new, players)["status"] == "mismatch"
