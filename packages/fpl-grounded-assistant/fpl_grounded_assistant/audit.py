@@ -363,6 +363,8 @@ def tool_calls_from_ask_v2(result: dict[str, Any]) -> list[dict]:
                 # refused -- enum values only; absent on every other call.
                 **({"guard_conditions": list(_e["guard_conditions"])}
                    if _e.get("guard_conditions") else {}),
+                # The query door: state / reason / brake enums; absent on every other call.
+                **({"query": dict(_e["query"])} if _e.get("query") else {}),
             }
             for _e in trace
             if isinstance(_e, dict) and _e.get("name")

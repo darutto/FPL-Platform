@@ -176,6 +176,7 @@ def to_ask_response(
         _clarification_text_for_intent,
     )
     from fpl_grounded_assistant.prompt_registry import get_prompt_spec
+    from fpl_grounded_assistant.query_contract import project as project_query
 
     # Work on a shallow copy so we never mutate the caller's dict.
     d: dict[str, Any] = dict(ask_v2_dict)
@@ -278,7 +279,9 @@ def to_ask_response(
     #     generic harness answer_text with an intent-shaped clarification prompt,
     #     matching final_response.py line 2084 (_clarification_text_for_intent).
     # ------------------------------------------------------------------
-    if outcome == "needs_clarification":
+    # A query answer already carries its own question: the generic prompt must not replace it.
+    query_block: dict[str, Any] | None = d.get("query")
+    if outcome == "needs_clarification" and query_block is None:
         answer_text = _clarification_text_for_intent(intent, "en" if locale == "en" else "es")
 
     # ------------------------------------------------------------------
@@ -391,7 +394,14 @@ def to_ask_response(
     #     AskResponse fields typed dict[str,Any] | None cannot accept raw
     #     dataclass instances; _to_dict() converts them via dataclasses.asdict().
     # ------------------------------------------------------------------
+    if query_block is not None:
+        # One projection of the block for every field that says how the turn went.
+        projected = project_query(query_block)
+        supported, review_passed = projected["supported"], projected["review_passed"]
+        clarification_asked = projected["clarification_asked"]
+
     return _AskResponse(
+        query=query_block,
         final_text=answer_text,
         outcome=outcome,
         supported=supported,

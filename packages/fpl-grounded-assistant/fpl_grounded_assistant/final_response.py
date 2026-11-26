@@ -82,6 +82,7 @@ from football_data_contract import (
 
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .locale_types import Locale, DEFAULT_LOCALE
+from .query_contract import project as project_query
 from .news_es import news_label  # i151c
 from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT, INTENT_PLAYER_ZONAL_OUTLOOK  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
@@ -1524,6 +1525,8 @@ class FinalResponse:
     # before `evidence` on purpose: test_fi7a_evidence_contract pins
     # `evidence` as the last field.
     orchestration:           "dict[str, Any] | None"          = field(default=None)
+    #: The ``query`` block of a turn the query door answered; None on every other turn.
+    query:                   "dict[str, Any] | None"           = field(default=None)
     # FI-7a: additive provider-neutral evidence contract. Assembly is deferred.
     evidence:                "tuple[EvidenceItem, ...] | None" = field(default=None)
 
@@ -1612,6 +1615,7 @@ def _respond_multi(
     classifier_client: Any,
     squad_context: dict[str, Any] | None = None,  # Phase 8e1: forwarded to each sub-call
     locale: Locale = DEFAULT_LOCALE,
+    raw_question: str | None = None,  # the whole typed message, forwarded to each sub-call
 ) -> "FinalResponse":
     """Execute each sub-question independently and combine into a multi-intent response.
 
@@ -1657,6 +1661,7 @@ def _respond_multi(
             _multi_intent_depth=1,    # prevent nested multi-intent splitting
             squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
             locale=locale,
+            _raw_question=raw_question,
         )
         sub_list.append(sub)
 
@@ -3521,7 +3526,9 @@ def _try_session_orchestration_response(
         outcome = raw_outcome
     supported: bool = outcome not in ("unsupported", "unsupported_intent", "needs_clarification", "condition_not_applied")
 
-    if outcome == "needs_clarification":
+    # Same exemption and same projection as harness_adapter: a query answer keeps its own text.
+    query_block = result.get("query")
+    if outcome == "needs_clarification" and query_block is None:
         answer_text = _clarification_text_for_intent(intent, locale)
 
     # ---- semantic-shift fields (mirrors harness_adapter.to_ask_response step 4) ----
@@ -3555,6 +3562,11 @@ def _try_session_orchestration_response(
     orch_outcome: str | None = (
         routing_trace.get("orchestrator_outcome") if branch == "orchestrator" else None
     )
+
+    if query_block is not None:
+        projected = project_query(query_block)
+        supported, review_passed = projected["supported"], projected["review_passed"]
+        clarification_asked = projected["clarification_asked"]
 
     debug = None
     if include_debug:
@@ -3633,6 +3645,7 @@ def _try_session_orchestration_response(
         web_search=_web_search_payload(result, answer_text),
         suggestions=suggestion_items,
         evidence=_evidence_from_wire(result.get("evidence")),
+        query=query_block,
         orch_outcome=orch_outcome,
         degraded=False,
         route_source=route_source,
@@ -3750,6 +3763,7 @@ def respond(
                 classifier_client=classifier_client,
                 squad_context=squad_context,  # Phase 8e1: forward per-turn constraint state
                 locale=locale,
+                raw_question=_raw_question if _raw_question is not None else user_message,
             )
 
     player_lookup_response = _try_deterministic_player_lookup_response(

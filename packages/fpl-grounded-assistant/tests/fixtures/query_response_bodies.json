@@ -1,0 +1,2003 @@
+{
+ "complete_list_es": {
+  "final_text": "Muestro: Más puntos · Últimas 5 (J4–J8) · Todas las posiciones\nJugador | Club | Más puntos\n1. StopperElm | ELM | 29\n2. StopperAld | ALD | 28\n3. StopperCed | CED | 28\n4. WingBir | BIR | 28\n5. SubjectElm | ELM | 27\n6. WingFir | FIR | 27\n7. SubjectDun | DUN | 27\n8. WingCed | CED | 27\n9. StopperDun | DUN | 25\n10. SubjectCed | CED | 24\n11. StrikerFir | FIR | 24",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "complete",
+   "reason": null,
+   "lang": "es",
+   "spec": {
+    "v": 1,
+    "shape": "list",
+    "grain": "player",
+    "metric": "total_points",
+    "operator": "sum",
+    "match_set": [
+     {
+      "pred": "last_n",
+      "value": 5
+     }
+    ],
+    "filters": [],
+    "order": "desc",
+    "top_n": 10
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Más puntos",
+      "value": {
+       "metric": "total_points",
+       "operator": "sum",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "window",
+      "label": "Últimas 5 (J4–J8)",
+      "value": {
+       "pred": "last_n",
+       "value": 5
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Últimas 3",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 3
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Últimas 10",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 10
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Temporada",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "position",
+      "label": "Todas las posiciones",
+      "value": null,
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Porteros",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "GKP"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Defensas",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "DEF"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Medios",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "MID"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Delanteros",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "FWD"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     }
+    ],
+    "text": "Más puntos · Últimas 5 (J4–J8) · Todas las posiciones",
+    "lang": "es"
+   },
+   "table": {
+    "columns": [
+     {
+      "header": "Jugador",
+      "align": "left",
+      "kind": "text"
+     },
+     {
+      "header": "Club",
+      "align": "left",
+      "kind": "badge"
+     },
+     {
+      "header": "Más puntos",
+      "align": "right",
+      "kind": "mono"
+     }
+    ],
+    "rows": [
+     [
+      "StopperElm",
+      "ELM",
+      "29"
+     ],
+     [
+      "StopperAld",
+      "ALD",
+      "28"
+     ],
+     [
+      "StopperCed",
+      "CED",
+      "28"
+     ],
+     [
+      "WingBir",
+      "BIR",
+      "28"
+     ],
+     [
+      "SubjectElm",
+      "ELM",
+      "27"
+     ],
+     [
+      "WingFir",
+      "FIR",
+      "27"
+     ],
+     [
+      "SubjectDun",
+      "DUN",
+      "27"
+     ],
+     [
+      "WingCed",
+      "CED",
+      "27"
+     ],
+     [
+      "StopperDun",
+      "DUN",
+      "25"
+     ],
+     [
+      "SubjectCed",
+      "CED",
+      "24"
+     ],
+     [
+      "StrikerFir",
+      "FIR",
+      "24"
+     ]
+    ]
+   },
+   "comparison": null,
+   "chips": [],
+   "notes": [],
+   "sum_check": "passed",
+   "changed_parts": [],
+   "message": null
+  }
+ },
+ "complete_list_en": {
+  "final_text": "Showing: Most points · Last 5 (GW4–8) · All positions\nPlayer | Club | Most points\n1. StopperElm | ELM | 29\n2. StopperAld | ALD | 28\n3. StopperCed | CED | 28\n4. WingBir | BIR | 28\n5. SubjectElm | ELM | 27\n6. WingFir | FIR | 27\n7. SubjectDun | DUN | 27\n8. WingCed | CED | 27\n9. StopperDun | DUN | 25\n10. SubjectCed | CED | 24\n11. StrikerFir | FIR | 24",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "complete",
+   "reason": null,
+   "lang": "en",
+   "spec": {
+    "v": 1,
+    "shape": "list",
+    "grain": "player",
+    "metric": "total_points",
+    "operator": "sum",
+    "match_set": [
+     {
+      "pred": "last_n",
+      "value": 5
+     }
+    ],
+    "filters": [],
+    "order": "desc",
+    "top_n": 10
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Most points",
+      "value": {
+       "metric": "total_points",
+       "operator": "sum",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "window",
+      "label": "Last 5 (GW4–8)",
+      "value": {
+       "pred": "last_n",
+       "value": 5
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Last 3",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 3
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Last 10",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 10
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Season",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "position",
+      "label": "All positions",
+      "value": null,
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Goalkeepers",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "GKP"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Defenders",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "DEF"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Midfielders",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "MID"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Forwards",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "FWD"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     }
+    ],
+    "text": "Most points · Last 5 (GW4–8) · All positions",
+    "lang": "en"
+   },
+   "table": {
+    "columns": [
+     {
+      "header": "Player",
+      "align": "left",
+      "kind": "text"
+     },
+     {
+      "header": "Club",
+      "align": "left",
+      "kind": "badge"
+     },
+     {
+      "header": "Most points",
+      "align": "right",
+      "kind": "mono"
+     }
+    ],
+    "rows": [
+     [
+      "StopperElm",
+      "ELM",
+      "29"
+     ],
+     [
+      "StopperAld",
+      "ALD",
+      "28"
+     ],
+     [
+      "StopperCed",
+      "CED",
+      "28"
+     ],
+     [
+      "WingBir",
+      "BIR",
+      "28"
+     ],
+     [
+      "SubjectElm",
+      "ELM",
+      "27"
+     ],
+     [
+      "WingFir",
+      "FIR",
+      "27"
+     ],
+     [
+      "SubjectDun",
+      "DUN",
+      "27"
+     ],
+     [
+      "WingCed",
+      "CED",
+      "27"
+     ],
+     [
+      "StopperDun",
+      "DUN",
+      "25"
+     ],
+     [
+      "SubjectCed",
+      "CED",
+      "24"
+     ],
+     [
+      "StrikerFir",
+      "FIR",
+      "24"
+     ]
+    ]
+   },
+   "comparison": null,
+   "chips": [],
+   "notes": [],
+   "sum_check": "passed",
+   "changed_parts": [],
+   "message": null
+  }
+ },
+ "complete_comparison_before_join": {
+  "final_text": "Showing: Teams · Alder Town goals per match · With SubjectAld (60′+): GW2–3, GW8 · Without (0′): GW4–6 · Mixed left out: GW7\nWith SubjectAld (60′+): GW2–3, GW8: 1 (3 matches)\nWithout (0′): GW4–6: 1.67 (3 matches)\nHome / away: 1 / 2 and 1 / 2.\nAverage difficulty (FDR), at today's values: 3.67 and 3.00.\nThe per-match values of the two sets overlap.\nSmall sample: fewer than 5 matches in one set.\nLeft out, from before he joined the club: GW1.",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "complete",
+   "reason": null,
+   "lang": "en",
+   "spec": {
+    "v": 1,
+    "shape": "comparison",
+    "grain": "team",
+    "metric": "team_goals",
+    "operator": "per_match",
+    "match_set": [
+     {
+      "pred": "player_played_60",
+      "value": "SubjectAld"
+     }
+    ],
+    "filters": [
+     {
+      "field": "club",
+      "op": "eq",
+      "value": "Alder Town"
+     }
+    ],
+    "order": "desc",
+    "top_n": 10,
+    "compare_to": [
+     {
+      "pred": "player_absent",
+      "value": "SubjectAld"
+     }
+    ]
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "grain",
+      "label": "Teams",
+      "value": "team",
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "metric",
+      "label": "Alder Town goals per match",
+      "value": {
+       "metric": "team_goals",
+       "operator": "per_match",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "match_set",
+      "label": "With SubjectAld (60′+): GW2–3, GW8",
+      "value": [
+       {
+        "pred": "player_played_60",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "compare_to",
+      "label": "Without (0′): GW4–6",
+      "value": [
+       {
+        "pred": "player_absent",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "mixed",
+      "label": "Mixed left out: GW7",
+      "value": [
+       7
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     }
+    ],
+    "text": "Teams · Alder Town goals per match · With SubjectAld (60′+): GW2–3, GW8 · Without (0′): GW4–6 · Mixed left out: GW7",
+    "lang": "en"
+   },
+   "table": null,
+   "comparison": {
+    "club": "ALD",
+    "metric_header": "Alder Town goals per match",
+    "sides": [
+     {
+      "label": "With SubjectAld (60′+): GW2–3, GW8",
+      "gameweeks": [
+       2,
+       3,
+       8
+      ],
+      "n": 3,
+      "home": 1,
+      "away": 2,
+      "mean_fdr_text": "3.67",
+      "value_text": "1",
+      "total_text": "3",
+      "per_match_text": "1",
+      "per_match_values_text": [
+       "0",
+       "3",
+       "0"
+      ]
+     },
+     {
+      "label": "Without (0′): GW4–6",
+      "gameweeks": [
+       4,
+       5,
+       6
+      ],
+      "n": 3,
+      "home": 1,
+      "away": 2,
+      "mean_fdr_text": "3.00",
+      "value_text": "1.67",
+      "total_text": "5",
+      "per_match_text": "1.67",
+      "per_match_values_text": [
+       "2",
+       "2",
+       "1"
+      ]
+     }
+    ],
+    "mixed": [
+     {
+      "gameweek": 7,
+      "minutes": 13
+     }
+    ],
+    "before_join": [
+     1
+    ],
+    "small_sample": true,
+    "ranges_overlap": true
+   },
+   "chips": [],
+   "notes": [
+    "Home / away: 1 / 2 and 1 / 2.",
+    "Average difficulty (FDR), at today's values: 3.67 and 3.00.",
+    "The per-match values of the two sets overlap.",
+    "Small sample: fewer than 5 matches in one set.",
+    "Left out, from before he joined the club: GW1."
+   ],
+   "sum_check": "passed",
+   "changed_parts": [],
+   "message": null
+  }
+ },
+ "needs_clarification": {
+  "final_text": "Muestro: Equipos · Más goles · Temporada (J1–J8) · ⚠ Sin Subject (0′)\n¿A qué jugador te refieres con «Subject»?",
+  "outcome": "needs_clarification",
+  "supported": false,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": true,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "needs_clarification",
+   "reason": "player_ambiguous",
+   "lang": "es",
+   "spec": {
+    "v": 1,
+    "shape": "list",
+    "grain": "team",
+    "metric": "team_goals",
+    "operator": "sum",
+    "match_set": [
+     {
+      "pred": "player_absent",
+      "value": "Subject"
+     }
+    ],
+    "filters": [],
+    "order": "desc",
+    "top_n": 10
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "grain",
+      "label": "Equipos",
+      "value": "team",
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "metric",
+      "label": "Más goles",
+      "value": {
+       "metric": "team_goals",
+       "operator": "sum",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "window",
+      "label": "Temporada (J1–J8)",
+      "value": {
+       "pred": "season",
+       "value": true
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Últimas 3",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "team",
+         "metric": "team_goals",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 3
+          },
+          {
+           "pred": "player_absent",
+           "value": "Subject"
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Últimas 5",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "team",
+         "metric": "team_goals",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          },
+          {
+           "pred": "player_absent",
+           "value": "Subject"
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Últimas 10",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "team",
+         "metric": "team_goals",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 10
+          },
+          {
+           "pred": "player_absent",
+           "value": "Subject"
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "condition",
+      "label": "Sin Subject (0′)",
+      "value": {
+       "pred": "player_absent",
+       "value": "Subject"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": true
+     }
+    ],
+    "text": "Equipos · Más goles · Temporada (J1–J8) · ⚠ Sin Subject (0′)",
+    "lang": "es"
+   },
+   "table": null,
+   "comparison": null,
+   "chips": [
+    {
+     "label": "SubjectDun (DUN)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "team",
+      "metric": "team_goals",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "player_absent",
+        "value": "406"
+       }
+      ],
+      "filters": [],
+      "order": "desc",
+      "top_n": 10
+     }
+    },
+    {
+     "label": "SubjectCed (CED)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "team",
+      "metric": "team_goals",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "player_absent",
+        "value": "306"
+       }
+      ],
+      "filters": [],
+      "order": "desc",
+      "top_n": 10
+     }
+    },
+    {
+     "label": "SubjectElm (ELM)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "team",
+      "metric": "team_goals",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "player_absent",
+        "value": "506"
+       }
+      ],
+      "filters": [],
+      "order": "desc",
+      "top_n": 10
+     }
+    },
+    {
+     "label": "SubjectAld (ALD)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "team",
+      "metric": "team_goals",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "player_absent",
+        "value": "106"
+       }
+      ],
+      "filters": [],
+      "order": "desc",
+      "top_n": 10
+     }
+    },
+    {
+     "label": "SubjectFir (FIR)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "team",
+      "metric": "team_goals",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "player_absent",
+        "value": "606"
+       }
+      ],
+      "filters": [],
+      "order": "desc",
+      "top_n": 10
+     }
+    }
+   ],
+   "notes": [],
+   "sum_check": null,
+   "changed_parts": [],
+   "message": "¿A qué jugador te refieres con «Subject»?"
+  }
+ },
+ "unsupported_constraint": {
+  "final_text": "Showing: Most points · Season · Owned now < 10% · All positions · ⚠ Not available: ownership at the time\nI can't work that out yet: ownership at the time. I only have today's ownership.",
+  "outcome": "unsupported_constraint",
+  "supported": false,
+  "intent": "query",
+  "review_passed": false,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "unsupported_constraint",
+   "reason": "ownership_then",
+   "lang": "en",
+   "spec": {
+    "v": 1,
+    "shape": "list",
+    "grain": "player",
+    "metric": "total_points",
+    "operator": "sum",
+    "match_set": [
+     {
+      "pred": "season",
+      "value": true
+     }
+    ],
+    "filters": [
+     {
+      "field": "owned_now",
+      "op": "lt",
+      "value": 10.0
+     }
+    ],
+    "order": "desc",
+    "top_n": 10
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Most points",
+      "value": {
+       "metric": "total_points",
+       "operator": "sum",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "window",
+      "label": "Season",
+      "value": {
+       "pred": "season",
+       "value": true
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Last 3",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 3
+          }
+         ],
+         "filters": [
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Last 5",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Last 10",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 10
+          }
+         ],
+         "filters": [
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "ownership",
+      "label": "Owned now < 10%",
+      "value": {
+       "field": "owned_now",
+       "op": "lt",
+       "value": 10.0
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Owned now < 5%",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 5.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Owned now < 15%",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 15.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Any ownership",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "position",
+      "label": "All positions",
+      "value": null,
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Goalkeepers",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "GKP"
+          },
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Defenders",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "DEF"
+          },
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Midfielders",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "MID"
+          },
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Forwards",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "FWD"
+          },
+          {
+           "field": "owned_now",
+           "op": "lt",
+           "value": 10.0
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     },
+     {
+      "kind": "unsupported",
+      "label": "Not available: ownership at the time",
+      "value": [
+       "ownership_then"
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": true
+     }
+    ],
+    "text": "Most points · Season · Owned now < 10% · All positions · ⚠ Not available: ownership at the time",
+    "lang": "en"
+   },
+   "table": null,
+   "comparison": null,
+   "chips": [
+    {
+     "label": "Ownership today (a different question)",
+     "spec": {
+      "v": 1,
+      "shape": "list",
+      "grain": "player",
+      "metric": "total_points",
+      "operator": "sum",
+      "match_set": [
+       {
+        "pred": "season",
+        "value": true
+       }
+      ],
+      "filters": [
+       {
+        "field": "owned_now",
+        "op": "lt",
+        "value": 10.0
+       }
+      ],
+      "order": "desc",
+      "top_n": 10
+     }
+    }
+   ],
+   "notes": [],
+   "sum_check": null,
+   "changed_parts": [],
+   "message": "I can't work that out yet: ownership at the time. I only have today's ownership."
+  }
+ },
+ "data_unavailable": {
+  "final_text": "Muestro: Más puntos · ⚠ J7–J10 · Todas las posiciones\nTodavía no hay datos de J9–J10.",
+  "outcome": "data_unavailable",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "data_unavailable",
+   "reason": "not_started",
+   "lang": "es",
+   "spec": {
+    "v": 1,
+    "shape": "list",
+    "grain": "player",
+    "metric": "total_points",
+    "operator": "sum",
+    "match_set": [
+     {
+      "pred": "gw_range",
+      "value": [
+       7,
+       10
+      ]
+     }
+    ],
+    "filters": [],
+    "order": "desc",
+    "top_n": 10
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Más puntos",
+      "value": {
+       "metric": "total_points",
+       "operator": "sum",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "window",
+      "label": "J7–J10",
+      "value": {
+       "pred": "gw_range",
+       "value": [
+        7,
+        10
+       ]
+      },
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Últimas 3",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 3
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Últimas 5",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 5
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Últimas 10",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "last_n",
+           "value": 10
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Temporada",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "season",
+           "value": true
+          }
+         ],
+         "filters": [],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": true
+     },
+     {
+      "kind": "position",
+      "label": "Todas las posiciones",
+      "value": null,
+      "editable": true,
+      "alternatives": [
+       {
+        "label": "Porteros",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "gw_range",
+           "value": [
+            7,
+            10
+           ]
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "GKP"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Defensas",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "gw_range",
+           "value": [
+            7,
+            10
+           ]
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "DEF"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Medios",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "gw_range",
+           "value": [
+            7,
+            10
+           ]
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "MID"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       },
+       {
+        "label": "Delanteros",
+        "spec": {
+         "v": 1,
+         "shape": "list",
+         "grain": "player",
+         "metric": "total_points",
+         "operator": "sum",
+         "match_set": [
+          {
+           "pred": "gw_range",
+           "value": [
+            7,
+            10
+           ]
+          }
+         ],
+         "filters": [
+          {
+           "field": "position",
+           "op": "eq",
+           "value": "FWD"
+          }
+         ],
+         "order": "desc",
+         "top_n": 10
+        }
+       }
+      ],
+      "braked": false
+     }
+    ],
+    "text": "Más puntos · ⚠ J7–J10 · Todas las posiciones",
+    "lang": "es"
+   },
+   "table": null,
+   "comparison": null,
+   "chips": [],
+   "notes": [],
+   "sum_check": null,
+   "changed_parts": [],
+   "message": "Todavía no hay datos de J9–J10."
+  }
+ },
+ "unreadable_call": {
+  "final_text": "No he entendido bien la consulta. ¿Puedes decirlo de otra forma?",
+  "outcome": "needs_clarification",
+  "supported": false,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": true,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "needs_clarification",
+   "reason": "invalid_spec",
+   "lang": "es",
+   "spec": null,
+   "reading": null,
+   "table": null,
+   "comparison": null,
+   "chips": [],
+   "notes": [],
+   "sum_check": null,
+   "changed_parts": [],
+   "message": "No he entendido bien la consulta. ¿Puedes decirlo de otra forma?"
+  }
+ }
+}
