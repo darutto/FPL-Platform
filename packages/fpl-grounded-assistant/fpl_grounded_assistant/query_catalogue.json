@@ -1,0 +1,291 @@
+{
+  "version": 1,
+  "vocabulary_version": "draft-2",
+  "shapes": [
+    "list",
+    "comparison"
+  ],
+  "grains": [
+    "player",
+    "team"
+  ],
+  "predicates": [
+    "season",
+    "last_n",
+    "gw",
+    "gw_range",
+    "since_date",
+    "player_played_60",
+    "player_absent",
+    "venue"
+  ],
+  "filter_fields": [
+    "position",
+    "price",
+    "club",
+    "owned_now",
+    "minutes_in_window",
+    "set_piece"
+  ],
+  "ops": [
+    "eq",
+    "in",
+    "lt",
+    "le",
+    "gt",
+    "ge",
+    "between",
+    "not"
+  ],
+  "unsupported_kinds": [
+    "player_venue",
+    "opponent",
+    "month",
+    "calendar_phrase",
+    "result",
+    "started",
+    "several_players",
+    "player_attribute",
+    "exclusion",
+    "single_value",
+    "difference_list",
+    "more_than_two_sets",
+    "ownership_then",
+    "future",
+    "flank_or_shots",
+    "past_season",
+    "count_of_gws",
+    "streak",
+    "vague_recent"
+  ],
+  "metric_phrases": {
+    "goles mas asistencias esperados": "expected_goal_involvements",
+    "goles y asistencias esperados": "expected_goal_involvements",
+    "goles mas asistencias esperadas": "expected_goal_involvements",
+    "goles y asistencias esperadas": "expected_goal_involvements",
+    "expected goal involvements": "expected_goal_involvements",
+    "goles mas asistencias": "goals_scored+assists",
+    "goals plus assists": "goals_scored+assists"
+  },
+  "positions": [
+    "GKP",
+    "DEF",
+    "MID",
+    "FWD"
+  ],
+  "set_pieces": [
+    "penalties",
+    "direct_freekicks",
+    "corners"
+  ],
+  "filter_ops": {
+    "position": [
+      "eq",
+      "in",
+      "not"
+    ],
+    "club": [
+      "eq",
+      "in",
+      "not"
+    ],
+    "set_piece": [
+      "eq",
+      "in",
+      "not"
+    ],
+    "price": [
+      "eq",
+      "lt",
+      "le",
+      "gt",
+      "ge",
+      "between"
+    ],
+    "owned_now": [
+      "eq",
+      "lt",
+      "le",
+      "gt",
+      "ge",
+      "between"
+    ],
+    "minutes_in_window": [
+      "eq",
+      "lt",
+      "le",
+      "gt",
+      "ge",
+      "between"
+    ]
+  },
+  "filter_ranges": {
+    "price": [
+      0,
+      30
+    ],
+    "owned_now": [
+      0,
+      100
+    ],
+    "minutes_in_window": [
+      0,
+      3420
+    ]
+  },
+  "team_grain_metric_map": {
+    "goals_scored": "team_goals",
+    "clean_sheets": "team_clean_sheets",
+    "goals_conceded": "team_goals_conceded",
+    "expected_goals": "team_expected_goals",
+    "expected_goals_conceded": "team_expected_goals_conceded"
+  },
+  "group_operators": {
+    "additive": [
+      "sum",
+      "per_match",
+      "per_90",
+      "per_million",
+      "minus",
+      "plus"
+    ],
+    "snapshot": [
+      "sum"
+    ],
+    "team": [
+      "sum",
+      "per_match",
+      "minus",
+      "plus"
+    ]
+  },
+  "operator_exclusions": {
+    "minutes": [
+      "per_90"
+    ]
+  },
+  "defaults": {
+    "shape": "list",
+    "grain": "player",
+    "operator": "sum",
+    "match_set": [
+      {
+        "pred": "season",
+        "value": true
+      }
+    ],
+    "owned_now_low": {
+      "op": "lt",
+      "value": 10
+    },
+    "top_n": 10
+  },
+  "limits": {
+    "top_n_max": 20,
+    "gameweek_max": 38,
+    "name_max_chars": 60
+  },
+  "floors": {
+    "asc_minutes": 60,
+    "rate_minutes_base": 270,
+    "rate_share_of_available": 0.3,
+    "rate_early_cap_share": 0.5,
+    "rate_operators": [
+      "per_match",
+      "per_90"
+    ]
+  },
+  "operators": {
+    "sum": {
+      "suffix": {
+        "es": "",
+        "en": ""
+      },
+      "joiner": "",
+      "second_metric": null
+    },
+    "per_match": {
+      "suffix": {
+        "es": "por partido",
+        "en": "per match"
+      },
+      "joiner": "",
+      "second_metric": null
+    },
+    "per_90": {
+      "suffix": {
+        "es": "por 90",
+        "en": "per 90"
+      },
+      "joiner": "",
+      "second_metric": null
+    },
+    "per_million": {
+      "suffix": {
+        "es": "por millón (precio actual)",
+        "en": "per £m (current price)"
+      },
+      "joiner": "",
+      "second_metric": null
+    },
+    "minus": {
+      "suffix": {
+        "es": "",
+        "en": ""
+      },
+      "joiner": " − ",
+      "second_metric": "metric_minus"
+    },
+    "plus": {
+      "suffix": {
+        "es": "",
+        "en": ""
+      },
+      "joiner": " + ",
+      "second_metric": "metric_plus"
+    }
+  },
+  "metrics": [
+    {"id": "total_points", "group": "additive", "field": "total_points", "unit": "points", "default_order": "desc", "floor": "standard", "name": {"es": "puntos", "en": "points"}, "desc": {"es": "Más puntos", "en": "Most points"}, "asc": {"es": "Menos puntos", "en": "Fewest points"}},
+    {"id": "minutes", "group": "additive", "field": "minutes", "unit": "minutes", "default_order": "desc", "floor": "none", "name": {"es": "minutos", "en": "minutes"}, "desc": {"es": "Más minutos", "en": "Most minutes"}, "asc": {"es": "Menos minutos", "en": "Fewest minutes"}},
+    {"id": "starts", "group": "additive", "field": "starts", "unit": "matches", "default_order": "desc", "floor": "standard", "name": {"es": "titularidades", "en": "starts"}, "desc": {"es": "Más titularidades", "en": "Most starts"}, "asc": {"es": "Menos titularidades", "en": "Fewest starts"}},
+    {"id": "goals_scored", "group": "additive", "field": "goals_scored", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "goles", "en": "goals"}, "desc": {"es": "Más goles", "en": "Most goals"}, "asc": {"es": "Menos goles", "en": "Fewest goals"}},
+    {"id": "assists", "group": "additive", "field": "assists", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "asistencias", "en": "assists"}, "desc": {"es": "Más asistencias", "en": "Most assists"}, "asc": {"es": "Menos asistencias", "en": "Fewest assists"}},
+    {"id": "clean_sheets", "group": "additive", "field": "clean_sheets", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "porterías a cero", "en": "clean sheets"}, "desc": {"es": "Más porterías a cero", "en": "Most clean sheets"}, "asc": {"es": "Menos porterías a cero", "en": "Fewest clean sheets"}},
+    {"id": "goals_conceded", "group": "additive", "field": "goals_conceded", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "goles recibidos", "en": "goals conceded"}, "desc": {"es": "Más goles recibidos", "en": "Most goals conceded"}, "asc": {"es": "Menos goles recibidos", "en": "Fewest goals conceded"}},
+    {"id": "own_goals", "group": "additive", "field": "own_goals", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "goles en propia puerta", "en": "own goals"}, "desc": {"es": "Más goles en propia puerta", "en": "Most own goals"}, "asc": {"es": "Menos goles en propia puerta", "en": "Fewest own goals"}},
+    {"id": "penalties_saved", "group": "additive", "field": "penalties_saved", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "penales atajados", "en": "penalties saved"}, "desc": {"es": "Más penales atajados", "en": "Most penalties saved"}, "asc": {"es": "Menos penales atajados", "en": "Fewest penalties saved"}},
+    {"id": "penalties_missed", "group": "additive", "field": "penalties_missed", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "penales fallados", "en": "penalties missed"}, "desc": {"es": "Más penales fallados", "en": "Most penalties missed"}, "asc": {"es": "Menos penales fallados", "en": "Fewest penalties missed"}},
+    {"id": "yellow_cards", "group": "additive", "field": "yellow_cards", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "tarjetas amarillas", "en": "yellow cards"}, "desc": {"es": "Más tarjetas amarillas", "en": "Most yellow cards"}, "asc": {"es": "Menos tarjetas amarillas", "en": "Fewest yellow cards"}},
+    {"id": "red_cards", "group": "additive", "field": "red_cards", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "tarjetas rojas", "en": "red cards"}, "desc": {"es": "Más tarjetas rojas", "en": "Most red cards"}, "asc": {"es": "Menos tarjetas rojas", "en": "Fewest red cards"}},
+    {"id": "saves", "group": "additive", "field": "saves", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "atajadas", "en": "saves"}, "desc": {"es": "Más atajadas", "en": "Most saves"}, "asc": {"es": "Menos atajadas", "en": "Fewest saves"}},
+    {"id": "bonus", "group": "additive", "field": "bonus", "unit": "points", "default_order": "desc", "floor": "standard", "name": {"es": "puntos de bonus", "en": "bonus points"}, "desc": {"es": "Más puntos de bonus", "en": "Most bonus points"}, "asc": {"es": "Menos puntos de bonus", "en": "Fewest bonus points"}},
+    {"id": "bps", "group": "additive", "field": "bps", "unit": "points", "default_order": "desc", "floor": "standard", "name": {"es": "puntos BPS", "en": "BPS points"}, "desc": {"es": "Más puntos BPS", "en": "Most BPS points"}, "asc": {"es": "Menos puntos BPS", "en": "Fewest BPS points"}},
+    {"id": "influence", "group": "additive", "field": "influence", "unit": "index", "default_order": "desc", "floor": "standard", "name": {"es": "influencia (FPL)", "en": "influence (FPL)"}, "desc": {"es": "Mayor influencia (FPL)", "en": "Highest influence (FPL)"}, "asc": {"es": "Menor influencia (FPL)", "en": "Lowest influence (FPL)"}},
+    {"id": "creativity", "group": "additive", "field": "creativity", "unit": "index", "default_order": "desc", "floor": "standard", "name": {"es": "creatividad (FPL)", "en": "creativity (FPL)"}, "desc": {"es": "Mayor creatividad (FPL)", "en": "Highest creativity (FPL)"}, "asc": {"es": "Menor creatividad (FPL)", "en": "Lowest creativity (FPL)"}},
+    {"id": "threat", "group": "additive", "field": "threat", "unit": "index", "default_order": "desc", "floor": "standard", "name": {"es": "amenaza (FPL)", "en": "threat (FPL)"}, "desc": {"es": "Mayor amenaza (FPL)", "en": "Highest threat (FPL)"}, "asc": {"es": "Menor amenaza (FPL)", "en": "Lowest threat (FPL)"}},
+    {"id": "ict_index", "group": "additive", "field": "ict_index", "unit": "index", "default_order": "desc", "floor": "standard", "name": {"es": "índice ICT", "en": "ICT index"}, "desc": {"es": "Mayor índice ICT", "en": "Highest ICT index"}, "asc": {"es": "Menor índice ICT", "en": "Lowest ICT index"}},
+    {"id": "expected_goals", "group": "additive", "field": "expected_goals", "unit": "xg", "default_order": "desc", "floor": "standard", "name": {"es": "xG", "en": "xG"}, "desc": {"es": "Mayor xG", "en": "Highest xG"}, "asc": {"es": "Menor xG", "en": "Lowest xG"}},
+    {"id": "expected_assists", "group": "additive", "field": "expected_assists", "unit": "xg", "default_order": "desc", "floor": "standard", "name": {"es": "xA", "en": "xA"}, "desc": {"es": "Mayor xA", "en": "Highest xA"}, "asc": {"es": "Menor xA", "en": "Lowest xA"}},
+    {"id": "expected_goal_involvements", "group": "additive", "field": "expected_goal_involvements", "unit": "xg", "default_order": "desc", "floor": "standard", "name": {"es": "xGI", "en": "xGI"}, "desc": {"es": "Mayor xGI", "en": "Highest xGI"}, "asc": {"es": "Menor xGI", "en": "Lowest xGI"}},
+    {"id": "expected_goals_conceded", "group": "additive", "field": "expected_goals_conceded", "unit": "xg", "default_order": "desc", "floor": "standard", "name": {"es": "xG en contra", "en": "xG conceded"}, "desc": {"es": "Mayor xG en contra", "en": "Highest xG conceded"}, "asc": {"es": "Menor xG en contra", "en": "Lowest xG conceded"}},
+    {"id": "defensive_contribution", "group": "additive", "field": "defensive_contribution", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "contribuciones defensivas", "en": "defensive contributions"}, "desc": {"es": "Más contribuciones defensivas", "en": "Most defensive contributions"}, "asc": {"es": "Menos contribuciones defensivas", "en": "Fewest defensive contributions"}},
+    {"id": "clearances_blocks_interceptions", "group": "additive", "field": "clearances_blocks_interceptions", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "despejes, bloqueos e intercepciones", "en": "clearances, blocks and interceptions"}, "desc": {"es": "Más despejes, bloqueos e intercepciones", "en": "Most clearances, blocks and interceptions"}, "asc": {"es": "Menos despejes, bloqueos e intercepciones", "en": "Fewest clearances, blocks and interceptions"}},
+    {"id": "recoveries", "group": "additive", "field": "recoveries", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "recuperaciones", "en": "recoveries"}, "desc": {"es": "Más recuperaciones", "en": "Most recoveries"}, "asc": {"es": "Menos recuperaciones", "en": "Fewest recoveries"}},
+    {"id": "tackles", "group": "additive", "field": "tackles", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "entradas", "en": "tackles"}, "desc": {"es": "Más entradas", "en": "Most tackles"}, "asc": {"es": "Menos entradas", "en": "Fewest tackles"}},
+    {"id": "now_cost", "group": "snapshot", "field": "now_cost", "unit": "gbp_m", "default_order": "desc", "floor": "none", "name": {"es": "precio actual", "en": "current price"}, "desc": {"es": "Mayor precio actual", "en": "Highest current price"}, "asc": {"es": "Menor precio actual", "en": "Lowest current price"}},
+    {"id": "selected_by_percent", "group": "snapshot", "field": "selected_by_percent", "unit": "percent", "default_order": "desc", "floor": "standard", "name": {"es": "propiedad hoy", "en": "ownership now"}, "desc": {"es": "Mayor propiedad hoy", "en": "Highest ownership now"}, "asc": {"es": "Menor propiedad hoy", "en": "Lowest ownership now"}},
+    {"id": "form", "group": "snapshot", "field": "form", "unit": "points", "default_order": "desc", "floor": "standard", "name": {"es": "forma (FPL)", "en": "form (FPL)"}, "desc": {"es": "Mayor forma (FPL)", "en": "Highest form (FPL)"}, "asc": {"es": "Menor forma (FPL)", "en": "Lowest form (FPL)"}},
+    {"id": "points_per_game", "group": "snapshot", "field": "points_per_game", "unit": "points", "default_order": "desc", "floor": "rate", "name": {"es": "promedio de puntos (FPL)", "en": "points-per-game average (FPL)"}, "desc": {"es": "Mayor promedio de puntos (FPL)", "en": "Highest points-per-game average (FPL)"}, "asc": {"es": "Menor promedio de puntos (FPL)", "en": "Lowest points-per-game average (FPL)"}},
+    {"id": "transfers_in_event", "group": "snapshot", "field": "transfers_in_event", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "fichajes esta jornada", "en": "transfers in this gameweek"}, "desc": {"es": "Más fichajes esta jornada", "en": "Most transfers in this gameweek"}, "asc": {"es": "Menos fichajes esta jornada", "en": "Fewest transfers in this gameweek"}},
+    {"id": "transfers_out_event", "group": "snapshot", "field": "transfers_out_event", "unit": "count", "default_order": "desc", "floor": "standard", "name": {"es": "ventas esta jornada", "en": "transfers out this gameweek"}, "desc": {"es": "Más ventas esta jornada", "en": "Most transfers out this gameweek"}, "asc": {"es": "Menos ventas esta jornada", "en": "Fewest transfers out this gameweek"}},
+    {"id": "penalties_order", "group": "snapshot", "field": "penalties_order", "unit": "order", "default_order": "asc", "floor": "none", "name": {"es": "orden de penales", "en": "penalty taker order"}, "desc": {"es": "Orden de penales (último primero)", "en": "Penalty taker order (last first)"}, "asc": {"es": "Orden de penales", "en": "Penalty taker order"}},
+    {"id": "direct_freekicks_order", "group": "snapshot", "field": "direct_freekicks_order", "unit": "order", "default_order": "asc", "floor": "none", "name": {"es": "orden de tiros libres directos", "en": "direct free kick taker order"}, "desc": {"es": "Orden de tiros libres directos (último primero)", "en": "Direct free kick taker order (last first)"}, "asc": {"es": "Orden de tiros libres directos", "en": "Direct free kick taker order"}},
+    {"id": "corners_and_indirect_freekicks_order", "group": "snapshot", "field": "corners_and_indirect_freekicks_order", "unit": "order", "default_order": "asc", "floor": "none", "name": {"es": "orden de córners y tiros libres indirectos", "en": "corner and indirect free kick taker order"}, "desc": {"es": "Orden de córners y tiros libres indirectos (último primero)", "en": "Corner and indirect free kick taker order (last first)"}, "asc": {"es": "Orden de córners y tiros libres indirectos", "en": "Corner and indirect free kick taker order"}},
+    {"id": "team_goals", "group": "team", "field": "fixtures.goals_for", "unit": "count", "default_order": "desc", "floor": "none", "name": {"es": "goles", "en": "goals"}, "desc": {"es": "Más goles", "en": "Most goals"}, "asc": {"es": "Menos goles", "en": "Fewest goals"}},
+    {"id": "team_expected_goals", "group": "team", "field": "opponents.expected_goals_conceded.mode_90", "unit": "xg", "default_order": "desc", "floor": "none", "name": {"es": "xG", "en": "xG"}, "desc": {"es": "Mayor xG", "en": "Highest xG"}, "asc": {"es": "Menor xG", "en": "Lowest xG"}},
+    {"id": "team_goals_conceded", "group": "team", "field": "fixtures.goals_against", "unit": "count", "default_order": "desc", "floor": "none", "name": {"es": "goles recibidos", "en": "goals conceded"}, "desc": {"es": "Más goles recibidos", "en": "Most goals conceded"}, "asc": {"es": "Menos goles recibidos", "en": "Fewest goals conceded"}},
+    {"id": "team_expected_goals_conceded", "group": "team", "field": "own.expected_goals_conceded.mode_90", "unit": "xg", "default_order": "desc", "floor": "none", "name": {"es": "xG en contra", "en": "xG conceded"}, "desc": {"es": "Mayor xG en contra", "en": "Highest xG conceded"}, "asc": {"es": "Menor xG en contra", "en": "Lowest xG conceded"}},
+    {"id": "team_clean_sheets", "group": "team", "field": "fixtures.clean_sheet", "unit": "count", "default_order": "desc", "floor": "none", "name": {"es": "porterías a cero", "en": "clean sheets"}, "desc": {"es": "Más porterías a cero", "en": "Most clean sheets"}, "asc": {"es": "Menos porterías a cero", "en": "Fewest clean sheets"}}
+  ]
+}
