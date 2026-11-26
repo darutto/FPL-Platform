@@ -118,8 +118,9 @@ def test_both_tools_have_registry_schemas():
 
 
 def test_atomic_pattern_no_intent_no_classifier():
-    # outlook stays atomic (text-narrated, no intent mapping)
-    assert "get_player_zonal_outlook" not in _TOOL_TO_INTENT
+    # The outlook is renderable too, on purpose (2026-11-26, Leo: the focused
+    # zonal question got less than the general one): its own card intent.
+    assert _TOOL_TO_INTENT["get_player_zonal_outlook"] == "player_zonal_outlook"
     # T4b partial promotion: opportunity is renderable (card) but stays out
     # of the deterministic classifier universe
     assert _TOOL_TO_INTENT["get_zonal_opportunity"] == "zonal_opportunity"

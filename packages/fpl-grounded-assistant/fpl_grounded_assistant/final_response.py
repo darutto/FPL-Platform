@@ -83,7 +83,7 @@ from football_data_contract import (
 from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never raises)
 from .locale_types import Locale, DEFAULT_LOCALE
 from .news_es import news_label  # i151c
-from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT, INTENT_PLAYER_ZONAL_OUTLOOK  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
@@ -920,6 +920,19 @@ class PlayerSnapshotMeta:
     signals:                         "tuple[PlayerSignal, ...]" = ()
 
 
+@dataclass(frozen=True)
+class PlayerZonalCardMeta:
+    """The card of a focused zonal question (get_player_zonal_outlook): a short
+    header plus the snapshot card's «Zonas» block, same shape."""
+    id:         int
+    web_name:   str
+    team_short: str
+    position:   str
+    zonal:      PlayerZonalOutlookMeta
+    #: Only the «Zonas» section's closing link (kind ``zone``), when it applies.
+    signals:    "tuple[PlayerSignal, ...]" = ()
+
+
 # ---------------------------------------------------------------------------
 # Injury list metadata  (Phase 2.6d Story 2.3)
 # ---------------------------------------------------------------------------
@@ -1476,6 +1489,7 @@ class FinalResponse:
     fixture_outlook:      "FixtureOutlookMeta | None"      = field(default=None)  # Track D / FI4
     zonal_opportunity:    "DefensiveZonesMeta | None"      = field(default=None)  # T4b
     player_snapshot:      "PlayerSnapshotMeta | None"      = field(default=None)  # single-player card
+    player_zonal:         "PlayerZonalCardMeta | None"     = field(default=None)  # focused zonal card
     # Phase 2.7d: routing audit fields (additive, safe defaults)
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
@@ -2140,6 +2154,28 @@ def _extract_player_zonal_meta(raw: "Any") -> "PlayerZonalOutlookMeta | None":
         return None
 
 
+def _extract_player_zonal_card(ro: "dict[str, Any]") -> "PlayerZonalCardMeta | None":
+    """``card`` of a get_player_zonal_outlook output; None (text answer) when the
+    tool composed none or it is malformed. Never a header without zones."""
+    raw = ro.get("card")
+    if not isinstance(raw, dict):
+        return None
+    zonal = _extract_player_zonal_meta(raw.get("zonal"))
+    if zonal is None or not zonal.zones:
+        return None
+    try:
+        return PlayerZonalCardMeta(
+            id         = int(raw["id"]),
+            web_name   = str(raw["web_name"]),
+            team_short = str(raw["team_short"]),
+            position   = str(raw["position"]),
+            zonal      = zonal,
+            signals    = _extract_player_signals(raw.get("signals")),
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _extract_player_signals(raw: Any) -> "tuple[PlayerSignal, ...]":
     """``signals`` from the snapshot output; anything malformed is dropped."""
     if not isinstance(raw, list):
@@ -2724,6 +2760,7 @@ def _extract_structured_meta(
     fixture_outlook_meta:      "FixtureOutlookMeta | None"        = None
     zonal_opportunity_meta:    "DefensiveZonesMeta | None"        = None
     player_snapshot_meta:      "PlayerSnapshotMeta | None"        = None
+    player_zonal_meta:         "PlayerZonalCardMeta | None"       = None
 
     if ok:
         if intent == INTENT_COMPARE_PLAYERS:
@@ -2766,6 +2803,8 @@ def _extract_structured_meta(
             zonal_opportunity_meta = _extract_zonal_opportunity_meta(raw_output)
         elif intent == INTENT_PLAYER_SNAPSHOT:
             player_snapshot_meta = _extract_player_snapshot_meta(raw_output, locale)
+        elif intent == INTENT_PLAYER_ZONAL_OUTLOOK:
+            player_zonal_meta = _extract_player_zonal_card(raw_output)
 
     result: "dict[str, Any]" = {
         "comparison":           comparison,
@@ -2790,6 +2829,7 @@ def _extract_structured_meta(
         "fixture_outlook":      fixture_outlook_meta,
         "zonal_opportunity":    zonal_opportunity_meta,
         "player_snapshot":      player_snapshot_meta,
+        "player_zonal":         player_zonal_meta,
     }
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
@@ -3055,6 +3095,7 @@ def _orch_result_to_final_response(
     differential:    "DifferentialPicksMeta | None"          = None
     fixture_outlook: "FixtureOutlookMeta | None"             = None
     zonal_opportunity: "DefensiveZonesMeta | None"           = None
+    player_zonal: "PlayerZonalCardMeta | None"               = None
 
     if intent == INTENT_CAPTAIN_SCORE:
         captain = _extract_captain_meta(ro)
@@ -3080,6 +3121,8 @@ def _orch_result_to_final_response(
         fixture_outlook = _extract_fixture_outlook_meta(ro)
     elif intent == INTENT_ZONAL_OPPORTUNITY:
         zonal_opportunity = _extract_zonal_opportunity_meta(ro)
+    elif intent == INTENT_PLAYER_ZONAL_OUTLOOK:
+        player_zonal = _extract_player_zonal_card(ro)
 
     # Orch-4d: apply squad_context overrides (budget, hit_warning, chip_unavail)
     # using the same shared helper as the deterministic path for parity.
@@ -3124,6 +3167,7 @@ def _orch_result_to_final_response(
         differential=differential,
         fixture_outlook=fixture_outlook,   # Track D / FI4
         zonal_opportunity=zonal_opportunity,  # T4b
+        player_zonal=player_zonal,
         orch_outcome=ORCH_OUTCOME_OK,  # Orch-4c: audit — orch path was used
         total_tokens=result.total_tokens,
     )
@@ -3579,6 +3623,7 @@ def _try_session_orchestration_response(
         fixture_outlook=result.get("fixture_outlook"),
         zonal_opportunity=result.get("zonal_opportunity"),
         player_snapshot=result.get("player_snapshot"),
+        player_zonal=result.get("player_zonal"),
         generic_card=result.get("generic_card"),
         table_conclusions=result.get("table_conclusions"),
         web_search=_web_search_payload(result, answer_text),
@@ -3884,6 +3929,7 @@ def respond(
         fixture_outlook=_meta["fixture_outlook"],            # Track D / FI4
         zonal_opportunity=_meta["zonal_opportunity"],        # T4b
         player_snapshot=_meta["player_snapshot"],            # single-player card
+        player_zonal=_meta["player_zonal"],                  # focused zonal card
         # Phase 2.7d: routing audit fields threaded from DispatchResult
         route_source=dr.route_source,
         classifier_confidence=dr.classifier_confidence,

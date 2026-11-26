@@ -145,6 +145,7 @@ from .dispatcher import (
     INTENT_DIFFERENTIAL_PICKS,     # Phase 8d-ii
     INTENT_PLAYER_FORM,            # Phase 2.7c
     INTENT_PLAYER_SNAPSHOT,
+    INTENT_PLAYER_ZONAL_OUTLOOK,
 )
 from .router import route
 from .final_response import respond as _respond, FinalResponse
@@ -542,6 +543,7 @@ class ConversationState:
                 INTENT_PLAYER_RESOLVE,
                 INTENT_PLAYER_FORM,   # Phase 2.7c: form turns also anchor player context
                 INTENT_PLAYER_SNAPSHOT,
+                INTENT_PLAYER_ZONAL_OUTLOOK,
             )
         ):
             self.last_player_query = resolved_query

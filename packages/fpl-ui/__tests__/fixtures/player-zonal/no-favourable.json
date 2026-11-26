@@ -1,0 +1,64 @@
+{
+  "final_text": "Lectura del cruce.",
+  "intent": "player_zonal_outlook",
+  "outcome": "ok",
+  "player_zonal": {
+    "id": 10,
+    "position": "MID",
+    "signals": [],
+    "team_short": "CHE",
+    "web_name": "Palmer",
+    "zonal": {
+      "data_provenance": {
+        "ingested_at": "2026-09-12T06:00:00Z",
+        "is_current": true,
+        "label": "Datos: temporada 2026-27",
+        "live_season": "2026-2027",
+        "n_matches": 380,
+        "n_shots": 163,
+        "season": "2026-2027",
+        "season_label": "2026-27",
+        "status": "current"
+      },
+      "fixtures": [
+        {
+          "fixture_id": 101,
+          "gameweek": 6,
+          "is_home": true,
+          "matches": [],
+          "opponent": "Bournemouth",
+          "opponent_short": "BOU",
+          "status": "neutral"
+        },
+        {
+          "fixture_id": 102,
+          "gameweek": 7,
+          "is_home": false,
+          "matches": [],
+          "opponent": "Everton",
+          "opponent_short": "EVE",
+          "status": "neutral"
+        },
+        {
+          "fixture_id": 103,
+          "gameweek": 8,
+          "is_home": true,
+          "matches": [],
+          "opponent": "Ipswich",
+          "opponent_short": "IPS",
+          "status": "no_data"
+        }
+      ],
+      "gw_from": 6,
+      "gw_to": 8,
+      "verdict": "Sin cruce zonal destacado para Palmer en los partidos de las próximas 3 jornadas.",
+      "verdict_kind": "neutral",
+      "zones": [
+        {
+          "share": 1.0,
+          "zone": "in-box / central"
+        }
+      ]
+    }
+  }
+}

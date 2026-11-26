@@ -788,6 +788,55 @@ def _fixtures_callback(
     return fixtures_for_team
 
 
+def _with_player_card(
+    result: dict[str, Any], bootstrap: dict[str, Any], horizon: int,
+) -> dict[str, Any]:
+    """Add the card of an ``ok`` outlook, composed by the snapshot card's own
+    ``compose_player_zonal`` (same identity, pending-only calendar, old-data
+    profile mode). The model's rows, verdict and stamp are then the card's, so
+    prose and card cannot disagree. No provable identity or calendar: the
+    result is returned as it was and the answer stays text."""
+    # Imported here: player_snapshot_zonal imports this module.
+    from .player_signals import zone_signal  # noqa: PLC0415
+    from .player_snapshot_zonal import compose_player_zonal, element_for_store_player  # noqa: PLC0415
+
+    element = element_for_store_player(result["player"], bootstrap)
+    if element is None:
+        return result
+    composed = compose_player_zonal(element, bootstrap, horizon)
+    if composed.zonal is None or composed.store_player != result["player"]:
+        return result
+    zonal = composed.zonal
+    team = next(
+        (tm for tm in bootstrap.get("teams") or [] if tm.get("id") == element.get("team")), {}
+    )
+    position = next(
+        (
+            str(et.get("singular_name_short") or "")
+            for et in bootstrap.get("element_types") or []
+            if et.get("id") == element.get("element_type")
+        ),
+        "",
+    )
+    link = zone_signal(element, zonal, bootstrap)
+    return {
+        **result,
+        "outlook": zonal["fixtures"],
+        "verdict": zonal["verdict"],
+        "verdict_kind": zonal["verdict_kind"],
+        "data_provenance": zonal["data_provenance"],
+        # UI only (orchestrator._MODEL_HIDDEN_FIELDS): the facts above are the card's.
+        "card": {
+            "id": element.get("id"),
+            "web_name": str(element.get("web_name") or result["player"]),
+            "team_short": str(team.get("short_name") or ""),
+            "position": position,
+            "zonal": zonal,
+            "signals": [link] if link else [],
+        },
+    }
+
+
 def _get_player_zonal_outlook_handler(
     args:      dict[str, Any],
     bootstrap: dict[str, Any],
@@ -844,6 +893,11 @@ def _get_player_zonal_outlook_handler(
         result["message"] = (
             "Tactical store or upcoming fixtures unavailable for this player."
         )
+    if result["status"] == "ok":
+        try:
+            result = _with_player_card(result, bootstrap, horizon)
+        except Exception:  # noqa: BLE001 -- the card must not cost the text answer
+            pass
     return result
 
 
@@ -880,6 +934,8 @@ GET_PLAYER_ZONAL_OUTLOOK_SPEC = ToolSpec(
             "player_zones": {"type": "array"},
             "outlook":      {"type": "array"},
             "verdict":      {"type": "string"},
+            "verdict_kind": {"type": "string"},
+            "card":         {"type": "object"},  # UI only
             "data_provenance": {"type": "object"},  # i74 season stamp
         },
     },
