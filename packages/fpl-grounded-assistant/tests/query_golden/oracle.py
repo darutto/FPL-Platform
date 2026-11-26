@@ -60,7 +60,7 @@ def team_xg(match):
         if element["team"] == match["opp"] and played == {str(match["id"]): 90}:
             seen.append(stat(pid, match["gw"], "expected_goals_conceded"))
     counts = Counter(seen)
-    return max(counts, key=lambda v: (counts[v], v))
+    return min(v for v in counts if counts[v] == max(counts.values()))
 
 
 def ranked(entries, top_n=10, ascending=False):

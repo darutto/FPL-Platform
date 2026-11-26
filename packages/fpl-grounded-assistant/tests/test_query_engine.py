@@ -295,6 +295,27 @@ def test_shooters_that_disagree_are_a_range_never_an_average():
     assert (row.value, row.value_range, result.cross_check) == (1.5, (1.5, 1.88), "range")
 
 
+@pytest.mark.parametrize("shooters,expected", [
+    (1.55, (1.4, 1.7)),        # the shooters sit inside the tie: the tie is the range
+    (2.4, (1.4, 2.4)),         # they sit outside it: the range reaches them
+])
+def test_tied_opponent_values_are_a_range_and_none_is_picked(shooters, expected):
+    bootstrap, batch = world()
+    _unmove(bootstrap)
+    fixture = _first_match_of_alder(batch)
+    opponent = fixture["team_a"] if fixture["team_h"] == 1 else fixture["team_h"]
+    full = [p for p, per in sorted(batch.gameweeks[1].fixture_minutes.items())
+            if per == {fixture["id"]: 90} and element(bootstrap, p)["team"] == opponent]
+    assert len(full) >= 4
+    for pid in full[4:]:                                      # leave exactly two against two
+        batch.gameweeks[1].fixture_minutes[pid][fixture["id"]] = 89
+    for pid, value in zip(full[:4], [1.4, 1.4, 1.7, 1.7]):
+        batch.gameweeks[1].rows[pid]["expected_goals_conceded"] = value
+    _set_shooters(batch, bootstrap, shooters)
+    result, row = _alder_gw1_xg(bootstrap, batch)
+    assert (row.value_range, result.cross_check) == (expected, "range")
+
+
 def test_team_xg_with_no_full_match_opponent_is_unavailable():
     bootstrap, batch = world()
     for per in batch.gameweeks[1].fixture_minutes.values():

@@ -21,7 +21,9 @@ How matches and rows are counted:
 * **Club means current club.** Matches before a player joined it are not that club's matches of his.
 * **Team xG** of a match is the most common ``expected_goals_conceded`` among the opponents who played 90
   minutes. The sum of the club's own shooters is a cross-check: where the two differ by more than
-  ``SHOOTER_TOLERANCE`` the result carries a range. They are never averaged.
+  ``SHOOTER_TOLERANCE`` the result carries a range. Opponents' values tied for most common are a range
+  too: none is picked. Nothing is ever averaged. **Where a range is set, the range is the answer**;
+  ``value`` then only orders the rows (the mode, or the low end of a tie).
 
 Nothing imports this module at runtime yet (query layer, PR 3).
 """
@@ -91,6 +93,7 @@ class Side:
     per_match: float
     value: float                              # what the spec's operator asks for
     per_match_values: tuple[float, ...]
+    per_match_bounds: tuple[tuple[float, float], ...] = ()    # (low, high) per match; equal when certain
     total_range: tuple[float, float] | None = None
 
 
@@ -318,8 +321,8 @@ class _Run:
 
     # -- team values ----------------------------------------------------------
 
-    def team_xg(self, match: _Match) -> tuple[float, float | None]:
-        """(opponents' mode, shooters' sum when it disagrees) for the club of *match*."""
+    def team_xg(self, match: _Match) -> tuple[float, float, float]:
+        """(sort key, low, high) of the xG of the club of *match*; low == high when the measures agree."""
         data = self.batch.gameweeks[match.gameweek]
         seen: list[float] = []
         shooters, splittable = 0.0, True
@@ -340,17 +343,20 @@ class _Run:
         if not seen:
             raise _Stop(DATA_UNAVAILABLE, "team_xg_unmeasured", missing_gameweeks=(match.gameweek,))
         counts = Counter(seen)
-        mode = max(counts, key=lambda v: (counts[v], v))    # tied counts: the higher (fullest match)
+        top = max(counts.values())
+        modes = [v for v, n in counts.items() if n == top]
+        key, low, high = min(modes), min(modes), max(modes)
         if not splittable or "expected_goals" in set(getattr(self.batch, "bad_metrics", ())):
-            self.cross_check = "unavailable"
-            return mode, None
-        if self.cross_check == "not_applicable":
-            self.cross_check = "agree"
-        if abs(mode - shooters) > SHOOTER_TOLERANCE + 1e-9:
-            if self.cross_check == "agree":
-                self.cross_check = "range"
-            return mode, round(shooters, 2)
-        return mode, None
+            if self.cross_check != "range":
+                self.cross_check = "unavailable"
+        else:
+            if self.cross_check == "not_applicable":
+                self.cross_check = "agree"
+            if shooters < low - SHOOTER_TOLERANCE - 1e-9 or shooters > high + SHOOTER_TOLERANCE + 1e-9:
+                low, high = min(low, round(shooters, 2)), max(high, round(shooters, 2))
+        if low != high:
+            self.cross_check = "range"
+        return key, low, high
 
     def team_metric(self, metric: str, match: _Match) -> tuple[float, float, float]:
         """(value, low, high) of one team metric in one match."""
@@ -359,10 +365,7 @@ class _Run:
             return value, value, value
         if metric == "team_expected_goals_conceded":          # the opponent's team xG
             match = next(m for m in self.matches if m.fixture == match.fixture and m.team == match.opponent)
-        mode, other = self.team_xg(match)
-        if other is None:
-            return mode, mode, mode
-        return mode, min(mode, other), max(mode, other)
+        return self.team_xg(match)
 
     def team_values(self, match: _Match) -> tuple[float, float, float, tuple[float, ...]]:
         """The spec's metric (with its second one) in one match: (value, low, high, parts)."""
@@ -618,6 +621,7 @@ def _side(run: _Run, matches: list[_Match], gameweeks: tuple[int, ...]) -> Side:
         total=_rounded(total), per_match=_rounded(total / n),
         value=_rounded(total / n if run.spec.operator == "per_match" else total),
         per_match_values=tuple(_rounded(v[0]) for v in values),
+        per_match_bounds=tuple((_rounded(v[1]), _rounded(v[2])) for v in values),
         total_range=None if _rounded(low) == _rounded(high) else (_rounded(low), _rounded(high)))
 
 
@@ -651,11 +655,12 @@ def _comparison(run: _Run) -> dict[str, Any]:
     if min(sizes) < minimum:
         raise _Stop(DATA_UNAVAILABLE, "too_few_matches", **windows_out)
     first, second = (_side(run, matches, gameweeks) for gameweeks, matches in selected)
-    a, b = first.per_match_values, second.per_match_values
+    a, b = ((min(lo for lo, _ in s.per_match_bounds), max(hi for _, hi in s.per_match_bounds))
+            for s in (first, second))
     return {**windows_out, "comparison": Comparison(
         team_id=team, club=run.code(team), sides=(first, second), mixed=tuple(mixed),
         before_join=tuple(sorted(set(before_join))), small_sample=min(sizes) < SMALL_SAMPLE_BELOW,
-        ranges_overlap=min(a) <= max(b) and min(b) <= max(a))}
+        ranges_overlap=a[0] <= b[1] and b[0] <= a[1])}
 
 
 # ------------------------------------------------------------------------------------------------------ entry
