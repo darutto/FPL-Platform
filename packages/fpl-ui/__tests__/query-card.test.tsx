@@ -12,6 +12,7 @@ import '@testing-library/jest-dom';
 
 import IntentRenderer from '../components/chat/IntentRenderer';
 import ShareCard from '../components/share/ShareCard';
+import { readFigure } from '../components/intents/QueryCard';
 import { selectIntentView } from '../lib/intent-renderer';
 import { QueryActionsProvider, type QueryActions } from '../lib/chat-ask';
 import { queryContextForNextTurn } from '../lib/query-context';
@@ -73,7 +74,10 @@ describe.each(NAMES)('%s', (name) => {
     const card = screen.getByTestId('query-card');
     expect(card).toHaveAttribute('data-state', query.state);
     expect(screen.queryByTestId('query-reading') != null).toBe(query.reading != null);
-    for (const part of query.reading?.parts ?? []) expect(card).toHaveTextContent(part.label);
+    for (const part of query.reading?.parts ?? []) {
+      if (query.comparison && ['match_set', 'compare_to'].includes(part.kind)) continue;
+      expect(card).toHaveTextContent(part.label);
+    }
     if (query.message != null) expect(within(card).getByText(query.message)).toBeInTheDocument();
     const notes = screen.queryByTestId('query-notes');
     expect(notes ? within(notes).getAllByRole('listitem').map((li) => li.textContent) : []).toEqual(query.notes);
@@ -138,12 +142,20 @@ describe.each(COMPARISONS)('%s: the comparison card', (name) => {
       expect(blocks.map((b) => b.getAttribute('data-metric'))).toEqual(metrics.map((m) => m.key));
       blocks.forEach((block, j) => {
         const figures = metrics[j].sides[i];
-        expect(within(block).getByText(metrics[j].label)).toBeInTheDocument();
-        expect(within(block).getByText(metrics[j].hero_label)).toBeInTheDocument();
+        const unit = metrics[j].headline === 'per_match' ? 'por partido' : 'total';
+        expect(within(block).getByRole('heading').textContent).toBe(`${metrics[j].label} · ${unit}`);
+        expect(block).not.toHaveTextContent(metrics[j].hero_label);
         const strip = within(block).getByRole('list', { name: metrics[j].label });
         expect(within(strip).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-          figures.series.map((match) => match.label + match.value_text),
+          figures.series.map((match) => {
+            const figure = readFigure(match.value_text)!;
+            return (figure.range ? `≈${figure.mid.toFixed(2)}` : match.value_text) + match.label;
+          }),
         );
+        for (const match of figures.series.filter((m) => readFigure(m.value_text)!.range)) {
+          expect(within(block).getByTestId('query-ranges')).toHaveTextContent(`${match.label} ${match.value_text}`);
+          expect(within(strip).getByTitle(`${match.label}: ${match.value_text}`)).toBeInTheDocument();
+        }
         const other = metrics[j].headline === 'per_match' ? figures.total_text : figures.per_match_text;
         if (other != null) expect(block).toHaveTextContent(`${metrics[j].headline === 'per_match' ? 'Total' : 'Por partido'} ${other}`);
         else expect(block).not.toHaveTextContent(/Total|Por partido [0-9]/);
@@ -157,10 +169,41 @@ describe.each(COMPARISONS)('%s: the comparison card', (name) => {
     const reading = screen.getByTestId('query-reading');
     expect(within(reading).queryByRole('button')).toBeNull();
     expect(within(reading).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-      query.reading!.parts.map((p) => p.label),
+      query.reading!.parts.filter((p) => !['match_set', 'compare_to'].includes(p.kind)).map((p) => p.label),
     );
     expect(screen.getByTestId('query-notes')).not.toHaveTextContent(/FDR|Local|Home|xG por partido|per match:/);
   });
+});
+
+test.each(COMPARISONS)('%s: paired bars for the per-match figures only, on one scale per statistic', (name) => {
+  show(answer(name));
+  const paired = BODIES[name].query!.comparison!.metrics.filter((m) => m.headline === 'per_match');
+  const bars = screen.getByTestId('query-bars');
+  expect(Array.from(bars.querySelectorAll('[data-metric]'), (el) => el.getAttribute('data-metric'))).toEqual(
+    paired.map((m) => m.key),
+  );
+  paired.forEach((metric) => {
+    const group = bars.querySelector<HTMLElement>(`[data-metric="${metric.key}"]`)!;
+    for (const side of metric.sides) expect(group).toHaveTextContent(side.value_text);
+    const mids = metric.sides.map((side) => readFigure(side.value_text)!.mid);
+    const widths = within(group).getAllByTestId('query-bar').map((bar) => parseFloat(bar.style.width));
+    widths.forEach((width, i) => expect(width).toBeCloseTo((100 * mids[i]) / Math.max(...mids), 3));
+    expect(group.innerHTML).not.toMatch(/turquoise|coral/);
+  });
+});
+
+test('a figure is one number or a range; anything else sizes nothing', () => {
+  expect(readFigure('1.67')).toEqual({ mid: 1.67, range: false });
+  expect(readFigure('2.93–3.04')!.range).toBe(true);
+  expect(readFigure('2.90–3.04')!.mid.toFixed(2)).toBe('2.97');
+  for (const text of ['', '–', 'n/a', '1–2–3']) expect(readFigure(text)).toBeNull();
+});
+
+test('the shared image leaves out the footnote the app shows', () => {
+  render(<ShareCard question="q" response={answer('complete_list_es', { footnote: 'Server small print' })}
+    appUrl="https://example.test" cta="cta" />);
+  expect(screen.getByTestId('query-card')).toBeInTheDocument();
+  expect(screen.queryByTestId('query-footnote')).toBeNull();
 });
 
 test('the footnote is drawn under the card, only when the server sends one', () => {

@@ -2,7 +2,7 @@
 
 import type { AskResponse } from '@/lib/types';
 import IntentRenderer from '@/components/chat/IntentRenderer';
-import { QueryActionsProvider } from '@/lib/chat-ask';
+import { QueryActionsProvider, SharedImageProvider } from '@/lib/chat-ask';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 interface Props {
@@ -33,7 +33,9 @@ export default function ShareCard({ question, response, appUrl, cta }: Props) {
       <div className="mt-4">
         {/* The shared image is mounted inside the chat: it must not inherit the card's taps. */}
         <QueryActionsProvider value={null}>
-          <IntentRenderer response={response} />
+          <SharedImageProvider value>
+            <IntentRenderer response={response} />
+          </SharedImageProvider>
         </QueryActionsProvider>
       </div>
 

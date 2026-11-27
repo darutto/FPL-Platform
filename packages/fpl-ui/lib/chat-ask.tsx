@@ -32,6 +32,15 @@ export interface QueryActions {
   correct: () => void;
 }
 
+const SharedImageContext = createContext(false);
+
+/** True inside the picture a user shares, which may leave out small print meant for the app. */
+export const SharedImageProvider = SharedImageContext.Provider;
+
+export function useSharedImage(): boolean {
+  return useContext(SharedImageContext);
+}
+
 const QueryActionsContext = createContext<QueryActions | null>(null);
 
 export const QueryActionsProvider = QueryActionsContext.Provider;
