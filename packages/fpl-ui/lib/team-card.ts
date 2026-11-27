@@ -32,3 +32,10 @@ export function teamCardResponse(body: TeamCardBody): AskResponse {
 export function isLatestTeamCard(last: { response?: AskResponse } | undefined, teamId: number): boolean {
   return last?.response?.team_card?.card.team.id === teamId;
 }
+
+/** The team cards on screen, in order. Each shared message also holds a hidden copy for its image. */
+export function visibleTeamCards(root: ParentNode): Element[] {
+  return Array.from(root.querySelectorAll('[data-testid="team-card"]')).filter(
+    (el) => el.closest('[aria-hidden="true"]') == null,
+  );
+}

@@ -59,6 +59,7 @@ export interface Message {
 }
 
 import TeamChip from './TeamChip';
+import { TeamAxisProvider } from '@/lib/card-view';
 import type { TeamChipMeta } from '@/lib/types';
 
 interface Props {
@@ -122,6 +123,7 @@ export default function MessageList({
     <div ref={listRef} data-testid="conversation-scroll" className="flex-1 min-w-0 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((msg) => (
         <Fragment key={msg.id}>
+          <TeamAxisProvider>
           <MessageBubble
             message={msg}
             shareQuestion={shareQuestionByAssistantId[msg.id] ?? null}
@@ -134,6 +136,7 @@ export default function MessageList({
             onPlayerPick={onPlayerPick}
             onOpenTeam={onOpenTeam}
           />
+          </TeamAxisProvider>
           {pendingEo != null && pendingEo.messageId === msg.id && (
             <div className="flex justify-start" data-testid="eo-pending">
               {pendingEo.timedOut ? (
@@ -224,7 +227,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   const t = useT();
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
-  // A team card has nothing a follow-up session can be seeded with, and no share view yet.
+  // A team card has nothing a follow-up session can be seeded with.
   const isTeamCard = message.response?.intent === 'team_card';
   const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null && !isTeamCard;
   const teamChip =
@@ -365,7 +368,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
               <EvidenceList evidence={message.response!.evidence} />
             </EvidenceBoundary>
           )}
-          {shareQuestion && !isTeamCard && (
+          {shareQuestion != null && (
             <ShareActions question={shareQuestion} response={message.response!} />
           )}
           {showOriginBadge && <OriginBadges message={message} />}
@@ -443,16 +446,24 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   );
 }
 
-function assistantShareQuestionMap(messages: Message[]): Record<string, string> {
+export function assistantShareQuestionMap(messages: Message[]): Record<string, string> {
   const map: Record<string, string> = {};
   let latestUserQuestion = '';
 
+  let previousRole: Message['role'] | null = null;
+
   for (const msg of messages) {
+    const asked = previousRole === 'user';
+    previousRole = msg.role;
     if (msg.role === 'user') {
       latestUserQuestion = msg.text.trim();
       continue;
     }
-    if (latestUserQuestion) {
+    // A team card is shareable with its own question only. One opened by a tap follows another answer, so it
+    // has none ('' = share without a question line), and must not borrow the earlier one.
+    if (msg.response?.intent === 'team_card') {
+      map[msg.id] = asked ? latestUserQuestion : '';
+    } else if (latestUserQuestion) {
       map[msg.id] = latestUserQuestion;
     }
   }

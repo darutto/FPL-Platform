@@ -14,11 +14,12 @@
  * follow PlayerZonasSection/PlayerSignals; both tables follow StatComparisonTable; result pills use theme's
  * PILL_BASE and tones; the data stamp is DefensiveZonesCard's ProvenanceStamp.
  */
-import { useState } from 'react';
 import type { FixtureAxis, TeamCardBody, TeamCardMetric, TeamCardStats } from '@/lib/types';
 import { ACCENT_HEX, CARD_ACCENT, CARD_BASE, GENERIC_TONE_CLASSES, PILL_BASE } from '@/lib/theme';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
 import { axisLabel } from '@/lib/fixture-outlook-format';
+import { useTeamAxis } from '@/lib/card-view';
+import { useSharedImage } from '@/lib/chat-ask';
 import type { DictKey } from '@/lib/i18n/dictionary';
 import PillSwitcher from '@/components/chat/PillSwitcher';
 import { PlayerFixtureStrip } from './PlayerFixtureStrip';
@@ -49,7 +50,8 @@ const banded = (i: number) => (i % 2 === 0 ? 'bg-white/[0.035]' : '');
 export default function TeamCard({ data }: { data: TeamCardBody }) {
   const t = useT();
   const { locale } = useLocale();
-  const [axis, setAxis] = useState<FixtureAxis>('attack');
+  const [axis, setAxis] = useTeamAxis();
+  const shared = useSharedImage();
   const { team, table, stats, fixtures, players, last_finished_gameweek: lastGw, data_provenance: provenance } =
     data.card;
   const missing = (title: DictKey) => (
@@ -137,7 +139,13 @@ export default function TeamCard({ data }: { data: TeamCardBody }) {
           <div className="space-y-2 border-t border-white/10 pt-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className={HEADING}>{t('tc.fixtures')}</h3>
-              {fixtures.next.length > 0 && (
+              {/* In the share image: which side was chosen, as text instead of a control. */}
+              {fixtures.next.length > 0 && shared && (
+                <span className="text-[10px] text-bf-gray" data-testid="team-card-axis">
+                  {t('tc.axis')}: {axisLabel(axis, locale)}
+                </span>
+              )}
+              {fixtures.next.length > 0 && !shared && (
                 <PillSwitcher<FixtureAxis>
                   items={(['attack', 'defence'] as const).map((key) => ({ key, label: axisLabel(key, locale) }))}
                   value={axis}
