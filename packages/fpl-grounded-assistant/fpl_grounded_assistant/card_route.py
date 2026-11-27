@@ -75,7 +75,12 @@ def card_locale(value: str | None) -> Locale:
 
 def build_card(req: CardRequest, bootstrap: dict[str, Any], locale: Locale) -> dict[str, Any] | None:
     """The response body, or ``None`` when the subject does not exist."""
-    card = build_team_card(req.team_id, bootstrap, locale)
+    return card_body(req.team_id, bootstrap, locale)
+
+
+def card_body(team_id: int, bootstrap: dict[str, Any], locale: Locale) -> dict[str, Any] | None:
+    """One team card as served: by ``POST /card`` and inside a chat answer to a bare club name."""
+    card = build_team_card(team_id, bootstrap, locale)
     if card is None:
         return None
-    return {"v": CARD_VERSION, "kind": req.kind, "card": card, "data_stamp": data_stamp(card)}
+    return {"v": CARD_VERSION, "kind": "team", "card": card, "data_stamp": data_stamp(card)}

@@ -1261,9 +1261,26 @@ class ConversationSession:
         # Read include_debug before resolution so we can build resolver debug bundle
         include_debug = kwargs.get("include_debug", False)
 
+        # A bare club name is a card, never a follow-up: it reaches the backend as typed, with no resolver
+        # (deterministic or model) allowed to turn it into a question about the previous turn.
+        from .bare_team import bare_team  # noqa: PLC0415
+
+        is_bare_club = kwargs.get("intent_hint") is None and bare_team(question, bootstrap) is not None
+
         # Phase 5c: deterministic comparison follow-up (highest priority, no client needed)
-        comp_rewritten = resolve_comparison_followup(question, self.state)
-        if comp_rewritten is not None:
+        comp_rewritten = None if is_bare_club else resolve_comparison_followup(question, self.state)
+        if is_bare_club:
+            rewritten = question
+            resolution = ReferenceResolution(
+                resolved_query=None,
+                intent_guess=None,
+                reference_source="none",
+                confidence=0.0,
+                language="en",
+                rewritten_question=question,
+                fallback_reason="bare_club_name",
+            )
+        elif comp_rewritten is not None:
             rewritten = comp_rewritten
             resolution = ReferenceResolution(
                 resolved_query=None,
@@ -1432,6 +1449,8 @@ class ConversationSession:
             _raw_question=question,
         )
         self.last_tokens = response.total_tokens
+        if response.team_card is not None:
+            player_query = None   # a club, even where its name is also the start of a player's
         self.state.update_from_response(
             response, player_query, question_text=rewritten,
             comparison_queries=comparison_queries,

@@ -1358,6 +1358,34 @@ def ask_v2(
     )
     if _divert:
         routing_trace["player_lookup_diverted"] = _divert_reason
+
+    # A bare club name opens its card. The whole input only; an exact player match keeps the player path.
+    from .bare_team import (  # noqa: PLC0415
+        TEAM_CARD_TOOL, bare_team, player_matches_exactly, team_card_output, team_chip,
+    )
+
+    _club = bare_team(cleaned_text, actual_bootstrap)
+    if _club is not None and not player_matches_exactly(_player_lookup):
+        _team_raw = team_card_output(_club, actual_bootstrap, locale)
+        if _team_raw is not None:
+            routing_trace["branch"] = "route"
+            routing_trace["router_hit"] = True
+            routing_trace["grounded"] = True
+            result = {
+                "selected_tool": TEAM_CARD_TOOL,
+                "tool_input": {"team_id": int(_club["id"])},
+                "raw_output": _team_raw,
+                "answer_text": _team_raw["team_name"],   # every figure is on the card under it
+                "outcome": "ok",
+                "kind": "text",
+                "routing_trace": routing_trace,
+                **_meta(TEAM_CARD_TOOL, _team_raw),
+            }
+            if context_meta is not None:
+                result["context_meta"] = context_meta
+            _telemetry.record(routing_trace)
+            return result
+
     if _player_lookup.terminal and not _divert:
         from .suggestions import (  # noqa: PLC0415
             player_disambiguation_suggestions,
@@ -1380,6 +1408,8 @@ def ask_v2(
             "routing_trace": routing_trace,
             **_player_meta,
         }
+        if _club is not None:
+            result["team_chip"] = team_chip(_club)
         if _player_outcome == "ambiguous":
             result["player_suggestions"] = suggestions_to_list(
                 player_disambiguation_suggestions(_player_raw.get("candidates", []))

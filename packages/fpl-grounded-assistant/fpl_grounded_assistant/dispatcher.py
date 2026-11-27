@@ -99,6 +99,7 @@ INTENT_ZONAL_OPPORTUNITY:       str = "zonal_opportunity"          # T4b
 # orchestrator selects the tool; the mapping below labels its turns so the
 # meta extraction and the UI card fire.
 INTENT_PLAYER_SNAPSHOT:         str = "player_snapshot"
+INTENT_TEAM_CARD:               str = "team_card"
 INTENT_PLAYER_ZONAL_OUTLOOK:    str = "player_zonal_outlook"       # orchestrator-only card
 INTENT_UNSUPPORTED:             str = "unsupported"
 
@@ -208,6 +209,7 @@ _TOOL_TO_INTENT: dict[str, str] = {
     "get_zonal_weakness":            INTENT_ZONAL_OPPORTUNITY,          # i91 (orchestrator-only)
     "get_player_zonal_outlook":      INTENT_PLAYER_ZONAL_OUTLOOK,       # orchestrator-only
     "get_player_snapshot":          INTENT_PLAYER_SNAPSHOT,            # orchestrator-only
+    "get_team_card":                INTENT_TEAM_CARD,                  # bare club name (not a model tool)
 }
 
 
