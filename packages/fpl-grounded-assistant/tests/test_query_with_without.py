@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import pytest
 
+import fpl_server
+from fpl_grounded_assistant import query_catalogue as cat, query_tool
 from fpl_grounded_assistant.query_with_without import detect
 
 from test_query_door import Script, _offline, ask, calls, ne, says, server, v  # noqa: F401 -- fixtures
@@ -111,3 +113,26 @@ def test_a_report_beside_a_valid_comparison_is_shown_as_unused(city, monkeypatch
                Script(call), locale="es")
     assert body["query"]["state"] == "complete", body["query"]
     assert "Sin usar: atributos del jugador" in body["query"]["reading"]["text"]
+
+
+def _beside_a_comparison(report):
+    args = {"metric": v("team_goals"), **_sets(), "not_expressible": [report]}
+    return query_tool.answer_call(args, {**fpl_server._bootstrap, "_question": "City con Semenyo y sin Semenyo"})
+
+
+@pytest.mark.parametrize("kind,quote", [("single_value", "producción ofensiva"), ("player_attribute", "xgi"),
+                                        ("player_attribute", ["en el equipo"])])
+def test_a_report_that_restricts_nothing_does_not_cancel(city, kind, quote):
+    block = _beside_a_comparison(ne(kind, quote))["query"]
+    assert block["state"] == "complete", block
+    assert any(p["kind"] == "unused" and p["value"] == kind for p in block["reading"]["parts"])
+
+
+@pytest.mark.parametrize("kind,quote", [
+    *((k, "algo") for k in cat.UNSUPPORTED_KINDS if k not in ("single_value", "player_attribute")),
+    ("player_attribute", "jugadores zurdos"), ("player_attribute", ["en el equipo", "zurdos"]),
+    ("player_attribute", ""),
+])
+def test_a_report_that_restricts_keeps_the_comparison_unsupported(city, kind, quote):
+    block = _beside_a_comparison(ne(kind, quote))["query"]
+    assert block["state"] == "unsupported_constraint" and block["comparison"] is None, block

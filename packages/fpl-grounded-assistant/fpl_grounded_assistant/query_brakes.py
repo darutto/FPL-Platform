@@ -395,6 +395,34 @@ def assign_years(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any],
 
 # -------------------------------------------------------------------------------------------------------- brakes
 
+#: Words that ask for the attack as a whole: no single statistic answers them.
+GENERAL_WORDS = frozenset("ataque ofensiva ofensivo ofensivamente produccion rendimiento attack attacking offence "
+                     "offense offensive output production perform performed performance xgi".split())
+GOALS_WORDS = frozenset("gol goles goals goal scored score scoring".split())
+XG_WORDS = frozenset({"xg"})
+#: Words that state no constraint (accent-folded, as the brakes fold text).
+FILLER_WORDS = frozenset("""
+a al como cambia cambio cambiado compara comparar comparacion con de del el ella en entre equipo es esta estuvo
+fue ha han hizo hace la las le les lo los me muestra mostrar que se sin su sus tal un una va ve y
+and at change changed club compare comparison did do does for has have him his how in is it of on s show team the
+their to was were when with without
+""".split())
+
+
+def _restricts_nothing(item: Mapping[str, Any]) -> bool:
+    """Whether a report can sit unused beside a comparison without changing which matches or players it covers.
+    Only ``single_value``, and ``player_attribute`` whose quote holds no word that could be a filter. Every other
+    kind restricts the question, so the unrestricted comparison would answer another one."""
+    if item["kind"] == "single_value":
+        return True
+    if item["kind"] != "player_attribute":
+        return False
+    quote = item.get("quote")
+    text = " ".join(map(str, quote)) if isinstance(quote, list) else str(quote or "")
+    said = {w.text for w in _words(text)}
+    return bool(said) and said <= FILLER_WORDS | GENERAL_WORDS | GOALS_WORDS | XG_WORDS
+
+
 def apply_brakes(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any], today: dt.date, lang: str,
                  not_expressible: Iterable[Mapping[str, Any]] = (),
                  ambiguous: Iterable[Mapping[str, Any]] = ()) -> BrakeResult:
@@ -404,11 +432,12 @@ def apply_brakes(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any], t
     if unknown:
         raise ValueError("not_expressible has a kind outside the vocabulary")
     spec, date_problem = assign_years(spec, raw_text, bootstrap, today)
-    # A comparison the engine can run is not cancelled by a report beside it: the reading line says what was
-    # left unused. What code itself finds (unsupported_reasons, a date, B1's words) still brakes.
+    # A comparison the engine can run is not cancelled by a report that restricts nothing: the reading line says
+    # it was left unused. A kind with any restricting item brakes, as do code's own findings.
     unused: tuple[str, ...] = ()
     if spec.shape == "comparison" and not unsupported_reasons(spec):
-        unused = tuple(dict.fromkeys(str(i["kind"]) for i in not_expressible if i["kind"] != "ownership_then"))
+        held = {str(i["kind"]) for i in not_expressible if not _restricts_nothing(i)}
+        unused = tuple(dict.fromkeys(str(i["kind"]) for i in not_expressible if str(i["kind"]) not in held))
     words = _words(raw_text)
 
     then = any(_find(words, _key(w)) for w in THEN_WORDS)

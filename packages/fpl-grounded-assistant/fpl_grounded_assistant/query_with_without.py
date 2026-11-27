@@ -2,7 +2,7 @@
 
 Code recognises the question from the user's raw text, so the answer does not depend on what the model does with
 it (ask back, report a constraint, send a player metric at team grain). It is deliberately narrow: **every**
-word besides the club and the player must be in :data:`_FILLER` or name the attack. One other word (another
+word besides the club and the player must be in :data:`FILLER_WORDS` or name the attack. One other word (another
 statistic, a venue, an opponent, a window, a number) and this module stays out of the way.
 """
 from __future__ import annotations
@@ -11,24 +11,11 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from fpl_grounded_assistant import query_contract as contract
-from fpl_grounded_assistant.query_brakes import _club_mentions, _player_mentions, _words
+from fpl_grounded_assistant.query_brakes import (FILLER_WORDS, GENERAL_WORDS, GOALS_WORDS, XG_WORDS, _club_mentions,
+                                              _player_mentions, _words)
 from fpl_grounded_assistant.query_engine import COMPLETE
 from fpl_grounded_assistant.query_spec import parse_spec
 from fpl_grounded_assistant.query_tool import run_spec
-
-#: Words that ask for the attack as a whole: no single statistic answers them.
-_GENERAL = frozenset("ataque ofensiva ofensivo ofensivamente produccion rendimiento attack attacking offence "
-                     "offense offensive output production perform performed performance xgi".split())
-_GOALS = frozenset("gol goles goals goal scored score scoring".split())
-_XG = frozenset({"xg"})
-#: Words that state no constraint (accent-folded, as the brakes fold text).
-_FILLER = frozenset("""
-a al como cambia cambio cambiado compara comparar comparacion con de del el ella en entre equipo es esta estuvo
-fue ha han hizo hace la las le les lo los me muestra mostrar que se sin su sus tal un una va ve y
-and at change changed club compare comparison did do does for has have him his how in is it of on s show team the
-their to was were when with without
-""".split())
-
 
 @dataclass(frozen=True)
 class Detected:
@@ -63,9 +50,9 @@ def detect(raw_text: str, bootstrap: Mapping[str, Any]) -> Detected | None:
     if len(subjects) != 1:
         return None
     rest = {w for i, w in enumerate(folded) if i not in used}
-    if rest - _FILLER - _GENERAL - _GOALS - _XG:
+    if rest - FILLER_WORDS - GENERAL_WORDS - GOALS_WORDS - XG_WORDS:
         return None
-    asked = {kind for kind, vocabulary in (("general", _GENERAL), ("goals", _GOALS), ("xg", _XG)) if rest & vocabulary}
+    asked = {kind for kind, vocabulary in (("general", GENERAL_WORDS), ("goals", GOALS_WORDS), ("xg", XG_WORDS)) if rest & vocabulary}
     if "xgi" in rest:
         asked.add("xgi")
     team = team_of[next(iter(subjects))]
