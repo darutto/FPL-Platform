@@ -23,6 +23,7 @@
  * player_a / player_b may be null (legacy construction). When null, only the
  * verdict + lead + reasons are shown (summary-only fallback).
  */
+import HeroStat from '@/components/blocks/HeroStat';
 import type { ComparisonMeta, ComparisonPlayerContext } from '@/lib/types';
 import { MARGIN_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { comparisonVerdict, comparisonLead, BF_SCORE_MAX } from '@/lib/copy';
@@ -156,23 +157,21 @@ function OptionCol({
         {player.web_name}
       </div>
       <div className="text-[11px] text-bf-gray">{playerContext(player, locale)}</div>
-      <div
-        className={`mt-1 flex items-baseline gap-0.5 font-display leading-none tracking-tighter ${
-          isWinner ? 'text-bf-turquoise' : 'text-bf-gray'
-        }`}
-      >
-        {/* Display position_score, not captain_score: position_score is the
-            Layer 2 heuristic that decides winner + margin (comparison.py).
-            captain_score (Layer 1) can rank the other way — e.g. at season
-            start when form=0 and only captain_score ignores home/away FDR —
-            which made the headline number contradict the verdict. The "/100"
-            suffix makes the rating scale explicit. */}
-        <span style={{ fontSize: isWinner ? 30 : 22 }}>{player.position_score.toFixed(1)}</span>
-        <span className="text-[11px] font-bold text-bf-gray">/{BF_SCORE_MAX}</span>
-      </div>
-      <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-        {translate(locale, 'unit.bfScore')}
-      </div>
+      {/* Display position_score, not captain_score: position_score is the
+          Layer 2 heuristic that decides winner + margin (comparison.py).
+          captain_score (Layer 1) can rank the other way — e.g. at season
+          start when form=0 and only captain_score ignores home/away FDR —
+          which made the headline number contradict the verdict. The "/100"
+          suffix makes the rating scale explicit. */}
+      <HeroStat
+        size="score"
+        className="mt-1"
+        value={player.position_score.toFixed(1)}
+        scorePx={isWinner ? 30 : 22}
+        suffix={`/${BF_SCORE_MAX}`}
+        caption={translate(locale, 'unit.bfScore')}
+        toneClass={isWinner ? 'text-bf-turquoise' : 'text-bf-gray'}
+      />
     </div>
   );
 }

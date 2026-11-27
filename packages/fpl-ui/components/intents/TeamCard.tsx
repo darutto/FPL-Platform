@@ -12,8 +12,10 @@
  *
  * Look: nothing here is its own style. Shell, header, hero and stat grid follow PlayerCard; section headings
  * follow PlayerZonasSection/PlayerSignals; both tables follow StatComparisonTable; result pills use theme's
- * PILL_BASE and tones; the data stamp is DefensiveZonesCard's ProvenanceStamp.
+ * PILL_BASE and tones; the hero, stat grid and data stamp are the shared blocks.
  */
+import HeroStat from '@/components/blocks/HeroStat';
+import StatGrid from '@/components/blocks/StatGrid';
 import { useState } from 'react';
 import type { FixtureAxis, TeamCardBody, TeamCardMetric, TeamCardStats } from '@/lib/types';
 import { ACCENT_HEX, CARD_ACCENT, CARD_BASE, GENERIC_TONE_CLASSES, PILL_BASE } from '@/lib/theme';
@@ -23,7 +25,7 @@ import type { DictKey } from '@/lib/i18n/dictionary';
 import PillSwitcher from '@/components/chat/PillSwitcher';
 import { PlayerFixtureStrip } from './PlayerFixtureStrip';
 import { FingerprintWaves } from './CardOrnaments';
-import { ProvenanceStamp } from './DefensiveZonesCard';
+import ProvenanceStamp from '@/components/blocks/ProvenanceStamp';
 
 const ACCENT = 'turquoise' as const;
 
@@ -73,19 +75,22 @@ export default function TeamCard({ data }: { data: TeamCardBody }) {
         {table ? (
           <>
             <div data-testid="team-card-hero">
-              <div className="flex items-baseline gap-0.5 font-display leading-none tracking-tighter text-bf-turquoise">
-                <span style={{ fontSize: 30 }}>{table.points}</span>
-                <span className="text-[11px] font-bold text-bf-gray">{t('unit.pts')}</span>
-              </div>
-              <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-                {t('tc.positionOf', { position: table.position, teams: table.teams })}
-              </div>
+              <HeroStat
+                size="score"
+                value={table.points}
+                suffix={t('unit.pts')}
+                caption={t('tc.positionOf', { position: table.position, teams: table.teams })}
+                toneClass="text-bf-turquoise"
+              />
             </div>
-            <div className="grid grid-cols-3 gap-2.5">
-              <Stat label={t('tc.played')} value={String(table.played)} />
-              <Stat label={t('tc.record')} value={`${table.won}-${table.drawn}-${table.lost}`} />
-              <Stat label={t('tc.goalDiff')} value={table.gd > 0 ? `+${table.gd}` : String(table.gd)} />
-            </div>
+            <StatGrid
+              columns={3}
+              stats={[
+                { label: t('tc.played'), value: String(table.played) },
+                { label: t('tc.record'), value: `${table.won}-${table.drawn}-${table.lost}` },
+                { label: t('tc.goalDiff'), value: table.gd > 0 ? `+${table.gd}` : String(table.gd) },
+              ]}
+            />
             {table.form.length > 0 && (
               <div className="space-y-1" data-testid="team-card-form">
                 <h3 className={HEADING}>{t('tc.form')}</h3>
@@ -205,16 +210,6 @@ type T = ReturnType<typeof useT>;
 
 function gwList(gameweeks: number[], t: T): string {
   return gameweeks.map((gw) => t('tc.gw', { gw })).join(', ');
-}
-
-/** PlayerCard's Stat. */
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate font-display text-base leading-none tracking-tighter text-white">{value}</div>
-      <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">{label}</div>
-    </div>
-  );
 }
 
 /** Total over per-match. A range (the source disagrees with itself) is shown as a range, in both. */

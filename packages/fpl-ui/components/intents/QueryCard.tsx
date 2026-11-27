@@ -8,10 +8,12 @@
  * table and the comparison are drawn only on a complete answer, so a refusal never shows an empty table.
  * A state this card does not know never reaches it (lib/intent-renderer.ts shows the text alone).
  */
+import FootNote from '@/components/blocks/FootNote';
+import HeroStat from '@/components/blocks/HeroStat';
 import type { QueryBlock, QueryComparison, QueryComparisonMetric } from '@/lib/types';
 import { ACCENT_HEX, CARD_ACCENT, CARD_BASE } from '@/lib/theme';
 import { FingerprintWaves } from './CardOrnaments';
-import { useQueryActions, useSharedImage } from '@/lib/chat-ask';
+import { useQueryActions } from '@/lib/chat-ask';
 import { useT } from '@/lib/i18n/LocaleProvider';
 import CardTable from './CardTable';
 import QueryReadingRow from './QueryReadingRow';
@@ -23,7 +25,6 @@ const CHIP = 'rounded-full border px-3 py-1.5 text-[12px] font-extrabold leading
 export default function QueryCard({ data }: { data: QueryBlock }) {
   const actions = useQueryActions();
   const t = useT();
-  const sharedImage = useSharedImage();
   const complete = data.state === 'complete';
   const comparison = complete && data.comparison != null;
   const showNotThis = actions != null && data.spec != null && data.reading != null;
@@ -68,11 +69,7 @@ export default function QueryCard({ data }: { data: QueryBlock }) {
         )}
 
         {/* The unchecked-totals line stays in the app; a shared image leaves it out. */}
-        {data.footnote != null && !sharedImage && (
-          <p data-testid="query-footnote" className="border-t border-white/10 pt-2 text-[11px] text-bf-gray/70">
-            {data.footnote}
-          </p>
-        )}
+        <FootNote lines={[data.footnote]} hideInShare testId="query-footnote" />
 
         {actions != null && (data.chips.length > 0 || showNotThis) && (
           <div className="flex flex-wrap gap-2">
@@ -209,12 +206,12 @@ function MetricBlock({ metric, side }: { metric: QueryComparisonMetric; side: nu
   return (
     <div data-testid="query-metric" data-metric={metric.key} className="space-y-1.5 border-t border-white/10 pt-2">
       <MetricTitle label={metric.label} unit={perMatch ? t('query.perMatch') : t('query.total')} />
-      <span className="block font-display text-2xl leading-none tracking-tighter text-white">{figures.value_text}</span>
-      {other != null && (
-        <p className="text-[12px] text-bf-gray">
-          {otherLabel} <span className="font-bold text-bf-text">{other}</span>
-        </p>
-      )}
+      <HeroStat
+        size="medium"
+        value={figures.value_text}
+        toneClass="text-white"
+        secondary={other != null ? { label: otherLabel, value: other } : null}
+      />
       <ul aria-label={metric.label} className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1">
         {figures.series.map((match, i) => {
           const figure = readFigure(match.value_text);
