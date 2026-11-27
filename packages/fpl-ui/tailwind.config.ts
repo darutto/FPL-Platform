@@ -7,7 +7,7 @@ import plugin from 'tailwindcss/plugin';
  *
  * These are the frozen Track 3 U1 token contract. Components must theme
  * against these names (`bf-*`) — no default-palette utilities, no raw hex.
- * Exception: the FDR ramp in FixtureRunTable stays on the V2_MVP_ROADMAP
+ * Exception: the FDR ramp in FixtureChip stays on the V2_MVP_ROADMAP
  * spec via the fdrColor helper (Decision 3) and is NOT tokenized here.
  */
 const config: Config = {

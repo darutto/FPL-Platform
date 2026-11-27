@@ -30,7 +30,7 @@ import {
   parseCompetitions,
   venueWord,
 } from '@/lib/fixture-competitions';
-import { formatVenue } from '@/components/intents/FixtureRunTable';
+import { formatVenue } from '@/components/intents/FixtureChip';
 import type { FixtureOutlookGW, FixtureOutlookGeneration, FixtureOutlookMeta } from '@/lib/types';
 import real from '@/lib/data/fixture-outlook-2026-27.json';
 

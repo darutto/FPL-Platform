@@ -163,7 +163,7 @@ export default function PlayerCard({ data }: Props) {
           {minutes_played_season} {t('unit.minutes')}
         </div>
 
-        {/* Next-5 fixture strip, by plan. Free/unknown reuse FixtureRunTable's chip. */}
+        {/* Next-5 fixture strip, by plan. Same strip as /calendarios (FixtureRunTable). */}
         <PlayerFixtureStrip
           fixtures={fixtures}
           teamShort={team_short}
