@@ -58,7 +58,10 @@ const BODY: TeamCardBody = {
     },
     players: [{ id: 1, web_name: 'Testman', position: 'MID', total_points: 31, price: 7 }],
     last_finished_gameweek: 4,
-    data_provenance: { label: 'Datos: temporada de prueba' },
+    data_provenance: {
+      season: '2000-2001', season_label: '2000-01', live_season: '2000-2001', is_current: true, status: 'current',
+      label: 'Datos: temporada de prueba', ingested_at: null, n_matches: null, n_shots: null,
+    },
   },
 };
 
@@ -72,12 +75,25 @@ afterEach(() => {
 });
 
 describe('TeamCard', () => {
-  test('shows the computed table, with its label, and the footer', () => {
+  test('points are the hero, with the position in words, and the table is labelled as computed', () => {
     render(<TeamCard data={BODY} />);
-    expect(screen.getByText('3/6')).toBeInTheDocument();
-    expect(screen.getByText('2-1-1')).toBeInTheDocument();
+    expect(screen.getByTestId('team-card-hero')).toHaveTextContent('7pts');
+    expect(screen.getByTestId('team-card-hero')).toHaveTextContent('Puesto 3 de 6');
     expect(screen.getByText('Tabla calculada con los resultados')).toBeInTheDocument();
-    expect(screen.getByText('Datos: temporada de prueba · Hasta J4')).toBeInTheDocument();
+    expect(screen.getByText('ALD · datos hasta J4')).toBeInTheDocument();
+    expect(screen.getByTestId('zonal-provenance')).toHaveTextContent('Datos: temporada de prueba');
+  });
+
+  test('every group of numbers says what it is', () => {
+    render(<TeamCard data={BODY} />);
+    for (const label of ['Jugados', 'G-E-P', 'Dif. de goles', 'Últimos resultados', 'Goles a favor', 'xG a favor',
+      'Próximos partidos', 'Jugadores con más puntos']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    const players = within(screen.getByTestId('team-card-players'));
+    expect(players.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Jugador', 'Pos', 'Precio', 'Puntos']);
+    expect(players.getByText('£7.0m')).toBeInTheDocument();
+    expect(screen.getByTestId('team-card-form')).toHaveTextContent('G 2-0');
   });
 
   test('an unmeasured figure is a dash with its gameweek, and a range stays a range with dot decimals', () => {

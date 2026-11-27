@@ -1609,7 +1609,7 @@ export interface TeamCardBody {
       | { id: number; web_name: string; position: string; total_points: number; price: number | null }[]
       | null;
     last_finished_gameweek: number | null;
-    data_provenance: { label?: string } | null;
+    data_provenance: ZonalDataProvenance | null;
   };
 }
 
