@@ -1,0 +1,484 @@
+{
+ "team_card": {
+  "v": 1,
+  "kind": "team",
+  "card": {
+   "team": {
+    "id": 1,
+    "name": "Alder Town",
+    "short_name": "ALD"
+   },
+   "table": {
+    "played": 8,
+    "won": 2,
+    "drawn": 3,
+    "lost": 3,
+    "gf": 12,
+    "ga": 12,
+    "gd": 0,
+    "points": 9,
+    "position": 5,
+    "teams": 6,
+    "form": [
+     {
+      "gameweek": 4,
+      "opponent_short": "ELM",
+      "is_home": false,
+      "goals_for": 2,
+      "goals_against": 3,
+      "result": "L"
+     },
+     {
+      "gameweek": 5,
+      "opponent_short": "FIR",
+      "is_home": true,
+      "goals_for": 2,
+      "goals_against": 2,
+      "result": "D"
+     },
+     {
+      "gameweek": 6,
+      "opponent_short": "BIR",
+      "is_home": false,
+      "goals_for": 1,
+      "goals_against": 2,
+      "result": "L"
+     },
+     {
+      "gameweek": 7,
+      "opponent_short": "CED",
+      "is_home": true,
+      "goals_for": 1,
+      "goals_against": 1,
+      "result": "D"
+     },
+     {
+      "gameweek": 8,
+      "opponent_short": "DUN",
+      "is_home": false,
+      "goals_for": 0,
+      "goals_against": 2,
+      "result": "L"
+     }
+    ]
+   },
+   "stats": {
+    "recent_gameweeks": 5,
+    "season": {
+     "goals_for": {
+      "total": 12.0,
+      "per_match": 1.5,
+      "range": null,
+      "per_match_range": null,
+      "matches": 8,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "goals_against": {
+      "total": 12.0,
+      "per_match": 1.5,
+      "range": null,
+      "per_match_range": null,
+      "matches": 8,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "xg_for": {
+      "total": 7.32,
+      "per_match": 0.92,
+      "range": [
+       7.32,
+       7.72
+      ],
+      "per_match_range": [
+       0.92,
+       0.96
+      ],
+      "matches": 8,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "xg_against": {
+      "total": 12.23,
+      "per_match": 1.53,
+      "range": null,
+      "per_match_range": null,
+      "matches": 8,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     }
+    },
+    "recent": {
+     "goals_for": {
+      "total": 6.0,
+      "per_match": 1.2,
+      "range": null,
+      "per_match_range": null,
+      "matches": 5,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "goals_against": {
+      "total": 10.0,
+      "per_match": 2.0,
+      "range": null,
+      "per_match_range": null,
+      "matches": 5,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "xg_for": {
+      "total": 5.28,
+      "per_match": 1.06,
+      "range": null,
+      "per_match_range": null,
+      "matches": 5,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     },
+     "xg_against": {
+      "total": 7.71,
+      "per_match": 1.54,
+      "range": null,
+      "per_match_range": null,
+      "matches": 5,
+      "reason": null,
+      "missing_gameweeks": [],
+      "gameweeks": [
+       4,
+       5,
+       6,
+       7,
+       8
+      ],
+      "checked": true
+     }
+    }
+   },
+   "fixtures": null,
+   "players": [
+    {
+     "id": 103,
+     "web_name": "StopperAld",
+     "position": "DEF",
+     "total_points": 50,
+     "price": 9.6
+    },
+    {
+     "id": 105,
+     "web_name": "MidAld",
+     "position": "MID",
+     "total_points": 31,
+     "price": 10.7
+    },
+    {
+     "id": 106,
+     "web_name": "SubjectAld",
+     "position": "MID",
+     "total_points": 29,
+     "price": 9.4
+    },
+    {
+     "id": 107,
+     "web_name": "StrikerAld",
+     "position": "FWD",
+     "total_points": 28,
+     "price": 9.2
+    },
+    {
+     "id": 104,
+     "web_name": "WingAld",
+     "position": "MID",
+     "total_points": 28,
+     "price": 12.5
+    }
+   ],
+   "last_finished_gameweek": 8,
+   "data_provenance": {
+    "season": "2026-2027",
+    "season_label": "2026-27",
+    "live_season": "2026-2027",
+    "live_season_label": "2026-27",
+    "ingested_at": null,
+    "n_matches": null,
+    "n_shots": null,
+    "status": "current",
+    "is_current": true,
+    "label": "Datos: temporada 2026-27 (FPL en vivo)"
+   }
+  },
+  "data_stamp": "467110fec0d4690e"
+ },
+ "player_snapshot": {
+  "final_text": "",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "player_snapshot",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": null,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": {
+   "id": 106,
+   "web_name": "SubjectAld",
+   "team_short": "ALD",
+   "position": "MID",
+   "minutes_played_season": 373,
+   "status": "Available",
+   "news": "",
+   "news_added": null,
+   "chance_of_playing_this_round": null,
+   "form": 5.5,
+   "total_points": 29,
+   "points_per_game": 3.6,
+   "expected_goals": 0.69,
+   "expected_assists": 0.99,
+   "expected_goal_involvements": 1.68,
+   "expected_goals_conceded": 6.63,
+   "ict_index": 54.0,
+   "influence": 185.5,
+   "creativity": 159.8,
+   "threat": 195.4,
+   "saves": 0,
+   "yellow_cards": 0,
+   "red_cards": 0,
+   "expected_goals_per_90": 0.16648793565683645,
+   "expected_assists_per_90": 0.2388739946380697,
+   "expected_goal_involvements_per_90": 0.40536193029490614,
+   "ict_index_per_90": 13.029490616621985,
+   "defensive_contribution": 42,
+   "defensive_contribution_per_90": 10.134048257372655,
+   "now_cost": 94,
+   "selected_by_percent": 23.0,
+   "transfers_in_event": 22914,
+   "transfers_out_event": 19712,
+   "penalties_order": 2,
+   "direct_freekicks_order": null,
+   "corners_and_indirect_freekicks_order": null,
+   "fixtures": [],
+   "team_fdr_context": null,
+   "zonal": null,
+   "status_label": "Disponible",
+   "news_label": "",
+   "strip_axis": null,
+   "conclusions": [],
+   "signals": []
+  },
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": "deterministic",
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null
+ },
+ "comparison": {
+  "final_text": "Salah (59.48) supera a Haaland (53.68) — diferencia moderada (5.8).  Ventajas: mejor forma (9.5 vs 8.0).",
+  "intent": "compare_players",
+  "outcome": "ok",
+  "comparison": {
+   "winner": "Salah",
+   "margin": 5.8,
+   "label": "moderate",
+   "reasons": [
+    "mejor forma (9.5 vs 8.0)"
+   ],
+   "player_a": {
+    "web_name": "Haaland",
+    "position": "FWD",
+    "captain_score": 30.51,
+    "position_score": 53.68,
+    "is_home": true,
+    "effective_fdr": 3.5,
+    "role_bonus": 5.0,
+    "set_piece_notes": [
+     "penalty_taker_1"
+    ]
+   },
+   "player_b": {
+    "web_name": "Salah",
+    "position": "MID",
+    "captain_score": 33.95,
+    "position_score": 59.48,
+    "is_home": true,
+    "effective_fdr": 3.5,
+    "role_bonus": 5.0,
+    "set_piece_notes": [
+     "penalty_taker_1"
+    ]
+   },
+   "stat_comparison": {
+    "rows": [
+     {
+      "key": "form",
+      "label": "Forma",
+      "kind": "performance",
+      "value_a": {
+       "value": 8.0,
+       "display": "8.0"
+      },
+      "value_b": {
+       "value": 9.5,
+       "display": "9.5"
+      },
+      "better": "b"
+     },
+     {
+      "key": "price_m",
+      "label": "Precio",
+      "kind": "context",
+      "value_a": {
+       "value": 14.5,
+       "display": "£14.5m"
+      },
+      "value_b": {
+       "value": 13.5,
+       "display": "£13.5m"
+      },
+      "better": null
+     },
+     {
+      "key": "ownership_percent",
+      "label": "Propiedad %",
+      "kind": "context",
+      "value_a": {
+       "value": 52.3,
+       "display": "52.3%"
+      },
+      "value_b": {
+       "value": 64.1,
+       "display": "64.1%"
+      },
+      "better": null
+     },
+     {
+      "key": "xgi_per_90",
+      "label": "xGI/90",
+      "kind": "performance",
+      "value_a": {
+       "value": 0.085,
+       "display": "0.09"
+      },
+      "value_b": {
+       "value": 0.058,
+       "display": "0.06"
+      },
+      "better": "a"
+     }
+    ]
+   }
+  }
+ },
+ "transfer": {
+  "final_text": "Recomendación: mantén a Salah. Puntuación: 59 vs 54 de Haaland (-5.8).  Ventajas: mejor forma (9.5 vs 8.0).",
+  "intent": "transfer_advice",
+  "outcome": "ok",
+  "transfer": {
+   "player_out": "Salah",
+   "player_in": "Haaland",
+   "recommendation": "hold",
+   "score_delta": -5.8,
+   "price_delta": 10,
+   "reasons": [],
+   "budget_constraint": false,
+   "hit_warning": false
+  }
+ }
+}
