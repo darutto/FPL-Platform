@@ -85,6 +85,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_
 
 from fpl_grounded_assistant import respond
 from fpl_grounded_assistant import eo_poll, eo_warm
+from fpl_grounded_assistant import card_route
 from fpl_grounded_assistant.competition_calendar import competitions_response, materialize_manual_layer
 from fpl_grounded_assistant.locale_types import Locale, DEFAULT_LOCALE
 from fpl_grounded_assistant.question_lang import detect_question_lang, locale_mismatch
@@ -2211,6 +2212,44 @@ def fixtures_competitions(
     """Off-Premier-League matches per club with rest days. Premium sees the detail,
     everyone else per-week counts only. ``{"available": false}`` unless the dev gate is open."""
     return competitions_response(tier_of(request), team, date_from, date_to)
+
+
+_CARD_LIMIT = card_route.WindowLimit(card_route.RATE_LIMIT_CALLS, card_route.RATE_LIMIT_WINDOW_S)
+
+
+@app.post("/card")
+def card_endpoint(req: card_route.CardRequest, request: Request) -> dict[str, Any]:
+    """A card without a chat turn: no model, no session, no quota turn (see ``card_route``).
+
+    Callers without a trusted user id share one rate-limit bucket (``eo_poll.caller_id``: with the internal
+    token configured, a direct POST to this public backend cannot pick its own bucket)."""
+    started = time.monotonic()
+    _, tier = _extract_user_context(request)
+    raw_user = eo_poll.caller_id(request.headers)
+    user_id = hash_user_id(raw_user) if raw_user is not None else "anonymous"
+    locale = card_route.card_locale(req.locale)
+
+    def audit(outcome: str) -> None:
+        card_route.audit_card(user_id=user_id, tier=tier, kind=req.kind, outcome=outcome,
+                              latency_ms=int((time.monotonic() - started) * 1000), locale=locale)
+
+    if not _CARD_LIMIT.allow(user_id):
+        audit("rate_limited")
+        raise HTTPException(status_code=429, detail="Too Many Requests", headers={"Retry-After": "60"})
+    bootstrap = _bootstrap
+    if bootstrap is None:
+        raise HTTPException(status_code=503, detail="not ready")
+    try:
+        body = card_route.build_card(req, bootstrap, locale)
+    except Exception:
+        _LOG.exception("card build failed")
+        audit("error")
+        raise HTTPException(status_code=500, detail="card_failed") from None
+    if body is None:
+        audit("not_found")
+        raise HTTPException(status_code=404, detail="not_found")
+    audit("ok")
+    return body
 
 
 class EoPollRequest(BaseModel):
