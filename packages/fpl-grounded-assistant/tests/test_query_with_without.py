@@ -66,7 +66,19 @@ def test_the_logged_questions_answer_with_goals_and_xg(city, monkeypatch, case, 
     assert block["spec"]["metric"] == "team_goals" and block["spec"]["operator"] == "per_match"
     assert block["comparison"]["metric_header"] == "Goles y xG por partido de Man City"
     assert "Goles y xG por partido de Man City" in block["reading"]["text"]
-    assert block["notes"][0].startswith("xG por partido: Con Semenyo")
+    goals, xg = block["comparison"]["metrics"]
+    assert [(m["label"], m["hero_label"]) for m in (goals, xg)] == [("Goles", "goles por partido"),
+                                                                    ("xG", "xG por partido")]
+    for metric in (goals, xg):
+        assert [[p["label"] for p in s["series"]] for s in metric["sides"]] == [["J1", "J2", "J3", "J8"],
+                                                                                ["J4", "J5", "J6"]]
+    assert [s["title"] for s in sides] == ["Con Semenyo", "Sin Semenyo"]
+    assert "Con Semenyo (J1–J3, J8, 4 partidos) · Sin Semenyo (J4–J6, 3 partidos) · J7 fuera: jugó 13′" \
+        in block["reading"]["text"]
+    assert "Equipos" not in block["reading"]["text"] and "Sumas" not in block["reading"]["text"]
+    assert not any("Local" in n or "FDR" in n or n.startswith("xG por") for n in block["notes"])
+    assert sides[0]["venue_text"].startswith("Local ")
+    assert "xG por partido" in body["final_text"].splitlines()[1]
     assert ("xGI es un dato de jugador" in block["reading"]["text"]) == ("xgi" in question)
     assert "¿Quieres" not in body["final_text"]
     assert body["final_text"].splitlines()[0] == "Muestro: " + block["reading"]["text"]
@@ -154,11 +166,14 @@ def test_the_defence_answers_with_conceded_xgc_and_clean_sheets(city, monkeypatc
     block = body["query"]
     assert block["state"] == "complete", block
     assert block["spec"]["metric"] == "team_goals_conceded" and block["spec"]["operator"] == "per_match"
-    header, xgc, clean = (("Goles recibidos y xGC por partido de Man City", "xGC por partido:", "Porterías a cero:")
-                          if locale == "es" else
-                          ("Man City goals conceded and xGC per match", "xGC per match:", "Clean sheets:"))
+    header, heroes = (("Goles recibidos y xGC por partido de Man City",
+                       ["goles recibidos por partido", "xGC por partido", "porterías a cero"])
+                      if locale == "es" else
+                      ("Man City goals conceded and xGC per match",
+                       ["goals conceded per match", "xGC per match", "clean sheets"]))
     assert block["comparison"]["metric_header"] == header
-    assert block["notes"][0].startswith(xgc) and block["notes"][1].startswith(clean)
+    assert [m["hero_label"] for m in block["comparison"]["metrics"]] == heroes
+    assert all(s["per_match_text"] is None for s in block["comparison"]["metrics"][2]["sides"])
 
 
 @pytest.mark.parametrize("question", [

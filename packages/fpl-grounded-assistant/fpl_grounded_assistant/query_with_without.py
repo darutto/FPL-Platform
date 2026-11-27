@@ -90,18 +90,18 @@ def keeps(found: Detected, block: Mapping[str, Any]) -> bool:
 
 
 _WORDS = {
-    "es": {"metric": "Goles y xG por partido de {club}", "line": "xG por partido: {a} y {b}.",
+    "es": {"metric": "Goles y xG por partido de {club}", "names": ("goles", "xG"),
            "xg_missing": "No puedo medir el xG de estos partidos; muestro solo los goles.",
            "xgi": "xGI es un dato de jugador: para el equipo muestro goles y xG",
-           "defence_metric": "Goles recibidos y xGC por partido de {club}", "defence_line": "xGC por partido: {a} y {b}.",
+           "defence_metric": "Goles recibidos y xGC por partido de {club}", "defence_names": ("goles recibidos", "xGC"),
            "defence_xg_missing": "No puedo medir el xGC de estos partidos; muestro solo los goles recibidos.",
-           "clean": "Porterías a cero: {a} y {b}."},
-    "en": {"metric": "{club} goals and xG per match", "line": "xG per match: {a} and {b}.",
+           "clean": "porterías a cero"},
+    "en": {"metric": "{club} goals and xG per match", "names": ("goals", "xG"),
            "xg_missing": "I can't measure xG for these matches; I show goals only.",
            "xgi": "xGI is a player figure: for the team I show goals and xG",
-           "defence_metric": "{club} goals conceded and xGC per match", "defence_line": "xGC per match: {a} and {b}.",
+           "defence_metric": "{club} goals conceded and xGC per match", "defence_names": ("goals conceded", "xGC"),
            "defence_xg_missing": "I can't measure xGC for these matches; I show goals conceded only.",
-           "clean": "Clean sheets: {a} and {b}."},
+           "clean": "clean sheets"},
 }
 
 
@@ -112,10 +112,26 @@ def _spec(metric: str, found: Detected, operator: str = "per_match") -> Any:
                        "compare_to": [{"pred": "player_absent", "value": found.player}]})
 
 
+def _second(metric: str, name: str, found: Detected, bootstrap: dict[str, Any], lang: str, key: str,
+            operator: str = "per_match") -> "dict[str, Any] | None":
+    """Another statistic over the same two sets as a card block, or None when it cannot be measured."""
+    block = run_spec(_spec(metric, found, operator), bootstrap, lang)["query"]
+    if block["state"] != COMPLETE:
+        return None
+    only = block["comparison"]["metrics"][0]
+    label = name if name.startswith("x") else name[:1].upper() + name[1:]
+    if operator == "sum":                                   # a count: "2 clean sheets", no per-match figure
+        for side in only["sides"]:
+            side["per_match_text"] = None
+        return {**only, "key": key, "label": label, "hero_label": name}
+    hero = contract.TEXT[lang]["per_match_hero"].format(name=name)
+    return {**only, "key": key, "label": label, "hero_label": hero}
+
+
 def answer(found: Detected, bootstrap: dict[str, Any], lang: str) -> dict[str, Any]:
-    """The tool output of the default card: the goals (conceded) comparison, with xG (xGC) per match as its first
-    note and, for the defence, clean sheets as the second. A goals
-    run that cannot complete (too few matches, no data) is served as it is: a data answer, never a question."""
+    """The tool output of the default card: the goals (conceded) comparison, with xG (xGC) beside it and, for
+    the defence, clean sheets. A goals run that cannot complete (too few matches, no data) is served as it is:
+    a data answer, never a question."""
     goals_metric, xg_metric = _METRICS[found.side]
     prefix = "defence_" if found.side == "defence" else ""
     out = run_spec(_spec(goals_metric, found), bootstrap, lang)
@@ -135,19 +151,21 @@ def answer(found: Detected, bootstrap: dict[str, Any], lang: str) -> dict[str, A
         reading["parts"].append({"kind": "note", "label": words["xgi"], "value": "xgi", "editable": False,
                                  "alternatives": [], "braked": False})
         reading["text"] += " · " + words["xgi"]
+    goals_name, xg_name = words[prefix + "names"]
+    metrics = block["comparison"]["metrics"]
+    metrics[0].update(label=goals_name[:1].upper() + goals_name[1:],
+                      hero_label=contract.TEXT[lang]["per_match_hero"].format(name=goals_name))
     xg = run_spec(_spec(xg_metric, found), bootstrap, lang)["query"]
     if xg["state"] == COMPLETE:
-        a, b = (f"{side['label']} → {side['per_match_text']}" for side in xg["comparison"]["sides"])
-        notes = [words[prefix + "line"].format(a=a, b=b)]
-        notes += [n for n in xg["notes"] if n == contract.TEXT[lang]["range"]]
+        metrics.append(_second(xg_metric, xg_name, found, bootstrap, lang, "xg"))
+        block["notes"] += [n for n in xg["notes"]
+                           if n == contract.TEXT[lang]["range"] and n not in block["notes"]]
     else:
-        notes = [words[prefix + "xg_missing"]]
+        block["notes"].insert(0, words[prefix + "xg_missing"])
     if found.side == "defence":
-        clean = run_spec(_spec("team_clean_sheets", found, "sum"), bootstrap, lang)["query"]
-        if clean["state"] == COMPLETE:
-            a, b = (f"{side['label']} → {side['value_text']}" for side in clean["comparison"]["sides"])
-            notes.append(words["clean"].format(a=a, b=b))
-    block["notes"] = notes + block["notes"]
+        clean = _second("team_clean_sheets", words["clean"], found, bootstrap, lang, "clean_sheets", "sum")
+        if clean is not None:
+            metrics.append(clean)
     return out
 
 

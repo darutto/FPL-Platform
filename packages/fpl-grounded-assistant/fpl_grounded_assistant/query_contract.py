@@ -29,10 +29,11 @@ TEXT: dict[str, dict[str, Any]] = {
     "es": {
         "player": "Jugador", "team": "Equipo", "club": "Club", "matches": "PJ", "minutes": "Min",
         "price": "Precio", "owned": "Propiedad", "empty": "Nadie cumple esas condiciones.",
-        "side": "{label}: {value} ({n} partidos)",
+        "side": "{label}: {value} ({n} partidos)", "side_metrics": "{label}: {metrics} ({n} partidos)",
+        "per_match_hero": "{name} por partido", "total_hero": "{name} en total", "n_matches": "{n} partidos",
+        "one_match": "1 partido", "venue_line": "Local {home} · visita {away}", "fdr_line": "FDR medio (hoy) {fdr}",
+        "left_out": "{gw} fuera: jugó {minutes}′",
         "small": "Muestra pequeña: menos de 5 partidos en un grupo.",
-        "fdr": "Dificultad media (FDR) con los valores de hoy: {a} y {b}.",
-        "venues": "Local / visitante: {a} y {b}.",
         "overlap": "Los valores por partido de los dos grupos se solapan.",
         "apart": "Los valores por partido de los dos grupos no se solapan.",
         "before_join": "Fuera, de antes de que llegara al club: {gws}.",
@@ -67,10 +68,11 @@ TEXT: dict[str, dict[str, Any]] = {
     "en": {
         "player": "Player", "team": "Team", "club": "Club", "matches": "MP", "minutes": "Min",
         "price": "Price", "owned": "Owned", "empty": "Nobody meets those conditions.",
-        "side": "{label}: {value} ({n} matches)",
+        "side": "{label}: {value} ({n} matches)", "side_metrics": "{label}: {metrics} ({n} matches)",
+        "per_match_hero": "{name} per match", "total_hero": "{name} in total", "n_matches": "{n} matches",
+        "one_match": "1 match", "venue_line": "Home {home} · away {away}", "fdr_line": "Mean FDR (today) {fdr}",
+        "left_out": "{gw} left out: played {minutes}′",
         "small": "Small sample: fewer than 5 matches in one set.",
-        "fdr": "Average difficulty (FDR), at today's values: {a} and {b}.",
-        "venues": "Home / away: {a} and {b}.",
         "overlap": "The per-match values of the two sets overlap.",
         "apart": "The per-match values of the two sets do not overlap.",
         "before_join": "Left out, from before he joined the club: {gws}.",
@@ -191,10 +193,6 @@ def _notes(result: QueryResult, comparison: Mapping[str, Any] | None, lang: str)
     words = TEXT[lang]
     notes: list[str] = []
     if comparison is not None:
-        a, b = comparison["sides"]
-        notes.append(words["venues"].format(a=f"{a['home']} / {a['away']}", b=f"{b['home']} / {b['away']}"))
-        if a["mean_fdr_text"] and b["mean_fdr_text"]:
-            notes.append(words["fdr"].format(a=a["mean_fdr_text"], b=b["mean_fdr_text"]))
         notes.append(words["overlap" if comparison["ranges_overlap"] else "apart"])
         if comparison["small_sample"]:
             notes.append(words["small"])
@@ -204,9 +202,74 @@ def _notes(result: QueryResult, comparison: Mapping[str, Any] | None, lang: str)
         notes.append(words["tied"].format(n=result.tied_omitted))
     if result.cross_check == "range":
         notes.append(words["range"])
-    if result.sum_check == "not_checked":
-        notes.append(words["not_checked"])
     return notes
+
+
+# --------------------------------------------------------------------------------------------- the card's blocks
+
+def metric_block(name: str, comparison: Any, per_match: bool, lang: str, key: str,
+                 per_match_shown: bool = True) -> dict[str, Any]:
+    """One statistic of a comparison, labelled: per side its headline, total, per match and every match's value
+    with its gameweek. *comparison* is the engine's."""
+    words = TEXT[lang]
+    sides = []
+    for side in comparison.sides:
+        total_range = side.total_range
+        mean_range = None if total_range is None else (total_range[0] / side.n, total_range[1] / side.n)
+        total_text = value_text(side.total, total_range)
+        mean_text = value_text(side.per_match, mean_range) if per_match_shown else None
+        sides.append({
+            "value_text": mean_text if per_match else total_text, "total_text": total_text,
+            "per_match_text": mean_text,
+            "series": [{"label": gameweeks_text([gameweek], lang),
+                        "value_text": value_text(value, None if low == high else (low, high))}
+                       for (gameweek, _), value, (low, high)
+                       in zip(side.matches, side.per_match_values, side.per_match_bounds)]})
+    label = name if name.startswith("x") else name[:1].upper() + name[1:]
+    hero = words["per_match_hero" if per_match else "total_hero"].format(name=name)
+    return {"key": key, "label": label, "headline": "per_match" if per_match else "total",
+            "hero_label": hero, "sides": sides}
+
+
+def _card(spec: QuerySpec, result: QueryResult, block: dict[str, Any], lang: str) -> None:
+    """What the comparison card draws, and the reading line said as a sentence: each set with its gameweeks and
+    size, the matches left out with the minutes that left them out."""
+    words, comparison, reading = TEXT[lang], block["comparison"], block["reading"]
+    name = cat.METRICS[spec.metric].name[lang]
+    if spec.second_metric is not None:
+        name += cat.OPERATORS[spec.operator]["joiner"] + cat.METRICS[spec.second_metric].name[lang]
+    comparison["metrics"] = [metric_block(name, result.comparison, spec.operator == "per_match", lang, spec.metric)]
+    parts = [p for p in reading["parts"] if p["kind"] != "grain"]
+    for kind, side in zip(("match_set", "compare_to"), comparison["sides"]):
+        part = next(p for p in parts if p["kind"] == kind)
+        gameweeks = gameweeks_text(side["gameweeks"], lang)
+        size = words["one_match"] if side["n"] == 1 else words["n_matches"].format(n=side["n"])
+        preds = [p["pred"] for p in part["value"]]
+        title, _, tail = part["label"].rpartition(f": {gameweeks}")
+        if preds in (["player_played_60"], ["player_absent"]):     # "(≥ 60′)" goes; the left-out line has minutes
+            title = title.rsplit(" (", 1)[0]
+            if preds == ["player_absent"]:                          # "Sin" alone would not say without whom
+                subject = comparison["sides"][0].get("subject")
+                if subject and subject not in title:
+                    title = f"{title} {subject}"
+            else:
+                side["subject"] = title.split(" ", 1)[1]
+        side["title"] = title + tail
+        side["detail"] = f"{gameweeks} · {size}"
+        venue = [words["venue_line"].format(home=side["home"], away=side["away"])]
+        if side["mean_fdr_text"]:
+            venue.append(words["fdr_line"].format(fdr=side["mean_fdr_text"]))
+        side["venue_text"] = " · ".join(venue)
+        part["label"] = f"{side['title']} ({gameweeks}, {size})"
+    for side in comparison["sides"]:
+        side.pop("subject", None)
+    for part in parts:
+        if part["kind"] == "mixed":
+            part["label"] = SEPARATOR.join(
+                words["left_out"].format(gw=gameweeks_text([m["gameweek"]], lang), minutes=m["minutes"])
+                for m in comparison["mixed"])
+    reading["parts"] = parts
+    reading["text"] = SEPARATOR.join(p["label"] for p in parts)
 
 
 # ------------------------------------------------------------------------------------------------------- chips
@@ -245,7 +308,8 @@ def _clarify_chips(spec: QuerySpec, result: QueryResult) -> list[dict[str, Any]]
 
 def _block(state: str, reason: str | None, lang: str, **extra: Any) -> dict[str, Any]:
     block = {"v": BLOCK_VERSION, "state": state, "reason": reason, "lang": lang, "spec": None, "reading": None,
-             "table": None, "comparison": None, "chips": [], "notes": [], "sum_check": None, "changed_parts": []}
+             "table": None, "comparison": None, "chips": [], "notes": [], "footnote": None, "sum_check": None,
+             "changed_parts": []}
     block.update(extra)
     return block
 
@@ -260,6 +324,11 @@ def build(spec: QuerySpec, result: QueryResult, bootstrap: Mapping[str, Any], la
           unused: Iterable[str] = ()) -> dict[str, Any]:
     """The tool output for a run (or a brake) of *spec*."""
     reading = render_reading(spec, lang, result, bootstrap)
+    footnote = None
+    if result.state == COMPLETE and result.sum_check == "not_checked":     # small print, not part of the reading
+        footnote = TEXT[lang]["not_checked"]
+        reading["parts"] = [p for p in reading["parts"] if p["value"] != "not_checked"]
+        reading["text"] = SEPARATOR.join(p["label"] for p in reading["parts"])
     for kind in unused:                      # said, not braked: the answer below does not depend on it
         label = WORDS[lang]["unused"].format(name=WORDS[lang]["kinds"][kind])
         reading["parts"].append({"kind": "unused", "label": label, "value": kind, "editable": False,
@@ -274,6 +343,9 @@ def build(spec: QuerySpec, result: QueryResult, bootstrap: Mapping[str, Any], la
             block["table"] = _table(spec, result, reading, lang)
         block["notes"] = _notes(result, block["comparison"], lang)
         block["sum_check"] = result.sum_check
+        block["footnote"] = footnote
+        if result.comparison is not None:
+            _card(spec, result, block, lang)
     elif result.state == NEEDS_CLARIFICATION and not block["chips"]:
         block["chips"] = _clarify_chips(spec, result)
     block["message"] = _message(block, result, lang)
@@ -334,13 +406,18 @@ def final_text(block: Mapping[str, Any]) -> str:
         return "\n".join(lines)
     table, comparison = block["table"], block["comparison"]
     if comparison is not None:
-        lines += [TEXT[lang]["side"].format(label=s["label"], value=s["value_text"], n=s["n"])
-                  for s in comparison["sides"]]
+        metrics = comparison["metrics"]
+        for index, s in enumerate(comparison["sides"]):
+            if len(metrics) == 1:
+                lines.append(TEXT[lang]["side"].format(label=s["label"], value=s["value_text"], n=s["n"]))
+                continue
+            said = SEPARATOR.join(f"{m['sides'][index]['value_text']} {m['hero_label']}" for m in metrics)
+            lines.append(TEXT[lang]["side_metrics"].format(label=s["label"], metrics=said, n=s["n"]))
     elif not table["rows"]:
         lines.append(TEXT[lang]["empty"])
     else:
         headers = [c["header"] for c in table["columns"]]
         lines.append(" | ".join(headers))
         lines += [f"{i}. " + " | ".join(row) for i, row in enumerate(table["rows"], start=1)]
-    lines += block["notes"]
+    lines += block["notes"] + ([block["footnote"]] if block.get("footnote") else [])
     return "\n".join(lines)
