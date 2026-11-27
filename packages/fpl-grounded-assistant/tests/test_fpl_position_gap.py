@@ -208,5 +208,7 @@ def test_card_hero_shows_the_gap_and_the_same_slot_pill_is_gone_with_the_pitch(l
 
 def test_card_hero_without_a_gap_is_unchanged():
     card = compose_position_changes_card(_run("3-4-3"), "es")
-    assert (card.hero.value, card.hero.label) == ("0", "cambios de casilla")
+    # 2026-11-26: no gap and no switch is the steady pitch, whose hero says what it draws.
+    assert (card.hero.value, card.hero.label) == ("6/6", "como banda izquierda")
+    assert card.position_pitch["kind"] == "steady"
     assert not any("cambio" in p.label for p in card.pills)

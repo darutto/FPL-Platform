@@ -249,6 +249,8 @@ def test_the_association_line_caps_the_names_and_is_honest_about_hidden_ones():
 def test_a_card_without_a_pitch_keeps_the_associations_in_its_table():
     out = _run()
     out.pop("role_switch"); out.pop("fpl_position_gap", None); out.pop("per90_change", None)
+    for m in out["matches"]:
+        m["played"] = False  # only predicted XIs: no counted start, so no pitch of any kind
     out["matches"][5]["associations"] = [{"teammate": {"player_id": 99, "web_name": "Synthetic"}}]
     card = compose_position_changes_card(out, "en")
     assert card.position_pitch is None and len(card.rows) == 8
