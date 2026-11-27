@@ -129,10 +129,49 @@ def test_a_report_that_restricts_nothing_does_not_cancel(city, kind, quote):
 
 
 @pytest.mark.parametrize("kind,quote", [
-    *((k, "algo") for k in cat.UNSUPPORTED_KINDS if k not in ("single_value", "player_attribute")),
+    *((k, "algo") for k in cat.UNSUPPORTED_KINDS if k not in ("single_value", "player_attribute")),  # result too
     ("player_attribute", "jugadores zurdos"), ("player_attribute", ["en el equipo", "zurdos"]),
     ("player_attribute", ""),
 ])
 def test_a_report_that_restricts_keeps_the_comparison_unsupported(city, kind, quote):
     block = _beside_a_comparison(ne(kind, quote))["query"]
     assert block["state"] == "unsupported_constraint" and block["comparison"] is None, block
+
+
+@pytest.mark.parametrize("question,locale", [
+    ("¿Cómo le fue al City con Semenyo y sin él en defensa?", "es"),
+    ("¿Cómo cambió el City defensivamente con Semenyo y sin él?", "es"),
+    ("Goles recibidos del City con Semenyo y sin él", "es"),
+    ("How was City's defence with and without Semenyo?", "en"),
+    ("How did City do defensively with and without Semenyo?", "en"),
+    ("City goals conceded with and without Semenyo", "en"),
+])
+def test_the_defence_answers_with_conceded_xgc_and_clean_sheets(city, monkeypatch, question, locale):
+    # the logged turn: a goals-conceded comparison with a stray "result" report beside it
+    call = calls(("query", {"metric": v("team_goals_conceded"), **_sets(),
+                            "not_expressible": [ne("result", "Cómo le fue")]}))
+    body = ask(city, monkeypatch, question, Script(call), locale=locale)
+    block = body["query"]
+    assert block["state"] == "complete", block
+    assert block["spec"]["metric"] == "team_goals_conceded" and block["spec"]["operator"] == "per_match"
+    header, xgc, clean = (("Goles recibidos y xGC por partido de Man City", "xGC por partido:", "Porterías a cero:")
+                          if locale == "es" else
+                          ("Man City goals conceded and xGC per match", "xGC per match:", "Clean sheets:"))
+    assert block["comparison"]["metric_header"] == header
+    assert block["notes"][0].startswith(xgc) and block["notes"][1].startswith(clean)
+
+
+@pytest.mark.parametrize("question", [
+    "City en ataque y defensa con Semenyo y sin él",
+    "Defensa del City en casa con Semenyo y sin él",
+    "Defensa del City cuando ganó con Semenyo y sin él",
+])
+def test_a_defence_question_with_more_in_it_is_left_to_the_model(city, question):
+    assert detect(question, fpl_server._bootstrap) is None
+
+
+@pytest.mark.parametrize("quote,state", [("¿Cómo le fue", "complete"), ("en defensa", "complete"),
+                                         ("cuando ganaron", "unsupported_constraint"),
+                                         ("en las derrotas", "unsupported_constraint")])
+def test_a_result_report_brakes_only_when_it_names_a_result(city, quote, state):
+    assert _beside_a_comparison(ne("result", quote))["query"]["state"] == state

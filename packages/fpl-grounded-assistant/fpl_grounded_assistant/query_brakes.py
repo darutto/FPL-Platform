@@ -409,18 +409,26 @@ their to was were when with without
 """.split())
 
 
+#: Words that put the question on the defensive side: goals and xG conceded, clean sheets.
+DEFENCE_WORDS = frozenset(("defensa defensivo defensiva defensivamente defence defense defensive defensively "
+                           "recibe recibio recibieron recibido recibidos encaja encajo encajaron encajado encajados "
+                           "concede concedio concedieron concedido concedidos conceded concedes conceding against "
+                           "contra porteria porterias cero clean sheet sheets xgc").split())
+
+
 def _restricts_nothing(item: Mapping[str, Any]) -> bool:
     """Whether a report can sit unused beside a comparison without changing which matches or players it covers.
-    Only ``single_value``, and ``player_attribute`` whose quote holds no word that could be a filter. Every other
+    Only ``single_value``, and ``player_attribute`` or ``result`` whose quote holds no word that could be a filter
+    (the model has sent ``result`` for a plain "how did they get on"). Every other
     kind restricts the question, so the unrestricted comparison would answer another one."""
     if item["kind"] == "single_value":
         return True
-    if item["kind"] != "player_attribute":
+    if item["kind"] not in ("player_attribute", "result"):
         return False
     quote = item.get("quote")
     text = " ".join(map(str, quote)) if isinstance(quote, list) else str(quote or "")
     said = {w.text for w in _words(text)}
-    return bool(said) and said <= FILLER_WORDS | GENERAL_WORDS | GOALS_WORDS | XG_WORDS
+    return bool(said) and said <= FILLER_WORDS | GENERAL_WORDS | GOALS_WORDS | XG_WORDS | DEFENCE_WORDS
 
 
 def apply_brakes(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any], today: dt.date, lang: str,
