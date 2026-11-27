@@ -667,5 +667,6 @@ export const en: typeof es = {
   // --- Query card (the answer's own words come from the server) ---
   'query.notThis': 'Not this',
   'query.total': 'Total',
+  'query.midpoint': 'middle of the range',
   'query.perMatch': 'Per match',
 };

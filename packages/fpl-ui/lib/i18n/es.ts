@@ -669,5 +669,6 @@ export const es = {
   // --- Query card (the answer's own words come from the server) ---
   'query.notThis': 'No es esto',
   'query.total': 'Total',
+  'query.midpoint': 'punto medio del rango',
   'query.perMatch': 'Por partido',
 };
