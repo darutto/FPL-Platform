@@ -106,15 +106,15 @@ def _answer(args: Any, bootstrap: dict[str, Any], lang: str) -> dict[str, Any]:
     if braked.state is not None:
         return contract.build(braked.spec, braked.as_query_result(), bootstrap, lang,
                               chips=braked.chips, brake=braked.brake)
-    return run_spec(braked.spec, bootstrap, lang)
+    return run_spec(braked.spec, bootstrap, lang, unused=braked.unused)
 
 
-def run_spec(spec: Any, bootstrap: dict[str, Any], lang: str) -> dict[str, Any]:
+def run_spec(spec: Any, bootstrap: dict[str, Any], lang: str, unused: tuple[str, ...] = ()) -> dict[str, Any]:
     """Execute a braked-and-dated spec: load its gameweeks, run it, build the tool output."""
     wanted = needed_gameweeks(spec, bootstrap)
     cache = bootstrap.get(CACHE_KEY) or (default_cache() if wanted else None)
     batch = cache.load(wanted, bootstrap) if wanted else None
-    return contract.build(spec, run_query(spec, bootstrap, batch), bootstrap, lang)
+    return contract.build(spec, run_query(spec, bootstrap, batch), bootstrap, lang, unused=unused)
 
 
 QUERY_SPEC = ToolSpec(name=QUERY_TOOL_NAME, description=QUERY_DESCRIPTION, parameters=QUERY_PARAMETERS,

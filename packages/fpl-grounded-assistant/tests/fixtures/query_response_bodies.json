@@ -341,6 +341,7 @@
    "comparison": null,
    "chips": [],
    "notes": [],
+   "footnote": null,
    "sum_check": "passed",
    "changed_parts": [],
    "message": null
@@ -688,13 +689,14 @@
    "comparison": null,
    "chips": [],
    "notes": [],
+   "footnote": null,
    "sum_check": "passed",
    "changed_parts": [],
    "message": null
   }
  },
  "complete_comparison_before_join": {
-  "final_text": "Showing: Teams · Alder Town goals per match · With SubjectAld (60′+): GW2–3, GW8 · Without (0′): GW4–6 · Mixed left out: GW7\nWith SubjectAld (60′+): GW2–3, GW8: 1 (3 matches)\nWithout (0′): GW4–6: 1.67 (3 matches)\nHome / away: 1 / 2 and 1 / 2.\nAverage difficulty (FDR), at today's values: 3.67 and 3.00.\nThe per-match values of the two sets overlap.\nSmall sample: fewer than 5 matches in one set.\nLeft out, from before he joined the club: GW1.",
+  "final_text": "Showing: Alder Town goals per match · With SubjectAld (GW2–3, GW8, 3 matches) · Without SubjectAld (GW4–6, 3 matches) · GW7 left out: played 13′\nWith SubjectAld (60′+): GW2–3, GW8: 1 (3 matches)\nWithout (0′): GW4–6: 1.67 (3 matches)\nThe per-match values of the two sets overlap.\nSmall sample: fewer than 5 matches in one set.\nLeft out, from before he joined the club: GW1.",
   "outcome": "ok",
   "supported": true,
   "intent": "query",
@@ -775,14 +777,6 @@
    "reading": {
     "parts": [
      {
-      "kind": "grain",
-      "label": "Teams",
-      "value": "team",
-      "editable": false,
-      "alternatives": [],
-      "braked": false
-     },
-     {
       "kind": "metric",
       "label": "Alder Town goals per match",
       "value": {
@@ -796,7 +790,7 @@
      },
      {
       "kind": "match_set",
-      "label": "With SubjectAld (60′+): GW2–3, GW8",
+      "label": "With SubjectAld (GW2–3, GW8, 3 matches)",
       "value": [
        {
         "pred": "player_played_60",
@@ -809,7 +803,7 @@
      },
      {
       "kind": "compare_to",
-      "label": "Without (0′): GW4–6",
+      "label": "Without SubjectAld (GW4–6, 3 matches)",
       "value": [
        {
         "pred": "player_absent",
@@ -822,7 +816,7 @@
      },
      {
       "kind": "mixed",
-      "label": "Mixed left out: GW7",
+      "label": "GW7 left out: played 13′",
       "value": [
        7
       ],
@@ -831,7 +825,7 @@
       "braked": false
      }
     ],
-    "text": "Teams · Alder Town goals per match · With SubjectAld (60′+): GW2–3, GW8 · Without (0′): GW4–6 · Mixed left out: GW7",
+    "text": "Alder Town goals per match · With SubjectAld (GW2–3, GW8, 3 matches) · Without SubjectAld (GW4–6, 3 matches) · GW7 left out: played 13′",
     "lang": "en"
    },
    "table": null,
@@ -857,7 +851,10 @@
        "0",
        "3",
        "0"
-      ]
+      ],
+      "title": "With SubjectAld",
+      "detail": "GW2–3, GW8 · 3 matches",
+      "venue_text": "Home 1 · away 2 · Mean FDR (today) 3.67"
      },
      {
       "label": "Without (0′): GW4–6",
@@ -877,7 +874,10 @@
        "2",
        "2",
        "1"
-      ]
+      ],
+      "title": "Without SubjectAld",
+      "detail": "GW4–6 · 3 matches",
+      "venue_text": "Home 1 · away 2 · Mean FDR (today) 3.00"
      }
     ],
     "mixed": [
@@ -890,16 +890,734 @@
      1
     ],
     "small_sample": true,
-    "ranges_overlap": true
+    "ranges_overlap": true,
+    "metrics": [
+     {
+      "key": "team_goals",
+      "label": "Goals",
+      "headline": "per_match",
+      "hero_label": "goals per match",
+      "sides": [
+       {
+        "value_text": "1",
+        "total_text": "3",
+        "per_match_text": "1",
+        "series": [
+         {
+          "label": "GW2",
+          "value_text": "0"
+         },
+         {
+          "label": "GW3",
+          "value_text": "3"
+         },
+         {
+          "label": "GW8",
+          "value_text": "0"
+         }
+        ]
+       },
+       {
+        "value_text": "1.67",
+        "total_text": "5",
+        "per_match_text": "1.67",
+        "series": [
+         {
+          "label": "GW4",
+          "value_text": "2"
+         },
+         {
+          "label": "GW5",
+          "value_text": "2"
+         },
+         {
+          "label": "GW6",
+          "value_text": "1"
+         }
+        ]
+       }
+      ]
+     }
+    ]
    },
    "chips": [],
    "notes": [
-    "Home / away: 1 / 2 and 1 / 2.",
-    "Average difficulty (FDR), at today's values: 3.67 and 3.00.",
     "The per-match values of the two sets overlap.",
     "Small sample: fewer than 5 matches in one set.",
     "Left out, from before he joined the club: GW1."
    ],
+   "footnote": null,
+   "sum_check": "passed",
+   "changed_parts": [],
+   "message": null
+  }
+ },
+ "with_without_attack_es": {
+  "final_text": "Muestro: Goles y xG por partido de Alder Town · Con SubjectAld (J1–J3, J8, 4 partidos) · Sin SubjectAld (J4–J6, 3 partidos) · J7 fuera: jugó 13′\nCon SubjectAld (≥ 60′): J1–J3, J8: 1.50 goles por partido · 0.92–1.02 xG por partido (4 partidos)\nSin SubjectAld (0′): J4–J6: 1.67 goles por partido · 0.84 xG por partido (3 partidos)\nLos valores por partido de los dos grupos se solapan.\nMuestra pequeña: menos de 5 partidos en un grupo.\nDonde las dos medidas de xG no coinciden, muestro el rango.",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "complete",
+   "reason": null,
+   "lang": "es",
+   "spec": {
+    "v": 1,
+    "shape": "comparison",
+    "grain": "team",
+    "metric": "team_goals",
+    "operator": "per_match",
+    "match_set": [
+     {
+      "pred": "player_played_60",
+      "value": "SubjectAld"
+     }
+    ],
+    "filters": [
+     {
+      "field": "club",
+      "op": "eq",
+      "value": "ALD"
+     }
+    ],
+    "order": "desc",
+    "top_n": 10,
+    "compare_to": [
+     {
+      "pred": "player_absent",
+      "value": "SubjectAld"
+     }
+    ]
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Goles y xG por partido de Alder Town",
+      "value": {
+       "metric": "team_goals",
+       "operator": "per_match",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "match_set",
+      "label": "Con SubjectAld (J1–J3, J8, 4 partidos)",
+      "value": [
+       {
+        "pred": "player_played_60",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "compare_to",
+      "label": "Sin SubjectAld (J4–J6, 3 partidos)",
+      "value": [
+       {
+        "pred": "player_absent",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "mixed",
+      "label": "J7 fuera: jugó 13′",
+      "value": [
+       7
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     }
+    ],
+    "text": "Goles y xG por partido de Alder Town · Con SubjectAld (J1–J3, J8, 4 partidos) · Sin SubjectAld (J4–J6, 3 partidos) · J7 fuera: jugó 13′",
+    "lang": "es"
+   },
+   "table": null,
+   "comparison": {
+    "club": "ALD",
+    "metric_header": "Goles y xG por partido de Alder Town",
+    "sides": [
+     {
+      "label": "Con SubjectAld (≥ 60′): J1–J3, J8",
+      "gameweeks": [
+       1,
+       2,
+       3,
+       8
+      ],
+      "n": 4,
+      "home": 2,
+      "away": 2,
+      "mean_fdr_text": "3.50",
+      "value_text": "1.50",
+      "total_text": "6",
+      "per_match_text": "1.50",
+      "per_match_values_text": [
+       "3",
+       "0",
+       "3",
+       "0"
+      ],
+      "title": "Con SubjectAld",
+      "detail": "J1–J3, J8 · 4 partidos",
+      "venue_text": "Local 2 · visita 2 · FDR medio (hoy) 3.50"
+     },
+     {
+      "label": "Sin SubjectAld (0′): J4–J6",
+      "gameweeks": [
+       4,
+       5,
+       6
+      ],
+      "n": 3,
+      "home": 1,
+      "away": 2,
+      "mean_fdr_text": "3.00",
+      "value_text": "1.67",
+      "total_text": "5",
+      "per_match_text": "1.67",
+      "per_match_values_text": [
+       "2",
+       "2",
+       "1"
+      ],
+      "title": "Sin SubjectAld",
+      "detail": "J4–J6 · 3 partidos",
+      "venue_text": "Local 1 · visita 2 · FDR medio (hoy) 3.00"
+     }
+    ],
+    "mixed": [
+     {
+      "gameweek": 7,
+      "minutes": 13
+     }
+    ],
+    "before_join": [],
+    "small_sample": true,
+    "ranges_overlap": true,
+    "metrics": [
+     {
+      "key": "team_goals",
+      "label": "Goles",
+      "headline": "per_match",
+      "hero_label": "goles por partido",
+      "sides": [
+       {
+        "value_text": "1.50",
+        "total_text": "6",
+        "per_match_text": "1.50",
+        "series": [
+         {
+          "label": "J1",
+          "value_text": "3"
+         },
+         {
+          "label": "J2",
+          "value_text": "0"
+         },
+         {
+          "label": "J3",
+          "value_text": "3"
+         },
+         {
+          "label": "J8",
+          "value_text": "0"
+         }
+        ]
+       },
+       {
+        "value_text": "1.67",
+        "total_text": "5",
+        "per_match_text": "1.67",
+        "series": [
+         {
+          "label": "J4",
+          "value_text": "2"
+         },
+         {
+          "label": "J5",
+          "value_text": "2"
+         },
+         {
+          "label": "J6",
+          "value_text": "1"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "key": "xg",
+      "label": "xG",
+      "headline": "per_match",
+      "hero_label": "xG por partido",
+      "sides": [
+       {
+        "value_text": "0.92–1.02",
+        "total_text": "3.67–4.07",
+        "per_match_text": "0.92–1.02",
+        "series": [
+         {
+          "label": "J1",
+          "value_text": "0.68"
+         },
+         {
+          "label": "J2",
+          "value_text": "0.42–0.82"
+         },
+         {
+          "label": "J3",
+          "value_text": "0.94"
+         },
+         {
+          "label": "J8",
+          "value_text": "1.63"
+         }
+        ]
+       },
+       {
+        "value_text": "0.84",
+        "total_text": "2.52",
+        "per_match_text": "0.84",
+        "series": [
+         {
+          "label": "J4",
+          "value_text": "0.63"
+         },
+         {
+          "label": "J5",
+          "value_text": "1"
+         },
+         {
+          "label": "J6",
+          "value_text": "0.89"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "chips": [],
+   "notes": [
+    "Los valores por partido de los dos grupos se solapan.",
+    "Muestra pequeña: menos de 5 partidos en un grupo.",
+    "Donde las dos medidas de xG no coinciden, muestro el rango."
+   ],
+   "footnote": null,
+   "sum_check": "passed",
+   "changed_parts": [],
+   "message": null
+  }
+ },
+ "with_without_defence_es": {
+  "final_text": "Muestro: Goles recibidos y xGC por partido de Alder Town · Con SubjectAld (J1–J3, J8, 4 partidos) · Sin SubjectAld (J4–J6, 3 partidos) · J7 fuera: jugó 13′\nCon SubjectAld (≥ 60′): J1–J3, J8: 1 goles recibidos por partido · 1.60 xGC por partido · 1 porterías a cero (4 partidos)\nSin SubjectAld (0′): J4–J6: 2.33 goles recibidos por partido · 1.42 xGC por partido · 0 porterías a cero (3 partidos)\nLos valores por partido de los dos grupos se solapan.\nMuestra pequeña: menos de 5 partidos en un grupo.",
+  "outcome": "ok",
+  "supported": true,
+  "intent": "query",
+  "review_passed": true,
+  "llm_used": false,
+  "debug": null,
+  "comparison": null,
+  "captain": null,
+  "captain_ranking": null,
+  "pool_source": null,
+  "pool_size": null,
+  "synthesis_turn": false,
+  "presentation": null,
+  "squad_source": null,
+  "squad_excluded": null,
+  "sub_responses": null,
+  "transfer": null,
+  "chip": null,
+  "fixture_run": null,
+  "differential": null,
+  "plan_state": null,
+  "pending": null,
+  "orch_outcome": null,
+  "degraded": false,
+  "player_form": null,
+  "injury_list": null,
+  "price_changes": null,
+  "team_calendar": null,
+  "team_schedule": null,
+  "position_fixture_run": null,
+  "transfer_suggestion": null,
+  "zonal_opportunity": null,
+  "fixture_outlook": null,
+  "player_snapshot": null,
+  "player_zonal": null,
+  "generic_card": null,
+  "suggestions": null,
+  "resource_rows": null,
+  "table_conclusions": null,
+  "route_source": null,
+  "classifier_confidence": null,
+  "route_conflict": false,
+  "clarification_asked": false,
+  "web_search": null,
+  "query": {
+   "v": 1,
+   "state": "complete",
+   "reason": null,
+   "lang": "es",
+   "spec": {
+    "v": 1,
+    "shape": "comparison",
+    "grain": "team",
+    "metric": "team_goals_conceded",
+    "operator": "per_match",
+    "match_set": [
+     {
+      "pred": "player_played_60",
+      "value": "SubjectAld"
+     }
+    ],
+    "filters": [
+     {
+      "field": "club",
+      "op": "eq",
+      "value": "ALD"
+     }
+    ],
+    "order": "desc",
+    "top_n": 10,
+    "compare_to": [
+     {
+      "pred": "player_absent",
+      "value": "SubjectAld"
+     }
+    ]
+   },
+   "reading": {
+    "parts": [
+     {
+      "kind": "metric",
+      "label": "Goles recibidos y xGC por partido de Alder Town",
+      "value": {
+       "metric": "team_goals_conceded",
+       "operator": "per_match",
+       "order": "desc"
+      },
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "match_set",
+      "label": "Con SubjectAld (J1–J3, J8, 4 partidos)",
+      "value": [
+       {
+        "pred": "player_played_60",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "compare_to",
+      "label": "Sin SubjectAld (J4–J6, 3 partidos)",
+      "value": [
+       {
+        "pred": "player_absent",
+        "value": "SubjectAld"
+       }
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     },
+     {
+      "kind": "mixed",
+      "label": "J7 fuera: jugó 13′",
+      "value": [
+       7
+      ],
+      "editable": false,
+      "alternatives": [],
+      "braked": false
+     }
+    ],
+    "text": "Goles recibidos y xGC por partido de Alder Town · Con SubjectAld (J1–J3, J8, 4 partidos) · Sin SubjectAld (J4–J6, 3 partidos) · J7 fuera: jugó 13′",
+    "lang": "es"
+   },
+   "table": null,
+   "comparison": {
+    "club": "ALD",
+    "metric_header": "Goles recibidos y xGC por partido de Alder Town",
+    "sides": [
+     {
+      "label": "Con SubjectAld (≥ 60′): J1–J3, J8",
+      "gameweeks": [
+       1,
+       2,
+       3,
+       8
+      ],
+      "n": 4,
+      "home": 2,
+      "away": 2,
+      "mean_fdr_text": "3.50",
+      "value_text": "1",
+      "total_text": "4",
+      "per_match_text": "1",
+      "per_match_values_text": [
+       "1",
+       "0",
+       "1",
+       "2"
+      ],
+      "title": "Con SubjectAld",
+      "detail": "J1–J3, J8 · 4 partidos",
+      "venue_text": "Local 2 · visita 2 · FDR medio (hoy) 3.50"
+     },
+     {
+      "label": "Sin SubjectAld (0′): J4–J6",
+      "gameweeks": [
+       4,
+       5,
+       6
+      ],
+      "n": 3,
+      "home": 1,
+      "away": 2,
+      "mean_fdr_text": "3.00",
+      "value_text": "2.33",
+      "total_text": "7",
+      "per_match_text": "2.33",
+      "per_match_values_text": [
+       "3",
+       "2",
+       "2"
+      ],
+      "title": "Sin SubjectAld",
+      "detail": "J4–J6 · 3 partidos",
+      "venue_text": "Local 1 · visita 2 · FDR medio (hoy) 3.00"
+     }
+    ],
+    "mixed": [
+     {
+      "gameweek": 7,
+      "minutes": 13
+     }
+    ],
+    "before_join": [],
+    "small_sample": true,
+    "ranges_overlap": true,
+    "metrics": [
+     {
+      "key": "team_goals_conceded",
+      "label": "Goles recibidos",
+      "headline": "per_match",
+      "hero_label": "goles recibidos por partido",
+      "sides": [
+       {
+        "value_text": "1",
+        "total_text": "4",
+        "per_match_text": "1",
+        "series": [
+         {
+          "label": "J1",
+          "value_text": "1"
+         },
+         {
+          "label": "J2",
+          "value_text": "0"
+         },
+         {
+          "label": "J3",
+          "value_text": "1"
+         },
+         {
+          "label": "J8",
+          "value_text": "2"
+         }
+        ]
+       },
+       {
+        "value_text": "2.33",
+        "total_text": "7",
+        "per_match_text": "2.33",
+        "series": [
+         {
+          "label": "J4",
+          "value_text": "3"
+         },
+         {
+          "label": "J5",
+          "value_text": "2"
+         },
+         {
+          "label": "J6",
+          "value_text": "2"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "key": "xg",
+      "label": "xGC",
+      "headline": "per_match",
+      "hero_label": "xGC por partido",
+      "sides": [
+       {
+        "value_text": "1.60",
+        "total_text": "6.40",
+        "per_match_text": "1.60",
+        "series": [
+         {
+          "label": "J1",
+          "value_text": "1.99"
+         },
+         {
+          "label": "J2",
+          "value_text": "1.22"
+         },
+         {
+          "label": "J3",
+          "value_text": "1.31"
+         },
+         {
+          "label": "J8",
+          "value_text": "1.88"
+         }
+        ]
+       },
+       {
+        "value_text": "1.42",
+        "total_text": "4.26",
+        "per_match_text": "1.42",
+        "series": [
+         {
+          "label": "J4",
+          "value_text": "1.91"
+         },
+         {
+          "label": "J5",
+          "value_text": "0.83"
+         },
+         {
+          "label": "J6",
+          "value_text": "1.52"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "key": "clean_sheets",
+      "label": "Porterías a cero",
+      "headline": "total",
+      "hero_label": "porterías a cero",
+      "sides": [
+       {
+        "value_text": "1",
+        "total_text": "1",
+        "per_match_text": null,
+        "series": [
+         {
+          "label": "J1",
+          "value_text": "0"
+         },
+         {
+          "label": "J2",
+          "value_text": "1"
+         },
+         {
+          "label": "J3",
+          "value_text": "0"
+         },
+         {
+          "label": "J8",
+          "value_text": "0"
+         }
+        ]
+       },
+       {
+        "value_text": "0",
+        "total_text": "0",
+        "per_match_text": null,
+        "series": [
+         {
+          "label": "J4",
+          "value_text": "0"
+         },
+         {
+          "label": "J5",
+          "value_text": "0"
+         },
+         {
+          "label": "J6",
+          "value_text": "0"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "chips": [],
+   "notes": [
+    "Los valores por partido de los dos grupos se solapan.",
+    "Muestra pequeña: menos de 5 partidos en un grupo."
+   ],
+   "footnote": null,
    "sum_check": "passed",
    "changed_parts": [],
    "message": null
@@ -1190,6 +1908,7 @@
     }
    ],
    "notes": [],
+   "footnote": null,
    "sum_check": null,
    "changed_parts": [],
    "message": "¿A qué jugador te refieres con «Subject»?"
@@ -1624,6 +2343,7 @@
     }
    ],
    "notes": [],
+   "footnote": null,
    "sum_check": null,
    "changed_parts": [],
    "message": "I can't work that out yet: ownership at the time. I only have today's ownership."
@@ -1933,6 +2653,7 @@
    "comparison": null,
    "chips": [],
    "notes": [],
+   "footnote": null,
    "sum_check": null,
    "changed_parts": [],
    "message": "Todavía no hay datos de J9–J10."
@@ -1995,6 +2716,7 @@
    "comparison": null,
    "chips": [],
    "notes": [],
+   "footnote": null,
    "sum_check": null,
    "changed_parts": [],
    "message": "No he entendido bien la consulta. ¿Puedes decirlo de otra forma?"
