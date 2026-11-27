@@ -1,0 +1,57 @@
+{
+  "final_text": "Lectura.",
+  "generic_card": {
+    "accent": "turquoise",
+    "badge_tones": null,
+    "columns": [],
+    "footer": "Fuente: datos de alineaciones con licencia, construidos el 2026-11-20.",
+    "hero": {
+      "label": "como mediapunta",
+      "tone": null,
+      "value": "3/6"
+    },
+    "involvement_compare": null,
+    "pills": [],
+    "position_pitch": {
+      "associations": null,
+      "claim_status": "observed",
+      "from": null,
+      "kind": "steady",
+      "labels": {
+        "after": "Después",
+        "before": "Antes",
+        "from": "",
+        "table": "",
+        "to": "Mediapunta · 3 de 6 titularidades"
+      },
+      "note": null,
+      "others": [
+        {
+          "detailed_position": "Defensive Midfield",
+          "label": "Pivote · 2",
+          "line": "MID",
+          "side": "left",
+          "starts": 2
+        },
+        {
+          "detailed_position": "Right Midfield",
+          "label": "Banda derecha · 1",
+          "line": "MID",
+          "side": "right",
+          "starts": 1
+        }
+      ],
+      "rows": [],
+      "to": {
+        "detailed_position": "Attacking Midfield",
+        "line": "MID",
+        "side": null
+      }
+    },
+    "rows": [],
+    "subtitle": "Once inicial anunciado, no un movimiento durante el partido",
+    "title": "Alder · casilla inicial"
+  },
+  "intent": "unsupported",
+  "outcome": "ok"
+}

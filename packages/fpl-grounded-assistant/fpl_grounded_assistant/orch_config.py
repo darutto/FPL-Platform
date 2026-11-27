@@ -64,6 +64,7 @@ ORCH_MODEL_ENV: str = "FPL_ORCH_MODEL"
 
 #: Environment variable that offers FI-7b tools when set to a truthy value.
 FOOTBALL_INTELLIGENCE_ENABLED_ENV: str = "FOOTBALL_INTELLIGENCE_ENABLED"
+QUERY_LAYER_ENV: str = "FPL_QUERY_LAYER"
 
 #: Offers the get_near_rank_eo tool (EO around the user's rank) when truthy. Default OFF.
 NEAR_RANK_EO_ENABLED_ENV: str = "FPL_NEAR_RANK_EO_ENABLED"
@@ -154,6 +155,12 @@ def is_football_intelligence_enabled() -> bool:
         .lower()
         in _TRUTHY
     )
+
+
+def is_query_layer_enabled() -> bool:
+    """Whether the ``query`` door is offered (env FPL_QUERY_LAYER, default OFF). On, it replaces
+    ``rank_players_by_metric`` in the model's tool list; off, nothing of the query layer is reachable."""
+    return os.environ.get(QUERY_LAYER_ENV, "").strip().lower() in _TRUTHY
 
 
 def is_near_rank_eo_enabled() -> bool:

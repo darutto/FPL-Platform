@@ -1,10 +1,12 @@
 /**
  * PositionPitch — the position-changes mini-pitch ("canchita") and its per-90 table, inside GenericCard.
  *
- * Two shapes, both from the backend's `position_pitch` payload (atomic_tool_cards._position_pitch):
+ * Three shapes, all from the backend's `position_pitch` payload (atomic_tool_cards._position_pitch):
  *   switch       old starting role (dashed ring) → new role (solid dot), joined by an arrow;
  *   fpl_listing  FPL's listed line (dashed tag, nobody played there) and the role actually played, joined by a quiet
- *                dotted link with NO arrowhead: nobody moved.
+ *                dotted link with NO arrowhead: nobody moved;
+ *   steady       neither: the role he starts in (solid dot, with its count). When no role holds more than half of
+ *                his starts, the others too, as lighter dots with their counts. No link and no arrow.
  * The pitch is its own vertical drawing in real proportions (68×105 m, one scale on both axes, so the circle stays a
  * circle), attack UP and the attacker's left on the viewer's left; the squad pitch keeps its own landscape drawing.
  * Roles are placed from provider role + side, never from the provider grid cell. Lines and the connector scale with
@@ -166,6 +168,25 @@ export function dotDistance(at: Pt, r: Rect): number {
 const BELOW = 12;
 const aboveFor = (lines: 1 | 2) => -(lines * LINE_H + 13);
 
+const overlaps = (a: Rect, b: Rect) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/** The square a dot covers, in SVG units (the dot is 14 CSS px). */
+export function dotRect(at: Pt): Rect {
+  const [ax, ay, h] = [(at.x / 100) * W, (at.y / 100) * H, 7 * PX];
+  return { x0: ax - h, y0: ay - h, x1: ax + h, y1: ay + h };
+}
+
+/** Field points so that no two dots sit on each other: roles that share a spot are nudged sideways, in order. */
+export function spreadSpots(spots: Pt[]): Pt[] {
+  const placed: Pt[] = [];
+  for (const spot of spots) {
+    const free = (p: Pt) => placed.every((q) => Math.abs(q.x - p.x) >= 12 || Math.abs(q.y - p.y) >= 7);
+    const tries = [0, 14, -14, 28, -28].map((d) => ({ x: Math.min(Math.max(spot.x + d, 8), 92), y: spot.y }));
+    placed.push(tries.find(free) ?? spot);
+  }
+  return placed;
+}
+
 /**
  * General rule, no per-role cases. A label stays attached to its dot: under or over it, or beside it, in one or two
  * lines, extending towards the centre of the pitch, never jumping to the far side. Hard limits: inside the field lines,
@@ -173,7 +194,9 @@ const aboveFor = (lines: 1 | 2) => -(lines * LINE_H + 13);
  * circle; if no such spot exists a label may sit on those faint lines (fewest first), never on the connector or the
  * field edge. Widths are estimates (5.8 px per character), not measurements.
  */
-export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector?: Seg | null): Placement {
+export function placeLabel(
+  at: Pt, text: string, preferBelow: boolean, connector?: Seg | null, avoid: Rect[] = [],
+): Placement {
   const [near, far] = preferBelow ? ['below', 'above'] as const : ['above', 'below'] as const;
   const dyOf = (side: 'below' | 'above', lines: 1 | 2) => (side === 'below' ? BELOW : aboveFor(lines));
   const inward = at.x < 50 ? ['right-of', 'left-of'] as const : ['left-of', 'right-of'] as const;
@@ -186,13 +209,16 @@ export function placeLabel(at: Pt, text: string, preferBelow: boolean, connector
     const r = labelRect(at, text, p);
     return !outsideField(r) && !hitsConnector(r, connector) && dotDistance(at, r) <= MAX_DOT_DISTANCE;
   });
-  const clean = ok.find((p) => markingsHit(labelRect(at, text, p)) === 0);
+  // Off the other labels and dots whenever any spot allows it (the steady pitch can carry several).
+  const free = ok.filter((p) => !avoid.some((a) => overlaps(labelRect(at, text, p), a)));
+  const pool = free.length > 0 ? free : ok;
+  const clean = pool.find((p) => markingsHit(labelRect(at, text, p)) === 0);
   if (clean) return clean;
-  const byMarkings = [...ok].sort((p, q) => markingsHit(labelRect(at, text, p)) - markingsHit(labelRect(at, text, q)));
+  const byMarkings = [...pool].sort((p, q) => markingsHit(labelRect(at, text, p)) - markingsHit(labelRect(at, text, q)));
   return byMarkings[0] ?? candidates[0];
 }
 
-function Label({ at, text, place }: { at: Pt; text: string; place: Placement }) {
+function Label({ at, text, place, quiet = false }: { at: Pt; text: string; place: Placement; quiet?: boolean }) {
   const [when, ...rest] = text.split(' · ');
   const role = rest.join(' · ');
   const r = labelRect(at, text, place);
@@ -209,49 +235,91 @@ function Label({ at, text, place }: { at: Pt; text: string; place: Placement }) 
           : anchor === 'center' ? { left: `${(100 * (r.x0 + r.x1)) / (2 * W)}%`, transform: 'translateX(-50%)' }
             : { left: `${(100 * r.x0) / W}%` }),
       }}>
-      <b className="font-bold text-white">{when}</b>
+      <b className={quiet ? 'font-bold text-bf-text/70' : 'font-bold text-white'}>{when}</b>
       {role && (place.lines === 2 ? <br /> : ' ')}
       {role && <span className="font-medium text-bf-gray">{role}</span>}
     </span>
   );
 }
 
-export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
-  const { locale } = useLocale();
+const PITCH_BOX =
+  // 2:3 box; at most 280px wide on desktop (≈420 tall), up to 306px on a phone (height capped ≈460).
+  'relative mx-auto w-full max-w-[306px] sm:max-w-[280px] aspect-[2/3] overflow-hidden rounded-lg bg-gradient-to-b from-bf-pitch to-bf-pitch-dark';
+
+const SPOT = 'absolute -translate-x-1/2 -translate-y-1/2 rounded-full';
+
+/** switch and fpl_listing: where he came from (or is listed) and the role he has now. */
+function ChangePitch({ data, from: fromRole }: { data: PositionPitchMeta; from: PitchRole }) {
   const listing = data.kind === 'fpl_listing';
   const toField = placeRole(data.to);
-  const fromField = placeRole(data.from, listing ? data.to.side : null);
+  const fromField = placeRole(fromRole, listing ? data.to.side : null);
   const [to, from] = [box(toField), box(fromField)];
-  const hasBefore = data.rows.some((r) => r.before !== undefined);
   const connector: Seg | null = listing ? null : [ux(fromField.x), uy(fromField.y), ux(toField.x), uy(toField.y)];
   const fromPlace = placeLabel(from, data.labels.from, from.y >= to.y, connector);
   const toPlace = placeLabel(to, data.labels.to, listing ? to.y < 30 : to.y > from.y, connector);
 
   return (
+    <div data-testid="position-pitch-box" className={PITCH_BOX}>
+      <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox={`0 0 ${W} ${H}`}>
+        <g opacity={0.2}><VerticalPitchLines /></g>
+        <Connector a={fromField} b={toField} arrow={!listing} />
+      </svg>
+      {listing ? (
+        <span data-role="listing"
+          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-bf-gray/80 px-2 py-0.5 text-[11px] font-bold leading-none text-bf-gray"
+          style={{ left: `${from.x}%`, top: `${from.y}%` }}>
+          {data.labels.from}
+        </span>
+      ) : (
+        <span data-role="old"
+          className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-bf-gray"
+          style={{ left: `${from.x}%`, top: `${from.y}%` }} />
+      )}
+      <span data-role="new" className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-bf-cyan"
+        style={{ left: `${to.x}%`, top: `${to.y}%` }} />
+      {!listing && <Label at={from} text={data.labels.from} place={fromPlace} />}
+      <Label at={to} text={data.labels.to} place={toPlace} />
+    </div>
+  );
+}
+
+/** steady: where he starts. No connector: nobody moved between these spots. */
+function SteadyPitch({ data }: { data: PositionPitchMeta }) {
+  const others = data.others ?? [];
+  const spots = spreadSpots([data.to, ...others].map((r) => placeRole(r))).map(box);
+  const texts = [data.labels.to, ...others.map((o) => o.label)];
+  const taken: Rect[] = spots.map(dotRect);
+  // The main label first, so it takes the best place.
+  const places = spots.map((at, i) => {
+    const place = placeLabel(at, texts[i], at.y < 50, null, taken);
+    taken.push(labelRect(at, texts[i], place));
+    return place;
+  });
+
+  return (
+    <div data-testid="position-pitch-box" className={PITCH_BOX}>
+      <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox={`0 0 ${W} ${H}`}>
+        <g opacity={0.2}><VerticalPitchLines /></g>
+      </svg>
+      {spots.map((at, i) => (
+        <span key={`dot-${texts[i]}`} data-role={i === 0 ? 'new' : 'other'}
+          className={`${SPOT} ${i === 0 ? 'h-3.5 w-3.5 bg-bf-cyan' : 'h-3 w-3 bg-bf-cyan/40'}`}
+          style={{ left: `${at.x}%`, top: `${at.y}%` }} />
+      ))}
+      {spots.map((at, i) => (
+        <Label key={`label-${texts[i]}`} at={at} text={texts[i]} place={places[i]} quiet={i > 0} />
+      ))}
+    </div>
+  );
+}
+
+export default function PositionPitch({ data }: { data: PositionPitchMeta }) {
+  const { locale } = useLocale();
+  const hasBefore = data.rows.some((r) => r.before !== undefined);
+
+  return (
     <div className="space-y-3" data-testid="position-pitch" data-kind={data.kind}>
-      {/* 2:3 box; at most 280px wide on desktop (≈420 tall), up to 306px on a phone (height capped ≈460). */}
-      <div data-testid="position-pitch-box"
-        className="relative mx-auto w-full max-w-[306px] sm:max-w-[280px] aspect-[2/3] overflow-hidden rounded-lg bg-gradient-to-b from-bf-pitch to-bf-pitch-dark">
-        <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox={`0 0 ${W} ${H}`}>
-          <g opacity={0.2}><VerticalPitchLines /></g>
-          <Connector a={fromField} b={toField} arrow={!listing} />
-        </svg>
-        {listing ? (
-          <span data-role="listing"
-            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-bf-gray/80 px-2 py-0.5 text-[11px] font-bold leading-none text-bf-gray"
-            style={{ left: `${from.x}%`, top: `${from.y}%` }}>
-            {data.labels.from}
-          </span>
-        ) : (
-          <span data-role="old"
-            className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-bf-gray"
-            style={{ left: `${from.x}%`, top: `${from.y}%` }} />
-        )}
-        <span data-role="new" className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-bf-cyan"
-          style={{ left: `${to.x}%`, top: `${to.y}%` }} />
-        {!listing && <Label at={from} text={data.labels.from} place={fromPlace} />}
-        <Label at={to} text={data.labels.to} place={toPlace} />
-      </div>
+      {data.kind === 'steady' || data.from == null ? <SteadyPitch data={data} /> : <ChangePitch data={data} from={data.from} />}
 
       {data.rows.length > 0 && (
         <div className="border-t border-white/10 pt-2.5" data-testid="position-pitch-table">

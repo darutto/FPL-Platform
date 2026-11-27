@@ -272,6 +272,7 @@ from .plan_to_sign import plan_to_sign                          # triggers TOOL_
 from . import tier_eo_tool as tier_eo_tool                    # EO of the top 10K (published file): TOOL_REGISTRY self-registration (offered only behind FPL_TIER_EO_ENABLED)
 from . import league_eo_tool as league_eo_tool              # EO of the user's mini-league: TOOL_REGISTRY self-registration (offered only behind FPL_LEAGUE_EO_ENABLED)
 from . import near_rank_eo_tool as near_rank_eo_tool        # EO near the user's rank — triggers TOOL_REGISTRY self-registration (offered only behind FPL_NEAR_RANK_EO_ENABLED)
+from . import query_tool as query_tool                    # the query door: TOOL_REGISTRY self-registration (offered only behind FPL_QUERY_LAYER)
 from .search_web import search_web                          # web search parity — triggers TOOL_REGISTRY self-registration
 from . import zonal_weakness_tool as zonal_weakness_tool    # T-zonal — triggers TOOL_REGISTRY self-registration
 from .team_fixture_calendar import (                  # Phase 2.6e

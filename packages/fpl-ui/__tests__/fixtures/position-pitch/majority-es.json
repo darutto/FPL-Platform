@@ -1,0 +1,100 @@
+{
+  "final_text": "Lectura.",
+  "generic_card": {
+    "accent": "turquoise",
+    "badge_tones": null,
+    "columns": [
+      {
+        "align": "left",
+        "header": "J",
+        "kind": "mono"
+      },
+      {
+        "align": "left",
+        "header": "Rival",
+        "kind": "text"
+      },
+      {
+        "align": "left",
+        "header": "Casilla",
+        "kind": "text"
+      },
+      {
+        "align": "left",
+        "header": "Nota",
+        "kind": "text"
+      }
+    ],
+    "footer": "Fuente: datos de alineaciones con licencia, construidos el 2026-11-20.",
+    "hero": {
+      "label": "como mediapunta",
+      "tone": null,
+      "value": "5/6"
+    },
+    "involvement_compare": null,
+    "pills": [],
+    "position_pitch": {
+      "associations": null,
+      "claim_status": "observed",
+      "from": null,
+      "kind": "steady",
+      "labels": {
+        "after": "Después",
+        "before": "Antes",
+        "from": "",
+        "table": "",
+        "to": "Mediapunta · 5 de 6 titularidades"
+      },
+      "note": null,
+      "others": [],
+      "rows": [],
+      "to": {
+        "detailed_position": "Attacking Midfield",
+        "line": "MID",
+        "side": null
+      }
+    },
+    "rows": [
+      [
+        "J1",
+        "EAS (L)",
+        "Mediapunta",
+        "-"
+      ],
+      [
+        "J2",
+        "EAS (L)",
+        "Mediapunta",
+        "-"
+      ],
+      [
+        "J3",
+        "EAS (L)",
+        "Pivote",
+        "Empezó en otra casilla (antes: Mediapunta)"
+      ],
+      [
+        "J4",
+        "EAS (L)",
+        "Mediapunta",
+        "-"
+      ],
+      [
+        "J5",
+        "EAS (L)",
+        "Mediapunta",
+        "-"
+      ],
+      [
+        "J6",
+        "EAS (L)",
+        "Mediapunta",
+        "-"
+      ]
+    ],
+    "subtitle": "Once inicial anunciado, no un movimiento durante el partido",
+    "title": "Alder · casilla inicial"
+  },
+  "intent": "unsupported",
+  "outcome": "ok"
+}

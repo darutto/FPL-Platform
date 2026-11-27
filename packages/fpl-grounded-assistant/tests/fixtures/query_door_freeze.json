@@ -1,0 +1,545 @@
+{
+ "source": "query-layer probe, round 4 freeze (FROZEN.json)",
+ "query_tool_wire": {
+  "type": "function",
+  "name": "query",
+  "description": "The one tool for questions that rank, list, total or compare players or teams on a statistic, over a window of matches, with filters, or that compare two sets of matches (for example with and without a player). Fill a field only with what the user stated; every constraint carries a `quote` copied from the user's message (at most 12 words each; give several short quotes as a list when the words are apart). Leave out anything the user did not say: unstated fields take declared defaults (list, player, sum, whole season, desc, top 10). A word of the question that states a constraint must be inside some quote. If the question asks for something this form cannot state, put it in not_expressible with its kind (single_value only when the question asks for ONE number, not a list); if a phrase is vague, put it in ambiguous. match_set is the FIRST set of matches and compare_to the SECOND (only with shape comparison). At team grain a named club ALWAYS goes in filters as club eq (grain alone does not select a club). Ownership as it was AT THAT TIME ('then', 'at the time', 'en ese momento', 'entonces') is not owned_now: report it in not_expressible with kind ownership_then. Dates: send the day and month as MM-DD; add the year (YYYY-MM-DD) ONLY when the user wrote a year. Operator plus adds two statistics: metric plus metric_plus. Example with/without: 'Team T xG with and without Player A' = shape comparison, grain team, filters [club eq 'Team T'], match_set [player_played_60 'Player A'], compare_to [player_absent 'Player A']. Example periods: 'goals in GW1-5 against GW6-10' = shape comparison, match_set [gw_range [1,5]], compare_to [gw_range [6,10]]. For player_played_60 and player_absent the quote is just the player's name. Unsupported-kind ids: player_venue, opponent, month, calendar_phrase, result, started, several_players, player_attribute, exclusion, single_value, difference_list, more_than_two_sets, ownership_then, future, flank_or_shots, past_season, count_of_gws, streak, vague_recent.",
+  "parameters": {
+   "type": "object",
+   "properties": {
+    "metric": {
+     "type": "object",
+     "description": "The statistic asked for: an id from the list; at team grain use the team_ ids. If no id means what the user asked for, do not pick the nearest one: report it in not_expressible or ambiguous. Phrases that name one id: 'goles mas asistencias esperados' = expected_goal_involvements; 'goles y asistencias esperados' = expected_goal_involvements; 'goles mas asistencias esperadas' = expected_goal_involvements; 'goles y asistencias esperadas' = expected_goal_involvements; 'expected goal involvements' = expected_goal_involvements; 'goles mas asistencias' = operator plus, metric goals_scored, metric_plus assists; 'goals plus assists' = operator plus, metric goals_scored, metric_plus assists.",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "total_points",
+        "minutes",
+        "starts",
+        "goals_scored",
+        "assists",
+        "clean_sheets",
+        "goals_conceded",
+        "own_goals",
+        "penalties_saved",
+        "penalties_missed",
+        "yellow_cards",
+        "red_cards",
+        "saves",
+        "bonus",
+        "bps",
+        "influence",
+        "creativity",
+        "threat",
+        "ict_index",
+        "expected_goals",
+        "expected_assists",
+        "expected_goal_involvements",
+        "expected_goals_conceded",
+        "defensive_contribution",
+        "clearances_blocks_interceptions",
+        "recoveries",
+        "tackles",
+        "now_cost",
+        "selected_by_percent",
+        "form",
+        "points_per_game",
+        "transfers_in_event",
+        "transfers_out_event",
+        "penalties_order",
+        "direct_freekicks_order",
+        "corners_and_indirect_freekicks_order",
+        "team_goals",
+        "team_expected_goals",
+        "team_goals_conceded",
+        "team_expected_goals_conceded",
+        "team_clean_sheets"
+       ]
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value",
+      "quote"
+     ]
+    },
+    "metric_minus": {
+     "type": "object",
+     "description": "Only with operator minus: the second statistic (metric minus this).",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "total_points",
+        "minutes",
+        "starts",
+        "goals_scored",
+        "assists",
+        "clean_sheets",
+        "goals_conceded",
+        "own_goals",
+        "penalties_saved",
+        "penalties_missed",
+        "yellow_cards",
+        "red_cards",
+        "saves",
+        "bonus",
+        "bps",
+        "influence",
+        "creativity",
+        "threat",
+        "ict_index",
+        "expected_goals",
+        "expected_assists",
+        "expected_goal_involvements",
+        "expected_goals_conceded",
+        "defensive_contribution",
+        "clearances_blocks_interceptions",
+        "recoveries",
+        "tackles",
+        "now_cost",
+        "selected_by_percent",
+        "form",
+        "points_per_game",
+        "transfers_in_event",
+        "transfers_out_event",
+        "penalties_order",
+        "direct_freekicks_order",
+        "corners_and_indirect_freekicks_order",
+        "team_goals",
+        "team_expected_goals",
+        "team_goals_conceded",
+        "team_expected_goals_conceded",
+        "team_clean_sheets"
+       ]
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "metric_plus": {
+     "type": "object",
+     "description": "Only with operator plus: the second statistic (metric plus this).",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "total_points",
+        "minutes",
+        "starts",
+        "goals_scored",
+        "assists",
+        "clean_sheets",
+        "goals_conceded",
+        "own_goals",
+        "penalties_saved",
+        "penalties_missed",
+        "yellow_cards",
+        "red_cards",
+        "saves",
+        "bonus",
+        "bps",
+        "influence",
+        "creativity",
+        "threat",
+        "ict_index",
+        "expected_goals",
+        "expected_assists",
+        "expected_goal_involvements",
+        "expected_goals_conceded",
+        "defensive_contribution",
+        "clearances_blocks_interceptions",
+        "recoveries",
+        "tackles",
+        "now_cost",
+        "selected_by_percent",
+        "form",
+        "points_per_game",
+        "transfers_in_event",
+        "transfers_out_event",
+        "penalties_order",
+        "direct_freekicks_order",
+        "corners_and_indirect_freekicks_order",
+        "team_goals",
+        "team_expected_goals",
+        "team_goals_conceded",
+        "team_expected_goals_conceded",
+        "team_clean_sheets"
+       ]
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "shape": {
+     "type": "object",
+     "description": "list (default) or comparison of two match sets.",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "list",
+        "comparison"
+       ]
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "grain": {
+     "type": "object",
+     "description": "player (default) or team.",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "player",
+        "team"
+       ]
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "operator": {
+     "type": "object",
+     "description": "sum (default), per_match, per_90, per_million, minus, plus.",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "sum",
+        "per_match",
+        "per_90",
+        "per_million",
+        "minus",
+        "plus"
+       ]
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "match_set": {
+     "type": "array",
+     "description": "The FIRST set of matches: AND of predicates; absent = whole season.",
+     "items": {
+      "type": "object",
+      "properties": {
+       "pred": {
+        "type": "string",
+        "enum": [
+         "season",
+         "last_n",
+         "gw",
+         "gw_range",
+         "since_date",
+         "player_played_60",
+         "player_absent",
+         "venue"
+        ]
+       },
+       "value": {
+        "description": "season: true; last_n/gw: integer; gw_range: [from,to]; since_date: MM-DD (YYYY-MM-DD only if the user wrote the year); player_played_60/player_absent: the player as written; venue: home|away (team grain)."
+       },
+       "quote": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+       }
+      },
+      "required": [
+       "pred",
+       "value",
+       "quote"
+      ]
+     }
+    },
+    "compare_to": {
+     "type": "array",
+     "description": "The SECOND set of matches, only for shape=comparison.",
+     "items": {
+      "type": "object",
+      "properties": {
+       "pred": {
+        "type": "string",
+        "enum": [
+         "season",
+         "last_n",
+         "gw",
+         "gw_range",
+         "since_date",
+         "player_played_60",
+         "player_absent",
+         "venue"
+        ]
+       },
+       "value": {
+        "description": "season: true; last_n/gw: integer; gw_range: [from,to]; since_date: MM-DD (YYYY-MM-DD only if the user wrote the year); player_played_60/player_absent: the player as written; venue: home|away (team grain)."
+       },
+       "quote": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+       }
+      },
+      "required": [
+       "pred",
+       "value",
+       "quote"
+      ]
+     }
+    },
+    "filters": {
+     "type": "array",
+     "description": "Filters on players or teams.",
+     "items": {
+      "type": "object",
+      "properties": {
+       "field": {
+        "type": "string",
+        "enum": [
+         "position",
+         "price",
+         "club",
+         "owned_now",
+         "minutes_in_window",
+         "set_piece"
+        ]
+       },
+       "op": {
+        "type": "string",
+        "enum": [
+         "eq",
+         "in",
+         "lt",
+         "le",
+         "gt",
+         "ge",
+         "between",
+         "not"
+        ]
+       },
+       "value": {
+        "description": "position GKP|DEF|MID|FWD; price in millions; club as written; owned_now percent or \"low\"; minutes_in_window integer; set_piece penalties|direct_freekicks|corners."
+       },
+       "quote": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+       }
+      },
+      "required": [
+       "field",
+       "op",
+       "value",
+       "quote"
+      ]
+     }
+    },
+    "order": {
+     "type": "object",
+     "description": "Sort direction (default desc; asc for set-piece orders).",
+     "properties": {
+      "value": {
+       "type": "string",
+       "enum": [
+        "asc",
+        "desc"
+       ]
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "top_n": {
+     "type": "object",
+     "description": "How many rows (default 10).",
+     "properties": {
+      "value": {
+       "type": "integer"
+      },
+      "quote": {
+       "type": [
+        "string",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       },
+       "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+      }
+     },
+     "required": [
+      "value"
+     ]
+    },
+    "not_expressible": {
+     "type": "array",
+     "description": "Constraints the form cannot state.",
+     "items": {
+      "type": "object",
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "player_venue",
+         "opponent",
+         "month",
+         "calendar_phrase",
+         "result",
+         "started",
+         "several_players",
+         "player_attribute",
+         "exclusion",
+         "single_value",
+         "difference_list",
+         "more_than_two_sets",
+         "ownership_then",
+         "future",
+         "flank_or_shots",
+         "past_season",
+         "count_of_gws",
+         "streak",
+         "vague_recent"
+        ]
+       },
+       "quote": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+       }
+      },
+      "required": [
+       "kind",
+       "quote"
+      ]
+     }
+    },
+    "ambiguous": {
+     "type": "array",
+     "description": "Vague phrases that need a question to the user.",
+     "items": {
+      "type": "object",
+      "properties": {
+       "quote": {
+        "type": [
+         "string",
+         "array"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "description": "Words copied from the user's message that state this constraint; several short quotes may be a list."
+       }
+      },
+      "required": [
+       "quote"
+      ]
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "strict": false
+ },
+ "query_tool_wire_sha256_16": "7360bf4454abc0b6",
+ "override_block": "RANKING-BY-METRIC OVERRIDE (highest tool-routing priority):\n  - Any request to rank, order, list, total or compare players OR teams BY a named metric/statistic,\n    over a season, one gameweek, the last N gameweeks, a range, since a date, with filters (position,\n    price, club, ownership) or WITH vs WITHOUT a player (two sets of matches)\n    → call query FIRST and as the ONLY tool. Fill only what the user stated, each with its quote.\n  - Never choose another tool from keyword overlap in the metric (for example, do\n    not choose a gameweek tool because the requested metric mentions gameweek/jornada).\n  - If the metric is unfamiliar or no listed id means it, do not pick the nearest id: report it in\n    not_expressible or ambiguous. Do not synthesize a ranking from other data or fail silently.\n",
+ "prompt_replacements": [
+  [
+   "get_chip_advice, get_transfer_suggestion, rank_players_by_metric)",
+   "get_chip_advice, get_transfer_suggestion, query)"
+  ],
+  [
+   "rank_players_by_metric, get_player_form, get_differential_picks",
+   "query, get_player_form, get_differential_picks"
+  ]
+ ],
+ "schema_edits": {
+  "get_historical_gameweek_top_scorer": [
+   "Goals over the WHOLE SEASON are rank_players_by_metric(goals_scored). Goals in ONE gameweek, the last N or a range have NO tool: say so plainly and never answer with points instead. ",
+   "Goals, or any other statistic, over a season, ONE gameweek, the last N gameweeks or a range are the query tool (metric goals_scored): never answer with points instead. "
+  ],
+  "get_team_results": [
+   "not a player ranking (rank_players_by_metric).",
+   "not a player ranking (query)."
+  ]
+ },
+ "web_off_line": "\n\nWEB_OFF: web access is OFF this turn. web_fetch and search_web are not available: ignore every line above that tells you to fetch, search or open a page, or to offer to. ONLY when the question itself needs the web, or recent news that no tool returned, say so in ONE short sentence in the user's language (es: \"Enciende la web para consultarlo.\" / en: \"Turn on Web to check it.\"), then answer only from what the tools returned. Never add that sentence to an answer the tools already covered, and never use it as a closing line. Never claim you checked a page."
+}

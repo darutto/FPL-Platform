@@ -187,7 +187,9 @@ def test_the_card_has_a_row_per_match_and_the_same_wording_as_the_text(run, loca
     assert [len(r) for r in card.rows] == [4] * len(card.rows) == [4] * 5
     flat = json.dumps(asdict(card), ensure_ascii=False)
     assert not any(bad in flat.casefold() for bad in FORBIDDEN_PHRASES)
-    assert card.hero.value == "1"  # one observed change of slot
+    # Steady pitch (2026-11-26): the hero says what it draws; the one start elsewhere brings the full table.
+    assert (card.hero.value, card.hero.label) == ("4/5", "como banda derecha" if locale == "es" else "as right midfield")
+    assert card.position_pitch["kind"] == "steady" and card.position_pitch["associations"] is None
     fourth = next(r for r in card.rows if r[0] in ("GW4", "J4"))
     if locale == "es":
         assert card.title == "Rogers · casilla inicial" and "no un movimiento durante el partido" in card.subtitle
@@ -242,10 +244,13 @@ _LINE = {"kind": "line", "direction": "further_forward", "basis": "same_formatio
 ])
 def test_a_line_change_is_worded_as_the_same_role_on_another_line(locale, forward, deeper, unknown):
     card = compose_position_changes_card(_line_output(_LINE), locale)
-    assert card.rows[0][3] == forward and card.hero.value == "1"
+    assert card.rows[0][3] == forward and card.hero.value == "1/1"  # the pitch cannot say the line: table
     assert "antes" not in card.rows[0][3] and "before" not in card.rows[0][3]  # the role did not change
     assert compose_position_changes_card(_line_output({**_LINE, "direction": "deeper"}), locale).rows[0][3] == deeper
-    assert compose_position_changes_card(_line_output(line_comparable=False), locale).rows[0][3] == unknown
+    # "Not comparable" is a caveat, nothing the pitch lacks: alone it does not bring the table back.
+    assert compose_position_changes_card(_line_output(line_comparable=False), locale).rows == ()
+    beside = _line_output(line_comparable=False, fpl_out={"reason": "knee", "since": "2026-11-20"})
+    assert compose_position_changes_card(beside, locale).rows[0][3].startswith(unknown)
     text = render("get_position_changes", _line_output(_LINE), locale)
     assert forward.split(": ")[0].lower() in text.lower()
     flat = json.dumps(asdict(card), ensure_ascii=False).casefold() + text.casefold()
@@ -255,7 +260,7 @@ def test_a_line_change_is_worded_as_the_same_role_on_another_line(locale, forwar
 def test_a_column_only_shift_is_neither_a_note_nor_counted_in_the_hero():
     for locale in ("es", "en"):
         card = compose_position_changes_card(_line_output(column_shift=True), locale)
-        assert card.rows[0][3] == "-" and card.hero.value == "0"
+        assert card.rows == () and card.hero.value == "1/1"
 
 _ROLE_CHANGE = {"kind": "position", "claim_status": "observed", "baseline_starts": 5,
                 "from": {"detailed_position": "Right Midfield", "side": "right"},
@@ -269,6 +274,12 @@ def _assoc(name, sidelined=False):
 
 def test_the_card_names_at_most_two_teammates_and_counts_the_rest():
     out = _line_output(_ROLE_CHANGE, associations=[_assoc("A"), _assoc("B")], associations_more=3)
+    # A second role the one-spot pitch does not draw: the table is on, and its rows carry the associations.
+    usual = out["matches"][0]
+    wide = {**usual, "gameweek": 7, "change": None, "associations": [], "associations_more": 0,
+            "slot": {"detailed_position": "Right Midfield", "side": "right"}}
+    plain = {**usual, "gameweek": 8, "change": None, "associations": [], "associations_more": 0}
+    out["matches"] = [usual, wide, plain]
     for locale, more in (("es", "y 3 más"), ("en", "and 3 more")):
         note = compose_position_changes_card(out, locale).rows[0][3]
         assert note.endswith(more) and note.count("Coincid") == 2 and note.endswith(f"B; {more}")

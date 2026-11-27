@@ -121,7 +121,11 @@ from .orch_config import (
     is_orch_experiment_output_enabled,
     is_orch_loop_enabled,
     is_orch_loop_prompt_enabled,
+    is_query_layer_enabled,
 )
+from .query_contract import final_text as query_final_text
+from .query_door_text import QUERY_TOOL_NAME, rewrite_prompt
+from .query_tool import LOCALE_KEY as QUERY_LOCALE_KEY
 from .provider_client import (
     PERR_AUTH,
     PERR_NETWORK,
@@ -191,11 +195,14 @@ OUTCOME_COOLDOWN: str = "cooldown"
 #: user's text carries a condition the season ranking cannot apply. The answer
 #: is the code-written line; nothing is grounded, reviewed or carded.
 OUTCOME_CONDITION_NOT_APPLIED: str = "condition_not_applied"
+#: The ``query`` door answered: the block's code-written text is the answer. Its
+#: state (complete or not) is in ``tool_output["query"]``.
+OUTCOME_QUERY: str = "query"
 
 _ALL_OUTCOMES: frozenset[str] = frozenset({
     OUTCOME_OK, OUTCOME_NO_CLIENT, OUTCOME_COOLDOWN, OUTCOME_LLM_ERROR,
     OUTCOME_NO_TOOL, OUTCOME_UNKNOWN_TOOL, OUTCOME_TOOL_ERROR,
-    OUTCOME_TOOL_RESULT_ERROR, OUTCOME_CONDITION_NOT_APPLIED,
+    OUTCOME_TOOL_RESULT_ERROR, OUTCOME_CONDITION_NOT_APPLIED, OUTCOME_QUERY,
     # Phase P3.1: quota-exceeded pseudo-outcome (set by fpl_server, not by orchestrator)
     "quota_exceeded",
 })
@@ -969,6 +976,8 @@ def static_system_prompt(locale: Locale = DEFAULT_LOCALE, *, web_enabled: bool =
     the default keeps every existing caller and the pinned bytes unchanged.
     """
     base = _LOOP_SYSTEM_PROMPT if is_orch_loop_prompt_enabled() else _SYSTEM_PROMPT
+    if is_query_layer_enabled():                  # the ranking is withdrawn: the prompt points at the door
+        base = rewrite_prompt(base)
     prompt = base + _EN_LOCALE_LINE if locale == "en" else base
     return prompt if web_enabled else prompt + _WEB_OFF_LINE
 
@@ -1558,6 +1567,9 @@ def _run_synthesis_extra_round(
             raw_output=_out,
         ))
 
+    if _query_call(extra_executed) is not None:     # query owns the turn: no prose is asked for
+        return None, 0, 0, 0
+
     # Same builder the first round uses, so the three provider wire formats
     # stay in one place. `prior_messages` already carries the user turn, the
     # first assistant response and the first round's tool results.
@@ -1750,6 +1762,70 @@ def _apply_condition_line(
         return result
     text = f"{result.answer_text}\n\n{line}" if result.answer_text else line
     return replace(result, answer_text=text)
+
+
+# ---------------------------------------------------------------------------
+# The query door: a ``query`` call owns the turn. Its text is code-written, so
+# no synthesis, evaluator, retry or extra round runs after it -- decided here,
+# off the executed calls, never off model text.
+# ---------------------------------------------------------------------------
+
+def _query_call(calls: Any) -> "tuple[str | None, str | None, dict[str, Any], dict[str, Any]] | None":
+    """The last executed ``query`` call that produced a block. *calls* are executed tuples."""
+    owned = [c for c in calls
+             if c[1] == QUERY_TOOL_NAME and isinstance(c[3], dict) and isinstance(c[3].get("query"), dict)]
+    return owned[-1] if owned else None
+
+
+def _traced_calls(trace: Any) -> list:
+    return [(e.get("tool_call_id"), e.get("name"), e.get("args") or {}, e.get("output") or {})
+            for e in trace or () if isinstance(e, dict)]
+
+
+def _query_result(
+    *,
+    question: str,
+    call: "tuple[str | None, str | None, dict[str, Any], dict[str, Any]]",
+    trace: Any,
+    model: str,
+    prim_in: int,
+    prim_out: int,
+    prim_cache: int,
+    rounds_used: int = 1,
+) -> OrchestratorResult:
+    """The turn answered by the query block alone."""
+    _id, name, args, output = call
+    return OrchestratorResult(
+        question=question,
+        tool_chosen=name,
+        tool_args=args,
+        tool_output=output,
+        answer_text=query_final_text(output["query"]),
+        llm_used=True,                      # the model chose the call; it wrote none of the text
+        model=model,
+        outcome=OUTCOME_QUERY,
+        primary_input_tokens=prim_in,
+        primary_output_tokens=prim_out,
+        primary_cache_read_tokens=prim_cache,
+        total_tokens=prim_in + prim_out + prim_cache,
+        tool_calls_trace=tuple(trace),
+        tool_call_count=len(trace),
+        rounds_used=rounds_used,
+        synthesis_turn=False,
+    )
+
+
+def _give_query_the_slot(result: OrchestratorResult) -> OrchestratorResult:
+    """Last line of the rule: whichever return site produced *result*, a turn whose trace holds a ``query``
+    block is answered by that block."""
+    if result.outcome == OUTCOME_QUERY:
+        return result
+    call = _query_call(_traced_calls(result.tool_calls_trace))
+    if call is None:
+        return result
+    return replace(result, tool_chosen=call[1], tool_args=call[2], tool_output=call[3],
+                   answer_text=query_final_text(call[3]["query"]), outcome=OUTCOME_QUERY, error=None,
+                   synthesis_turn=False, tool_call_count=len(result.tool_calls_trace))
 
 
 def _attaches_tool_calls_trace(fn: Any) -> Any:
@@ -2177,6 +2253,19 @@ def _apply_evaluator(
             tool_args=_rtargs,
             raw_output=_retry_raw,
         ))
+        if _query_call(_retry_executed[-1:]) is not None:
+            # The retry reached the query door: it owns the turn, with no retry synthesis.
+            return replace(
+                _query_result(question=question, call=_retry_executed[-1], trace=_trace_with_retry,
+                              model=model, prim_in=_primary_input_tokens, prim_out=_primary_output_tokens,
+                              prim_cache=_primary_cache_read_tokens),
+                evaluator_verdict=verdict, retry_attempted=True, evaluator_input_tokens=_eval_combined,
+                retry_input_tokens=_retry_in, retry_output_tokens=_retry_out,
+                retry_cache_read_tokens=_retry_cache,
+                total_tokens=(_primary_input_tokens + _primary_output_tokens + _primary_cache_read_tokens
+                              + _eval_combined + _retry_in + _retry_out),
+                retry_delivery=RETRY_DELIVERY_RETRY_RENDER,
+            )
 
     # Render the retry result from the first tool
     _r_tool_id, _r_tool_name, _r_tool_args, _r_raw_output = _retry_executed[0]
@@ -2561,6 +2650,13 @@ def _run_bounded_loop(
             0 if round_had_success else consecutive_failing_rounds + 1
         )
 
+        _query = _query_call(round_executed)
+        if _query is not None:
+            return _result_with_observability(_query_result(
+                question=question, call=_query, trace=trace, model=model, prim_in=prim_in,
+                prim_out=prim_out, prim_cache=prim_cache, rounds_used=rounds_used,
+            ))
+
         # Brief 0a: a refused season ranking that is the turn's only answer
         # ends the turn HERE -- before the follow-up provider call, so no
         # synthesis, evaluator retry or extra round can rewrite it.
@@ -2721,6 +2817,13 @@ def ask_orchestrated(
         raw_question=raw_question,
         _guard_events=_guard_events,
     )
+    # The query door: its block owns the turn, and nothing below may add to it,
+    # reword it or compose over it.
+    result = _give_query_the_slot(result)
+    if result.outcome == OUTCOME_QUERY:
+        if not result.llm_used:
+            return result
+        return replace(result, provider=provider if provider in _ALL_PROVIDERS else PROVIDER_ANTHROPIC)
     # Brief 0a: a ranking refused beside another answer adds its line, after
     # every synthesis and retry (and before the guards below see the text).
     result = _apply_condition_line(result, locale, _guard_events)
@@ -2967,6 +3070,8 @@ def _ask_orchestrated_impl(
     # Absent raw text falls back to ``question`` in the ranking guard.
     if isinstance(raw_question, str) and raw_question.strip():
         actual_bootstrap[RAW_QUESTION_KEY] = raw_question
+    if is_query_layer_enabled():
+        actual_bootstrap[QUERY_LOCALE_KEY] = locale
     if _guard_events is not None:
         actual_bootstrap[EVENTS_KEY] = _guard_events
 
@@ -3325,6 +3430,11 @@ def _ask_orchestrated_impl(
             raw_output=_raw_output,
         ))
 
+    _query = _query_call(executed)
+    if _query is not None:
+        return _query_result(question=question, call=_query, trace=_trace, model=model,
+                             prim_in=_prim_in, prim_out=_prim_out, prim_cache=_prim_cache)
+
     # Brief 0a: same rule as the bounded loop -- a refused season ranking that
     # is the only answer ends the turn before the synthesis call.
     _owner = _guard_owns_turn(executed, _trace)
@@ -3467,6 +3577,10 @@ def _ask_orchestrated_impl(
             (e.get("tool_call_id"), e.get("name"), e.get("args") or {}, e.get("output") or {})
             for e in _trace[_trace_before_extra:]
         ]
+        _query = _query_call(_extra_items)
+        if _query is not None:
+            return _query_result(question=question, call=_query, trace=_trace, model=model,
+                                 prim_in=_prim_in, prim_out=_prim_out, prim_cache=_prim_cache)
         _owner = _guard_owns_turn(_extra_items, _trace)
         if _owner is not None:
             return _condition_guard_result(

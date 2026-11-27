@@ -1,0 +1,57 @@
+{
+  "final_text": "Lectura.",
+  "generic_card": {
+    "accent": "turquoise",
+    "badge_tones": null,
+    "columns": [],
+    "footer": "Source: licensed lineup data, built 2026-11-20.",
+    "hero": {
+      "label": "as attacking midfield",
+      "tone": null,
+      "value": "3/6"
+    },
+    "involvement_compare": null,
+    "pills": [],
+    "position_pitch": {
+      "associations": null,
+      "claim_status": "observed",
+      "from": null,
+      "kind": "steady",
+      "labels": {
+        "after": "Since",
+        "before": "Before",
+        "from": "",
+        "table": "",
+        "to": "Attacking Midfield · 3 of 6 starts"
+      },
+      "note": null,
+      "others": [
+        {
+          "detailed_position": "Defensive Midfield",
+          "label": "Defensive Midfield (left) · 2",
+          "line": "MID",
+          "side": "left",
+          "starts": 2
+        },
+        {
+          "detailed_position": "Right Midfield",
+          "label": "Right Midfield · 1",
+          "line": "MID",
+          "side": "right",
+          "starts": 1
+        }
+      ],
+      "rows": [],
+      "to": {
+        "detailed_position": "Attacking Midfield",
+        "line": "MID",
+        "side": null
+      }
+    },
+    "rows": [],
+    "subtitle": "Announced starting XI, not movement during the match",
+    "title": "Alder · starting slot"
+  },
+  "intent": "unsupported",
+  "outcome": "ok"
+}
