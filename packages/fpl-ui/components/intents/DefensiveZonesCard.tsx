@@ -30,6 +30,7 @@
  * ghost button) is already provided by the chat shell (user bubble +
  * MessageList's FollowUpButton) — this component is the data card itself.
  */
+import ProvenanceStamp from '@/components/blocks/ProvenanceStamp';
 import type {
   DefensiveZoneCell,
   DefensiveZonesMeta,
@@ -368,29 +369,6 @@ function ZoneLabels({ zones, caption }: { zones: DefensiveZoneCell[]; caption: s
         ))}
       </div>
     </>
-  );
-}
-
-/**
- * The i74 season stamp. Always rendered when the payload carries provenance:
- * a muted caption for live-season data, a gold notice for anything else. The
- * text is the backend's `label` verbatim (it already carries the ⚠) so the
- * card and the plain-text zonal answers state the same fact the same way.
- */
-export function ProvenanceStamp({ provenance }: { provenance: ZonalDataProvenance }) {
-  const stale = provenance.status !== 'current';
-  return (
-    <p
-      data-testid="zonal-provenance"
-      data-status={provenance.status}
-      className={
-        stale
-          ? 'mb-3.5 rounded-[8px] border border-bf-gold/35 bg-bf-gold/[0.07] px-3 py-2 text-[11.5px] font-semibold leading-snug text-bf-gold'
-          : 'mb-3.5 text-[10.5px] font-medium tracking-[0.02em] text-bf-gray/55'
-      }
-    >
-      {provenance.label}
-    </p>
   );
 }
 

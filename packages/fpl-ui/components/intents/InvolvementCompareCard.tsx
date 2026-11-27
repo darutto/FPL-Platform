@@ -14,6 +14,7 @@
  * Every number, label and winner comes from the backend payload; the UI computes only geometry (and the drawn line,
  * with the same least-squares fit over axis positions the backend uses for the mark).
  */
+import FootNote from '@/components/blocks/FootNote';
 import { useEffect, useRef, useState } from 'react';
 import type {
   InvolvementCompareMeta,
@@ -328,11 +329,7 @@ export default function InvolvementCompareCard({ data }: Props) {
         ) : (
           <SeriesView data={data} />
         )}
-        <div className="space-y-0.5 border-t border-white/10 pt-2 text-[11px] text-bf-gray/70">
-          <p>{data.footer}</p>
-          {data.note && <p>{data.note}</p>}
-          {data.provenance && <p>{data.provenance}</p>}
-        </div>
+        <FootNote lines={[data.footer, data.note, data.provenance]} stacked />
       </div>
     </div>
   );

@@ -16,6 +16,8 @@
  * are present, and a muted footer line. Mobile-safe at 360px — title/pills
  * wrap, the table scrolls inside itself (see CardTable).
  */
+import FootNote from '@/components/blocks/FootNote';
+import HeroStat from '@/components/blocks/HeroStat';
 import type { GenericCardMeta } from '@/lib/types';
 import {
   CARD_BASE,
@@ -70,14 +72,12 @@ export default function GenericCard({ data }: Props) {
         {/* Hero stat */}
         {hero != null && (
           <div className="space-y-0.5">
-            <span
-              className={`block font-display text-3xl leading-none tracking-tighter ${
-                hero.tone != null ? GENERIC_TONE_TEXT[hero.tone] : 'text-white'
-              }`}
-            >
-              {hero.value}
-            </span>
-            <span className="text-[11px] uppercase tracking-wide text-bf-gray">{hero.label}</span>
+            <HeroStat
+              size="large"
+              value={hero.value}
+              caption={hero.label}
+              toneClass={hero.tone != null ? GENERIC_TONE_TEXT[hero.tone] : 'text-white'}
+            />
           </div>
         )}
 
@@ -88,9 +88,7 @@ export default function GenericCard({ data }: Props) {
         {rows.length > 0 && columns.length > 0 && <CardTable columns={columns} rows={rows} badgeTones={badge_tones ?? null} />}
 
         {/* Footer */}
-        {footer != null && (
-          <p className="whitespace-pre-line border-t border-white/10 pt-2 text-[11px] text-bf-gray/70">{footer}</p>
-        )}
+        <FootNote lines={[footer]} preLine />
       </div>
     </div>
   );

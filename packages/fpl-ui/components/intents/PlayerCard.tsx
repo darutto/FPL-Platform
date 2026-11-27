@@ -25,6 +25,8 @@
  * renders the CURRENT snapshot fields with the same visual quality as
  * ComparisonCard/DifferentialTable; it is expected to evolve.
  */
+import HeroStat from '@/components/blocks/HeroStat';
+import StatGrid from '@/components/blocks/StatGrid';
 import type { PlayerSnapshotMeta } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX, PILL_BASE } from '@/lib/theme';
 import {
@@ -125,38 +127,47 @@ export default function PlayerCard({ data }: Props) {
 
         {/* Hero metric — season total points */}
         <div>
-          <div className="flex items-baseline gap-0.5 font-display leading-none tracking-tighter text-bf-purple">
-            <span style={{ fontSize: 30 }}>{total_points}</span>
-            <span className="text-[11px] font-bold text-bf-gray">{t('unit.pts')}</span>
-          </div>
-          <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-            {UNIT_PPG} {points_per_game.toFixed(1)}
-          </div>
+          <HeroStat
+            size="score"
+            value={total_points}
+            suffix={t('unit.pts')}
+            caption={`${UNIT_PPG} ${points_per_game.toFixed(1)}`}
+            toneClass="text-bf-purple"
+          />
         </div>
 
         {/* Primary stat grid */}
-        <div className="grid grid-cols-3 gap-2.5">
-          <Stat label={t('unit.price')} value={`£${(now_cost / 10).toFixed(1)}m`} />
-          <Stat label={t('unit.ownership')} value={`${selected_by_percent.toFixed(1)}%`} />
-          <Stat label={t('unit.form')} value={form.toFixed(1)} />
-        </div>
+        <StatGrid
+          columns={3}
+          stats={[
+            { label: t('unit.price'), value: `£${(now_cost / 10).toFixed(1)}m` },
+            { label: t('unit.ownership'), value: `${selected_by_percent.toFixed(1)}%` },
+            { label: t('unit.form'), value: form.toFixed(1) },
+          ]}
+        />
 
         {/* Underlying stats — muted secondary row */}
         <div className="space-y-2 border-t border-white/10 pt-2.5">
-          <div className="grid grid-cols-5 gap-2">
-            <Stat label={UNIT_XG} value={expected_goals.toFixed(2)} muted />
-            <Stat label={UNIT_XA} value={expected_assists.toFixed(2)} muted />
-            <Stat label={UNIT_XGI} value={expected_goal_involvements.toFixed(2)} muted />
-            <Stat label={UNIT_ICT} value={ict_index.toFixed(1)} muted />
-            <Stat label={UNIT_DC} value={dc.toString()} muted />
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            <Stat label={UNIT_XG_PER_90} value={xgPer90.toFixed(2)} muted />
-            <Stat label={UNIT_XA_PER_90} value={xaPer90.toFixed(2)} muted />
-            <Stat label={UNIT_XGI_PER_90} value={xgiPer90.toFixed(2)} muted />
-            <Stat label={UNIT_ICT_PER_90} value={ictPer90.toFixed(2)} muted />
-            <Stat label={UNIT_DC_PER_90} value={dcPer90.toFixed(2)} muted />
-          </div>
+          <StatGrid
+            columns={5}
+            stats={[
+              { label: UNIT_XG, value: expected_goals.toFixed(2), muted: true },
+              { label: UNIT_XA, value: expected_assists.toFixed(2), muted: true },
+              { label: UNIT_XGI, value: expected_goal_involvements.toFixed(2), muted: true },
+              { label: UNIT_ICT, value: ict_index.toFixed(1), muted: true },
+              { label: UNIT_DC, value: dc.toString(), muted: true },
+            ]}
+          />
+          <StatGrid
+            columns={5}
+            stats={[
+              { label: UNIT_XG_PER_90, value: xgPer90.toFixed(2), muted: true },
+              { label: UNIT_XA_PER_90, value: xaPer90.toFixed(2), muted: true },
+              { label: UNIT_XGI_PER_90, value: xgiPer90.toFixed(2), muted: true },
+              { label: UNIT_ICT_PER_90, value: ictPer90.toFixed(2), muted: true },
+              { label: UNIT_DC_PER_90, value: dcPer90.toFixed(2), muted: true },
+            ]}
+          />
         </div>
 
         <div className="text-[10px] text-bf-gray">
@@ -180,21 +191,6 @@ export default function PlayerCard({ data }: Props) {
         {/* «Explorar»: the position pill; none -> nothing rendered. */}
         <PlayerSignals signals={data.signals} />
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className="min-w-0">
-      <div
-        className={`truncate font-display tracking-tighter leading-none ${
-          muted ? 'text-sm text-bf-gray' : 'text-base text-white'
-        }`}
-      >
-        {value}
-      </div>
-      <div className="text-[9px] font-bold uppercase tracking-wide text-bf-gray">{label}</div>
     </div>
   );
 }

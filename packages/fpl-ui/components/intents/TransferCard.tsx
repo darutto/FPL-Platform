@@ -22,6 +22,7 @@
  * price_delta is in tenths of £ (e.g. 10 = +£1.0m). Informational only —
  * does not change the recommendation. All numbers come from metadata.
  */
+import HeroStat from '@/components/blocks/HeroStat';
 import type { TransferMeta, TransferRecommendation } from '@/lib/types';
 import { RECOMMENDATION_CONFIG, PILL_BASE, CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import {
@@ -190,16 +191,7 @@ function HeroDelta({
   muted?: boolean;
 }) {
   const color = muted ? 'text-bf-gray' : positive ? 'text-bf-turquoise' : 'text-bf-gray';
-  return (
-    <div className="leading-none">
-      <span className={`font-display tracking-tighter ${color}`} style={{ fontSize: 28 }}>
-        {value}
-      </span>
-      <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-wide text-bf-gray">
-        {unit}
-      </span>
-    </div>
-  );
+  return <HeroStat size="delta" value={value} caption={unit} toneClass={color} />;
 }
 
 function Banner({

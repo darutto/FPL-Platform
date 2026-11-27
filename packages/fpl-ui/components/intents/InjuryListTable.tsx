@@ -17,6 +17,7 @@
  * parses those back into numbers/ISO strings and degrades to '—'/null when
  * a column is missing or unparsable, rather than throwing.
  */
+import FootNote from '@/components/blocks/FootNote';
 import type { GenericCardMeta, InjuryRow } from '@/lib/types';
 import { CARD_BASE, CARD_ACCENT, ACCENT_HEX } from '@/lib/theme';
 import { TriangleField } from './CardOrnaments';
@@ -53,11 +54,7 @@ export default function InjuryListTable({ data }: Props) {
         </div>
       )}
 
-      {data.footer != null && (
-        <p className="border-t border-white/10 px-4 py-2 text-[11px] text-bf-gray/70">
-          {data.footer}
-        </p>
-      )}
+      <FootNote lines={[data.footer]} inset />
     </div>
   );
 }

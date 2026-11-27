@@ -28,7 +28,7 @@ import {
   sharePercent,
   zoneChipLabelFor,
 } from '@/lib/defensive-zones';
-import { ProvenanceStamp } from './DefensiveZonesCard';
+import ProvenanceStamp from '@/components/blocks/ProvenanceStamp';
 import { formatVenue } from './FixtureRunTable';
 import PlayerZonesPitch, { hasPlaceableZones } from './PlayerZonesPitch';
 import { useLocale, useT } from '@/lib/i18n/LocaleProvider';
