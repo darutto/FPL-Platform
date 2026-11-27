@@ -32,7 +32,7 @@ import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import { planStateForNextTurn } from '@/lib/plan-state';
 import { queryContextForNextTurn } from '@/lib/query-context';
-import { fetchTeamCard, isLatestTeamCard, teamCardResponse } from '@/lib/team-card';
+import { fetchTeamCard, isLatestTeamCard, teamCardResponse, visibleTeamCards } from '@/lib/team-card';
 import type { AskResponse, QuerySpecDict, SquadContext, Suggestion, TeamChipMeta } from '@/lib/types';
 import {
   WIZARD_ARMING_INTENTS,
@@ -556,7 +556,7 @@ export default function ChatShell() {
   const openTeamCard = useCallback(async (chip: TeamChipMeta) => {
     const scrollIfLatest = () => {
       if (!isLatestTeamCard(messagesRef.current[messagesRef.current.length - 1], chip.team_id)) return false;
-      const cards = document.querySelectorAll('[data-testid="team-card"]');
+      const cards = visibleTeamCards(document);
       cards[cards.length - 1]?.scrollIntoView({ block: 'nearest' });
       return true;
     };

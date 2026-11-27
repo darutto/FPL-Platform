@@ -388,6 +388,7 @@ export const en: typeof es = {
   'share.club': 'Club Bendito Fantasy',
   'share.cta': 'Try it yourself at Club Bendito Fantasy.',
   'share.text': 'My question on {club}: "{question}"',
+  'share.textNoQuestion': 'A card from {club}',
   'share.sharedFrom': 'Answer shared from the chat',
   'share.question': 'Question',
   'share.button': 'Share card',

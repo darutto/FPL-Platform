@@ -8,9 +8,11 @@ import '@testing-library/jest-dom';
 
 import type { AskResponse, TeamCardBody, TeamCardMetric } from '@/lib/types';
 import TeamCard from '@/components/intents/TeamCard';
-import MessageList, { type Message } from '@/components/chat/MessageList';
+import MessageList, { assistantShareQuestionMap, type Message } from '@/components/chat/MessageList';
 import { selectIntentView } from '@/lib/intent-renderer';
-import { fetchTeamCard, isLatestTeamCard, teamCardResponse } from '@/lib/team-card';
+import { fetchTeamCard, isLatestTeamCard, teamCardResponse, visibleTeamCards } from '@/lib/team-card';
+import ShareCard from '@/components/share/ShareCard';
+import { buildShareText } from '@/lib/share';
 
 // The outlook module is replaced below; pin the bundle too so nothing here can read the weekly one.
 jest.mock('@/lib/data/fixture-outlook-2026-27.json', () => jest.requireActual('./fixtures/fixture-outlook-2026-27.pinned.json'));
@@ -129,10 +131,52 @@ describe('the team card in the chat', () => {
   });
 
   test('has no verdict band and no follow-up button', () => {
-    render(<MessageList messages={[message(response)]} loading={false} onFollowUp={() => {}} />);
-    expect(screen.getByTestId('team-card')).toBeInTheDocument();
+    const { container } = render(<MessageList messages={[message(response)]} loading={false} onFollowUp={() => {}} />);
+    expect(visibleTeamCards(container)).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Veredicto' })).not.toBeInTheDocument();
     expect(screen.queryByText('Seguir conversación')).not.toBeInTheDocument();
+  });
+
+  const asked: Message = { id: 'u1', role: 'user', text: 'alder town' };
+
+  test('a typed club is shared with its question', () => {
+    render(<MessageList messages={[asked, message(response)]} loading={false} />);
+    expect(screen.getByRole('button', { name: 'Compartir tarjeta' })).toBeInTheDocument();
+    expect(assistantShareQuestionMap([asked, message(response)])).toEqual({ a1: 'alder town' });
+  });
+
+  test('a card opened by a tap is shared with no question, never the earlier one', () => {
+    const player = { ...message({ ...response, intent: 'player_snapshot', team_card: null } as AskResponse), id: 'p1' };
+    expect(assistantShareQuestionMap([asked, player, message(response)])).toEqual({ p1: 'alder town', a1: '' });
+    render(<MessageList messages={[message(response)]} loading={false} />);
+    expect(screen.getByRole('button', { name: 'Compartir tarjeta' })).toBeInTheDocument();
+  });
+
+  test('the share image has header, card and footer, and a question block only when there was one', () => {
+    const { rerender } = render(<ShareCard question="" response={response} appUrl="https://example.test" cta="cta" />);
+    expect(screen.getByText('Club Bendito Fantasy')).toBeInTheDocument();
+    expect(screen.getByTestId('team-card')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test')).toBeInTheDocument();
+    expect(screen.queryByText('Pregunta')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Dificultad por' })).not.toBeInTheDocument();
+    rerender(<ShareCard question="alder town" response={response} appUrl="https://example.test" cta="cta" />);
+    expect(screen.getByText('Pregunta')).toBeInTheDocument();
+  });
+
+  test('the share copy shows the side chosen on the card, and is not counted as a card on screen', () => {
+    const { container } = render(<MessageList messages={[asked, message(response)]} loading={false} />);
+    const onScreen = within(visibleTeamCards(container)[0] as HTMLElement);
+    const chosen = () => screen.getByTestId('team-card-axis').textContent;
+    const attack = chosen();
+    fireEvent.click(within(onScreen.getByRole('group', { name: 'Dificultad por' })).getAllByRole('button')[1]);
+    expect(chosen()).not.toBe(attack);
+    expect(screen.getAllByTestId('team-card')).toHaveLength(2);
+    expect(visibleTeamCards(container)).toHaveLength(1);
+  });
+
+  test('the invite text without a question quotes none', () => {
+    const text = buildShareText({ question: '', locale: 'es' });
+    expect(text.split('\n')[0]).toBe('Una tarjeta de Club Bendito Fantasy');
   });
 
   test('a second tap is recognised only while that club card is the latest message', () => {

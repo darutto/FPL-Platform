@@ -43,7 +43,10 @@ export function buildShareText(ctx: ShareContext): string {
   const defaultCta = translate(locale, 'share.cta');
   const cta = (ctx.cta ?? defaultCta).trim() || defaultCta;
   const q = ctx.question.trim();
-  const intro = translate(locale, 'share.text', { club: translate(locale, 'share.club'), question: q });
+  const club = translate(locale, 'share.club');
+  const intro = q
+    ? translate(locale, 'share.text', { club, question: q })
+    : translate(locale, 'share.textNoQuestion', { club });
   return `${intro}\n${cta}\n${appUrl}`;
 }
 

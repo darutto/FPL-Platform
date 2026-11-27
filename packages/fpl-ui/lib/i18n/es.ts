@@ -387,6 +387,7 @@ export const es = {
   'share.club': 'Club Bendito Fantasy',
   'share.cta': 'Pruébalo tú también en Club Bendito Fantasy.',
   'share.text': 'Mi pregunta en {club}: "{question}"',
+  'share.textNoQuestion': 'Una tarjeta de {club}',
   'share.sharedFrom': 'Respuesta compartida desde el chat',
   'share.question': 'Pregunta',
   'share.button': 'Compartir tarjeta',

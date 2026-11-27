@@ -25,10 +25,13 @@ export default function ShareCard({ question, response, appUrl, cta }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-bf-cyan/30 bg-bf-cyan/10 px-4 py-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-bf-cyan">{t('share.question')}</p>
-        <p className="mt-1 text-[14px] font-medium text-white">{question}</p>
-      </div>
+      {/* A card opened by a tap answered no question: no question block. */}
+      {question.trim() !== '' && (
+        <div className="mt-4 rounded-xl border border-bf-cyan/30 bg-bf-cyan/10 px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-bf-cyan">{t('share.question')}</p>
+          <p className="mt-1 text-[14px] font-medium text-white">{question}</p>
+        </div>
+      )}
 
       <div className="mt-4">
         {/* The shared image is mounted inside the chat: it must not inherit the card's taps. */}
