@@ -125,6 +125,7 @@ from .orch_config import (
 )
 from .query_contract import final_text as query_final_text
 from .query_door_text import QUERY_TOOL_NAME, rewrite_prompt
+from . import query_with_without
 from .query_tool import LOCALE_KEY as QUERY_LOCALE_KEY
 from .provider_client import (
     PERR_AUTH,
@@ -1815,6 +1816,30 @@ def _query_result(
     )
 
 
+def _own_with_without(
+    result: OrchestratorResult, raw_text: str, bootstrap: dict[str, Any], locale: Locale, model: "str | None",
+) -> OrchestratorResult:
+    """Replace the turn's answer with the default with/without card when the raw text is that question, unless
+    the model's own comparison already answers it. Any failure keeps the turn as it was."""
+    try:
+        found = query_with_without.detect(str(raw_text), bootstrap)
+        if found is None:
+            return result
+        block = (result.tool_output or {}).get("query") if result.outcome == OUTCOME_QUERY else None
+        if block is not None and query_with_without.keeps(found, block):
+            return result
+        lang = "en" if locale == "en" else "es"
+        # the same per-turn keys a model's call sees (the test seams for the day and the gameweek cache)
+        output = query_with_without.answer(found, {**bootstrap, QUERY_LOCALE_KEY: lang}, lang)
+    except Exception:  # noqa: BLE001
+        _LOG.exception("default with/without answer failed")
+        return result
+    return replace(result, tool_chosen=QUERY_TOOL_NAME, tool_args={}, tool_output=output,
+                   answer_text=query_final_text(output["query"]), outcome=OUTCOME_QUERY, error=None,
+                   synthesis_turn=False, tool_call_count=len(result.tool_calls_trace or ()),
+                   model=result.model or model)
+
+
 def _give_query_the_slot(result: OrchestratorResult) -> OrchestratorResult:
     """Last line of the rule: whichever return site produced *result*, a turn whose trace holds a ``query``
     block is answered by that block."""
@@ -2820,6 +2845,9 @@ def ask_orchestrated(
     # The query door: its block owns the turn, and nothing below may add to it,
     # reword it or compose over it.
     result = _give_query_the_slot(result)
+    if is_query_layer_enabled():
+        # "Attack with and without a player" is answered by code, whatever the model did with it.
+        result = _own_with_without(result, raw_question or question, bootstrap, locale, model)
     if result.outcome == OUTCOME_QUERY:
         if not result.llm_used:
             return result
