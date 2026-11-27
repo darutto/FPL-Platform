@@ -1488,9 +1488,32 @@ export interface QueryComparisonSide {
   total_text: string;
   per_match_text: string;
   per_match_values_text: string[];
+  /** The column heading ("Con X") and what it covers ("J1–J6 · 6 partidos"). */
+  title: string;
+  detail: string;
+  /** Home and away matches, and today's mean difficulty. */
+  venue_text: string;
+}
+
+/** One statistic of a comparison; `sides` follows the order of `QueryComparison.sides`. */
+export interface QueryComparisonMetric {
+  key: string;
+  label: string;
+  /** Which figure the big number is. */
+  headline: 'per_match' | 'total';
+  /** What the big number is, e.g. "goles por partido". */
+  hero_label: string;
+  sides: {
+    value_text: string;
+    total_text: string;
+    /** Null for a count that has no per-match figure. */
+    per_match_text: string | null;
+    series: { label: string; value_text: string }[];
+  }[];
 }
 
 export interface QueryComparison {
+  metrics: QueryComparisonMetric[];
   club: string;
   metric_header: string;
   /** [match_set, compare_to] */
@@ -1520,6 +1543,8 @@ export interface QueryBlock {
   notes: string[];
   /** The one sentence the card does not otherwise show (a question, what cannot be computed); null on complete. */
   message: string | null;
+  /** Small print under the card; null when there is none. */
+  footnote: string | null;
   sum_check: 'passed' | 'not_checked' | 'not_applicable' | null;
   /** Reading-part kinds a tap or correction changed. */
   changed_parts: string[];

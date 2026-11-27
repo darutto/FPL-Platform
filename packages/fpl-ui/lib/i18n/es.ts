@@ -670,5 +670,4 @@ export const es = {
   'query.notThis': 'No es esto',
   'query.total': 'Total',
   'query.perMatch': 'Por partido',
-  'query.matches': 'Partidos',
 };

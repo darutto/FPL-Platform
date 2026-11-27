@@ -668,5 +668,4 @@ export const en: typeof es = {
   'query.notThis': 'Not this',
   'query.total': 'Total',
   'query.perMatch': 'Per match',
-  'query.matches': 'Matches',
 };

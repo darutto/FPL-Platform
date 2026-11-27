@@ -27,15 +27,21 @@ const BRAKED = 'border border-amber-400/60 bg-amber-400/10 text-amber-300';
 const PILL = 'border border-white/15 bg-black/30 text-bf-text hover:border-white/35';
 const PILL_OPEN = 'border border-bf-coral bg-bf-coral text-bf-ink';
 const CHANGED = 'ring-2 ring-bf-turquoise';
+// The "·" between parts is drawn by CSS, so each item's text stays the backend's label alone.
+const SENTENCE_ITEM = 'inline [&:not(:first-child)]:before:content-["_·_"]';
 
 export default function QueryReadingRow({ reading, onPick, changed = [] }: Props) {
   const [open, setOpen] = useState<number | null>(null);
   const choicesId = useId();
   const openPart = open != null ? reading.parts[open] : undefined;
+  // With nothing to tap and nothing braked, the row is one sentence in the card's subtitle style, not tags.
+  const sentence = reading.parts.every(
+    (part) => !part.braked && !(onPick != null && part.editable && part.alternatives.length > 0),
+  );
 
   return (
     <div data-testid="query-reading" lang={reading.lang} className="space-y-2">
-      <ul className="flex flex-wrap items-center gap-1.5">
+      <ul className={sentence ? 'text-xs leading-relaxed text-bf-gray' : 'flex flex-wrap items-center gap-1.5'}>
         {reading.parts.map((part, i) => {
           const tappable = onPick != null && part.editable && part.alternatives.length > 0;
           const isChanged = changed.includes(part.kind);
@@ -46,6 +52,7 @@ export default function QueryReadingRow({ reading, onPick, changed = [] }: Props
               data-kind={part.kind}
               data-braked={part.braked || undefined}
               data-changed={isChanged || undefined}
+              className={sentence ? SENTENCE_ITEM : undefined}
             >
               {tappable ? (
                 <button
@@ -60,7 +67,7 @@ export default function QueryReadingRow({ reading, onPick, changed = [] }: Props
                   <span aria-hidden="true" className="text-[9px] opacity-70">▾</span>
                 </button>
               ) : (
-                <span className={`${SEGMENT} inline-flex items-center gap-1 ${tone}`}>
+                <span className={sentence ? (isChanged ? CHANGED : undefined) : `${SEGMENT} inline-flex items-center gap-1 ${tone}`}>
                   {part.braked && <span aria-hidden="true">⚠</span>}
                   <span>{part.label}</span>
                 </span>

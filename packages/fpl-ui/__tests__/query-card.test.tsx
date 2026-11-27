@@ -117,20 +117,55 @@ test('a comparison says which gameweeks were left out because the player had not
   expect(screen.getByTestId('query-notes')).toHaveTextContent(line);
 });
 
-test('comparison sides keep the order sent, and no figure is drawn twice in a column', () => {
-  const { sides, metric_header } = BODIES[COMPARE].query!.comparison!;
-  show(answer(COMPARE));
-  const columns = screen.getAllByTestId('query-side');
-  expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(sides.map((side) => side.label));
-  columns.forEach((column, i) => {
-    // This comparison is per match, so the headline is the per-match figure: only total and matches follow.
-    expect(sides[i].per_match_text).toBe(sides[i].value_text);
-    expect(Array.from(column.querySelectorAll('dd'), (dd) => dd.textContent)).toEqual(
-      [sides[i].total_text, String(sides[i].n)],
-    );
+const COMPARISONS = NAMES.filter((n) => BODIES[n].query!.comparison != null);
+
+test('the bodies carry both default with/without cards', () => {
+  expect(COMPARISONS).toEqual(expect.arrayContaining(['with_without_attack_es', 'with_without_defence_es']));
+});
+
+describe.each(COMPARISONS)('%s: the comparison card', (name) => {
+  const query = BODIES[name].query!;
+  const { sides, metrics, metric_header } = query.comparison!;
+
+  test('keeps the order sent, and says what every number is', () => {
+    show(answer(name));
+    const columns = screen.getAllByTestId('query-side');
+    expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(sides.map((side) => side.title));
+    columns.forEach((column, i) => {
+      expect(column).toHaveTextContent(sides[i].detail);
+      expect(column).toHaveTextContent(sides[i].venue_text);
+      const blocks = within(column).getAllByTestId('query-metric');
+      expect(blocks.map((b) => b.getAttribute('data-metric'))).toEqual(metrics.map((m) => m.key));
+      blocks.forEach((block, j) => {
+        const figures = metrics[j].sides[i];
+        expect(within(block).getByText(metrics[j].label)).toBeInTheDocument();
+        expect(within(block).getByText(metrics[j].hero_label)).toBeInTheDocument();
+        const strip = within(block).getByRole('list', { name: metrics[j].label });
+        expect(within(strip).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
+          figures.series.map((match) => match.label + match.value_text),
+        );
+        const other = metrics[j].headline === 'per_match' ? figures.total_text : figures.per_match_text;
+        if (other != null) expect(block).toHaveTextContent(`${metrics[j].headline === 'per_match' ? 'Total' : 'Por partido'} ${other}`);
+        else expect(block).not.toHaveTextContent(/Total|Por partido [0-9]/);
+      });
+    });
+    expect(screen.getByRole('group', { name: metric_header })).toBeInTheDocument();
   });
-  // The metric is in the reading row only; the group carries it for screen readers.
-  expect(screen.getByRole('group', { name: metric_header })).not.toHaveTextContent(metric_header);
+
+  test('the reading is a sentence of the server labels, and the notes do not repeat the card', () => {
+    show(answer(name));
+    const reading = screen.getByTestId('query-reading');
+    expect(within(reading).queryByRole('button')).toBeNull();
+    expect(within(reading).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
+      query.reading!.parts.map((p) => p.label),
+    );
+    expect(screen.getByTestId('query-notes')).not.toHaveTextContent(/FDR|Local|Home|xG por partido|per match:/);
+  });
+});
+
+test('the footnote is drawn under the card, only when the server sends one', () => {
+  show(answer('complete_list_es', { footnote: 'Server small print' }));
+  expect(screen.getByTestId('query-footnote')).toHaveTextContent('Server small print');
 });
 
 test.each(REFUSALS)('%s never draws a table or a comparison, even if the body wrongly had one', (name) => {
