@@ -60,3 +60,15 @@ test.each(['split-es', 'one-role-es'])('generic card: position pitch %s', (name)
 test('generic card with a hero stat (hand-written)', () => card(genericCardOkResponse));
 
 test('injury list with a footer (hand-written)', () => card(injuryListGenericResponse));
+
+test('injury list with its footer line (hand-written)', () => {
+  card({ ...injuryListGenericResponse,
+    generic_card: { ...injuryListGenericResponse.generic_card!, footer: 'Server footer line' } });
+});
+
+test.each(['es', 'en'])('involvement comparison footer: %s', (lang) => {
+  card({ ...genericCardOkResponse,
+    generic_card: { ...genericCardOkResponse.generic_card!,
+      involvement_compare: read(`fixtures/involvement-compare-${lang}.json`).involvement_compare
+        ?? read(`fixtures/involvement-compare-${lang}.json`) } });
+});
