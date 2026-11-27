@@ -58,7 +58,7 @@ def _check_team_answer(body, team):
     assert (body["intent"], body["outcome"], body["llm_used"]) == ("team_card", "ok", False)
     assert body["final_text"] == team["name"]
     assert body["team_card"]["kind"] == "team" and body["team_card"]["card"]["team"]["id"] == team["id"]
-    assert body["player_snapshot"] is None and body["team_chip"] is None
+    assert body["player_snapshot"] is None and "team_chip" not in body
 
 
 def test_ask_serves_the_team_card_and_the_same_body_as_post_card(client):
@@ -97,5 +97,5 @@ def test_a_player_of_the_same_name_wins_and_offers_the_club(client, path):
         body = client.post(url, json={"question": CLUB}).json()
     finally:
         player["web_name"] = original
-    assert body["intent"] == "player_snapshot" and body["team_card"] is None
+    assert body["intent"] == "player_snapshot" and "team_card" not in body
     assert body["team_chip"] == {"team_id": team["id"], "name": team["name"]}

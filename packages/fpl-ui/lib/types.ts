@@ -86,7 +86,9 @@ export type Intent =
   // (same non-classifier pattern as zonal_opportunity).
   | 'player_snapshot'
   // Orchestrator-only: the card of a focused player zonal question.
-  | 'player_zonal_outlook';
+  | 'player_zonal_outlook'
+  // A bare club name's card (deterministic; not a model tool).
+  | 'team_card';
 
 /**
  * Runtime-accessible list of every intent value that can appear in
@@ -122,6 +124,7 @@ export const SUPPORTED_INTENT_VALUES = [
   'zonal_opportunity', // T4b — renderable orchestrator-routed intent
   'player_snapshot',   // renderable orchestrator-routed intent (player card)
   'player_zonal_outlook', // renderable orchestrator-routed intent (player zonal card)
+  'team_card',          // a bare club name's card
 ] as const satisfies readonly Intent[];
 
 export type FplPosition = 'FWD' | 'MID' | 'DEF' | 'GKP';
@@ -355,6 +358,10 @@ export interface AskResponse {
    * (pre-existing fixtures/serialisers omit it).
    */
   player_snapshot?: PlayerSnapshotMeta | null;
+  /** Non-null when intent=team_card: the same body POST /card serves. */
+  team_card?: TeamCardBody | null;
+  /** A player answered a name that is also this club's: offer the club's card. */
+  team_chip?: TeamChipMeta | null;
   /** Non-null when intent=player_zonal_outlook, outcome=ok and the backend could compose the card. */
   player_zonal?: PlayerZonalCardMeta | null;
   /**
@@ -1548,4 +1555,65 @@ export interface QueryBlock {
   sum_check: 'passed' | 'not_checked' | 'not_applicable' | null;
   /** Reading-part kinds a tap or correction changed. */
   changed_parts: string[];
+}
+
+// Source: fpl_grounded_assistant/team_card.py (POST /card kind team)
+export interface TeamCardMetric {
+  total: number | null;
+  per_match: number | null;
+  /** [low, high] when the source disagrees with itself. */
+  range: [number, number] | null;
+  per_match_range: [number, number] | null;
+  matches: number | null;
+  reason: string | null;
+  missing_gameweeks: number[];
+}
+
+export type TeamCardWindow = Record<'goals_for' | 'goals_against' | 'xg_for' | 'xg_against', TeamCardMetric>;
+
+export interface TeamCardStats {
+  recent_gameweeks: number;
+  season: TeamCardWindow;
+  recent: TeamCardWindow;
+}
+
+export interface TeamCardBody {
+  v: 1;
+  kind: 'team';
+  data_stamp: string;
+  card: {
+    team: { id: number; name: string; short_name: string };
+    table: {
+      position: number;
+      teams: number;
+      played: number;
+      won: number;
+      drawn: number;
+      lost: number;
+      gf: number;
+      ga: number;
+      gd: number;
+      points: number;
+      form: {
+        gameweek: number | null;
+        opponent_short: string;
+        is_home: boolean;
+        goals_for: number;
+        goals_against: number;
+        result: 'W' | 'D' | 'L';
+      }[];
+    } | null;
+    stats: TeamCardStats | null;
+    fixtures: { next: FixtureEntry[]; blank_gameweeks: number[]; double_gameweeks: number[] } | null;
+    players:
+      | { id: number; web_name: string; position: string; total_points: number; price: number | null }[]
+      | null;
+    last_finished_gameweek: number | null;
+    data_provenance: { label?: string } | null;
+  };
+}
+
+export interface TeamChipMeta {
+  team_id: number;
+  name: string;
 }

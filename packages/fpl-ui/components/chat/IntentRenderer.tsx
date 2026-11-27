@@ -30,6 +30,7 @@ import { selectIntentView } from '@/lib/intent-renderer';
 import CaptainCard from '@/components/intents/CaptainCard';
 import ComparisonCard from '@/components/intents/ComparisonCard';
 import PlayerCard from '@/components/intents/PlayerCard';
+import TeamCard from '@/components/intents/TeamCard';
 import PlayerZonalCard from '@/components/intents/PlayerZonalCard';
 import RankingTable from '@/components/intents/RankingTable';
 import TransferCard from '@/components/intents/TransferCard';
@@ -96,6 +97,9 @@ export default function IntentRenderer({ response }: Props) {
   }
   if (view === 'defensive_zones' && response.zonal_opportunity != null) {
     return <DefensiveZonesCard data={response.zonal_opportunity} />;
+  }
+  if (view === 'team_card' && response.team_card != null) {
+    return <TeamCard data={response.team_card} />;
   }
   if (view === 'player_snapshot' && response.player_snapshot != null) {
     return <PlayerCard data={response.player_snapshot} />;

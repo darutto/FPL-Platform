@@ -3408,9 +3408,7 @@ def _team_card_response(
     locale: Locale,
 ) -> FinalResponse:
     """The session answer to a bare club name."""
-    from .renderer import render
-
-    final_text = render("get_team_card", raw_output, locale=locale)
+    final_text = raw_output["team_name"]   # every figure is on the card under it
     debug = None
     if include_debug:
         debug = FinalResponseDebug(

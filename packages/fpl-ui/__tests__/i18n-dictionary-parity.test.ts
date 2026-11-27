@@ -11,6 +11,8 @@ import { translate, type DictKey } from '@/lib/i18n/dictionary';
 const SAME_IN_BOTH = new Set<string>([
   'slash.chips.command',
   'pc.strip.rest',
+  'tc.pts',
+  'tc.xgFor',
   'concl.metric.xgi_per_90',
   'panel.at.xg.command',
   'panel.at.xa.command',

@@ -32,7 +32,8 @@ import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import { planStateForNextTurn } from '@/lib/plan-state';
 import { queryContextForNextTurn } from '@/lib/query-context';
-import type { AskResponse, QuerySpecDict, SquadContext, Suggestion } from '@/lib/types';
+import { fetchTeamCard, isLatestTeamCard, teamCardResponse } from '@/lib/team-card';
+import type { AskResponse, QuerySpecDict, SquadContext, Suggestion, TeamChipMeta } from '@/lib/types';
 import {
   WIZARD_ARMING_INTENTS,
   isLeaguePickSuggestion,
@@ -550,6 +551,24 @@ export default function ChatShell() {
     },
   }), [sendMessage, handleInsert]);
 
+  // The club chip under a player answer: appends that club's card with no user bubble (POST /card, no model).
+  // A second tap while it is still the latest only scrolls to it. A failure is thrown to the chip.
+  const openTeamCard = useCallback(async (chip: TeamChipMeta) => {
+    const scrollIfLatest = () => {
+      if (!isLatestTeamCard(messagesRef.current[messagesRef.current.length - 1], chip.team_id)) return false;
+      const cards = document.querySelectorAll('[data-testid="team-card"]');
+      cards[cards.length - 1]?.scrollIntoView({ block: 'nearest' });
+      return true;
+    };
+    if (scrollIfLatest()) return;
+    const response = teamCardResponse(await fetchTeamCard(chip.team_id, locale));
+    if (scrollIfLatest()) return;
+    setMessages((prev) => [
+      ...prev,
+      { id: generateId(), role: 'assistant', text: response.final_text, outcome: 'ok', llmUsed: false, response },
+    ]);
+  }, [locale]);
+
   const isEmpty = messages.length === 0;
 
   return (
@@ -602,6 +621,7 @@ export default function ChatShell() {
                     onSuggestionPick={handleSuggestionPick}
                     playerPickWizard={playerPickWizard}
                     onPlayerPick={handlePlayerPick}
+                    onOpenTeam={openTeamCard}
                     pendingEo={
                       eoPoll != null
                         ? { messageId: eoPoll.messageId, tool: eoPoll.marker.tool, etaS: eoPoll.marker.eta_s, timedOut: eoPoll.timedOut }

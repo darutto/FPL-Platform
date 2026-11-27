@@ -1375,7 +1375,7 @@ def ask_v2(
                 "selected_tool": TEAM_CARD_TOOL,
                 "tool_input": {"team_id": int(_club["id"])},
                 "raw_output": _team_raw,
-                "answer_text": _render(TEAM_CARD_TOOL, _team_raw, locale=locale),
+                "answer_text": _team_raw["team_name"],   # every figure is on the card under it
                 "outcome": "ok",
                 "kind": "text",
                 "routing_trace": routing_trace,

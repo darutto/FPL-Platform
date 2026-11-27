@@ -58,6 +58,9 @@ export interface Message {
   wcResponse?: WcAskResponse;
 }
 
+import TeamChip from './TeamChip';
+import type { TeamChipMeta } from '@/lib/types';
+
 interface Props {
   messages: Message[];
   loading: boolean;
@@ -74,6 +77,7 @@ interface Props {
   playerPickWizard?: PlayerPickWizardState | null;
   /** Called with a tapped chip's send_text. */
   onPlayerPick?: (suggestion: Suggestion) => void;
+  onOpenTeam?: (chip: TeamChipMeta) => Promise<void>;
   /** A "computing" EO answer being polled for: the message it belongs to (see lib/use-eo-poll.ts). */
   pendingEo?: { messageId: string; tool: string; etaS: number; timedOut: boolean } | null;
   /** «Reintentar» after the poll gave up. */
@@ -89,6 +93,7 @@ export default function MessageList({
   onSuggestionPick,
   playerPickWizard,
   onPlayerPick,
+  onOpenTeam,
   pendingEo,
   onRetryEo,
 }: Props) {
@@ -127,6 +132,7 @@ export default function MessageList({
             onSuggestionPick={onSuggestionPick}
             playerPickWizard={playerPickWizard}
             onPlayerPick={onPlayerPick}
+            onOpenTeam={onOpenTeam}
           />
           {pendingEo != null && pendingEo.messageId === msg.id && (
             <div className="flex justify-start" data-testid="eo-pending">
@@ -169,6 +175,7 @@ interface MessageBubbleProps {
   onSuggestionPick?: (sendText: string) => void;
   playerPickWizard?: PlayerPickWizardState | null;
   onPlayerPick?: (suggestion: Suggestion) => void;
+  onOpenTeam?: (chip: TeamChipMeta) => Promise<void>;
 }
 
 /**
@@ -213,11 +220,17 @@ export function isDeterministicTableText(response: AskResponse | undefined): boo
   return view != null && TABLE_VIEWS.has(view) && response.synthesis_turn == null && response.llm_used === false;
 }
 
-function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick }: MessageBubbleProps) {
+function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, compareWizard, onSuggestionPick, playerPickWizard, onPlayerPick, onOpenTeam }: MessageBubbleProps) {
   const t = useT();
   const isUser = message.role === 'user';
   const showOriginBadge = !isUser && !message.isError && (message.response != null || message.wcResponse != null);
-  const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null;
+  // A team card has nothing a follow-up session can be seeded with, and no share view yet.
+  const isTeamCard = message.response?.intent === 'team_card';
+  const showFollowUp = !isUser && !message.isError && isLast && onFollowUp != null && !isTeamCard;
+  const teamChip =
+    !isUser && !message.isError && onOpenTeam != null && message.response?.team_chip != null ? (
+      <TeamChip chip={message.response.team_chip} onOpen={onOpenTeam} />
+    ) : null;
   // A compare-clarification turn is identified by ITS OWN response carrying
   // suggestions — a permanent property of this message, unlike `compareWizard`
   // (transient global state that clears once the user finishes the wizard).
@@ -275,6 +288,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
   const showVerdict =
     message.text.trim().length > 0 &&
     message.response?.intent !== 'multi_intent' &&
+    !isTeamCard && // its final_text is the club's name, which heads the card
     message.response?.synthesis_turn !== false &&
     // A query card carries the answer itself; its final_text is the same reading for text-only clients.
     !(message.response != null && selectIntentView(message.response) === 'query') &&
@@ -351,12 +365,13 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
               <EvidenceList evidence={message.response!.evidence} />
             </EvidenceBoundary>
           )}
-          {shareQuestion && (
+          {shareQuestion && !isTeamCard && (
             <ShareActions question={shareQuestion} response={message.response!} />
           )}
           {showOriginBadge && <OriginBadges message={message} />}
           {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
           {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
+          {teamChip}
           {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
         </div>
       </div>
@@ -421,6 +436,7 @@ function MessageBubble({ message, shareQuestion, isLast, armed, onFollowUp, comp
         {showOriginBadge && <OriginBadges message={message} />}
         {showWizard && <SuggestionChips wizard={compareWizard!} onPick={onSuggestionPick!} />}
         {showPlayerPickWizard && <PlayerPickChips wizard={playerPickWizard!} onPick={onPlayerPick!} />}
+        {teamChip}
         {showFollowUp && <FollowUpButton armed={armed} onClick={() => onFollowUp!(message.id)} />}
       </div>
     </div>

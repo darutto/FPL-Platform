@@ -22,6 +22,7 @@
  *   zonal_opportunity  → 'defensive_zones'    (zonal_opportunity non-null, zones.length > 0) (T4b)
  *   player_snapshot    → 'player_snapshot'    (player_snapshot field non-null)
  *   player_zonal_outlook → 'player_zonal'     (player_zonal non-null, zonal.zones.length > 0)
+ *   team_card          → 'team_card'          (team_card non-null)
  *   @top_form/xg/etc.  → 'resource_ranking'  (resource_rows non-null, resource != 'injuries')
  *   @injuries          → 'resource_injuries'  (resource_rows non-null, resource === 'injuries')
  *   injury_list         → 'generic_injuries'  (generic_card non-null, rows.length > 0) (Track B)
@@ -54,6 +55,7 @@ export type IntentView =
   | 'defensive_zones'
   | 'player_snapshot'
   | 'player_zonal'
+  | 'team_card'
   | 'resource_ranking'
   | 'resource_injuries'
   | 'generic_injuries'
@@ -145,6 +147,9 @@ export function selectIntentView(response: AskResponse): IntentView | null {
     response.zonal_opportunity.zones.length > 0
   ) {
     return 'defensive_zones';
+  }
+  if (response.intent === 'team_card' && response.team_card != null) {
+    return 'team_card';
   }
   if (response.intent === 'player_snapshot' && response.player_snapshot != null) {
     return 'player_snapshot';

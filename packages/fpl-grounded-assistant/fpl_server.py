@@ -383,8 +383,10 @@ class AskResponse(BaseModel):
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
-    team_card:            dict[str, Any] | None = None    # bare club name: the POST /card body
-    team_chip:            dict[str, Any] | None = None    # {team_id, name}: a player of that name won
+    # Both keys are absent on every other turn (as ``query`` is). team_card: a bare club name's POST /card body.
+    # team_chip: {team_id, name}, when a player of that name won.
+    team_card: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
+    team_chip: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
@@ -529,8 +531,10 @@ class SessionAskResponse(BaseModel):
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
-    team_card:            dict[str, Any] | None = None    # bare club name: the POST /card body
-    team_chip:            dict[str, Any] | None = None    # {team_id, name}: a player of that name won
+    # Both keys are absent on every other turn (as ``query`` is). team_card: a bare club name's POST /card body.
+    # team_chip: {team_id, name}, when a player of that name won.
+    team_card: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
+    team_chip: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
     # Guided Comparison flow: tappable player-name suggestions (compare clarification only).
