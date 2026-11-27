@@ -671,6 +671,4 @@ export const es = {
   'query.total': 'Total',
   'query.perMatch': 'Por partido',
   'query.matches': 'Partidos',
-  'query.homeAway': 'Local · visita',
-  'query.meanFdr': 'FDR medio',
 };

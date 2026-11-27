@@ -669,6 +669,4 @@ export const en: typeof es = {
   'query.total': 'Total',
   'query.perMatch': 'Per match',
   'query.matches': 'Matches',
-  'query.homeAway': 'Home · away',
-  'query.meanFdr': 'Mean FDR',
 };

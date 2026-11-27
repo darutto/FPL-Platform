@@ -3,6 +3,9 @@
  *
  * Query answers in the chat: the request a typed message, a tapped pill and "Not this" really send.
  */
+import fs from 'node:fs';
+import path from 'node:path';
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -63,23 +66,19 @@ jest.mock('../components/intents/FixturesBoard', () => ({ FixturesBoard: () => n
 jest.mock('../components/share/ShareActions', () => ({ __esModule: true, default: () => null }));
 
 import ChatShell from '../components/chat/ChatShell';
-import { comparisonOkResponse } from './fixtures/sample-responses';
-import type { AskResponse, QueryBlock } from '@/lib/types';
+import type { AskResponse } from '@/lib/types';
 
-const SPEC = { v: 1, metric: 'total_points' };
-const NEXT = { v: 1, metric: 'total_points', top_n: 5 };
+// The backend's own serialized /ask body, with one chip added so there is something to tap.
+const BODY: AskResponse = JSON.parse(
+  fs.readFileSync(
+    path.resolve(__dirname, '../../fpl-grounded-assistant/tests/fixtures/query_response_bodies.json'),
+    'utf8',
+  ),
+).complete_list_es;
 
-const query: QueryBlock = {
-  v: 1, state: 'complete', reason: null, spec: SPEC, table: { columns: [{ header: 'H', align: 'left', kind: 'text' }], rows: [['cell']] },
-  comparison: null, chips: [{ label: 'Server chip', spec: NEXT }], notes: [], message: null, sum_check: 'passed',
-  changed_parts: [],
-  reading: { lang: 'es', text: 'Server line', parts: [{ kind: 'metric', label: 'Server line', value: null, editable: false, alternatives: [], braked: false }] },
-};
-
-const queryAnswer: AskResponse = {
-  ...comparisonOkResponse, comparison: null, intent: 'query', outcome: 'ok', llm_used: false,
-  final_text: 'Muestro: text-only copy', query,
-};
+const SPEC = BODY.query!.spec;
+const NEXT = { ...SPEC, top_n: 5 };
+const queryAnswer: AskResponse = { ...BODY, query: { ...BODY.query!, chips: [{ label: 'Server chip', spec: NEXT }] } };
 
 function getTextbox() {
   return screen.getByRole('textbox', { name: /pregunta/i });
@@ -111,7 +110,7 @@ beforeEach(() => {
 
 test('the card replaces the text copy of the answer', async () => {
   await openQueryAnswer();
-  expect(screen.queryByText(/text-only copy/)).toBeNull();
+  expect(screen.queryByText(/Muestro:/)).toBeNull();
   expect(sent(0)).not.toHaveProperty('query_context');
   expect(sent(0)).not.toHaveProperty('query_spec');
 });

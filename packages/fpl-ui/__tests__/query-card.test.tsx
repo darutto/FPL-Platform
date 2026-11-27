@@ -1,11 +1,8 @@
 /**
  * @jest-environment jsdom
  *
- * The query card and its routing in the four states.
- *
- * `reading` is the backend's own serialized block (query_reading_examples.json). The rest of each query block
- * is written here to the wire shape agreed for the door (query layer PR 6) and is to be replaced by that PR's
- * serialized bodies.
+ * The query card and its routing, from the backend's serialized /ask bodies (query_response_bodies.json,
+ * written by the door's tests). A test that needs something no body carries changes a copy of a real one.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,74 +16,46 @@ import { selectIntentView } from '../lib/intent-renderer';
 import { QueryActionsProvider, type QueryActions } from '../lib/chat-ask';
 import { queryContextForNextTurn } from '../lib/query-context';
 import { comparisonOkResponse } from './fixtures/sample-responses';
-import type { AskResponse, QueryBlock, QueryReading } from '../lib/types';
+import type { AskResponse, QueryBlock } from '../lib/types';
 
-interface Example {
-  name: string;
-  state: string;
-  spec: Record<string, unknown>;
-  reading: Record<'es' | 'en', QueryReading>;
+const fixture = (name: string) =>
+  JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../../fpl-grounded-assistant/tests/fixtures', name), 'utf8'),
+  );
+
+const BODIES: Record<string, AskResponse> = fixture('query_response_bodies.json');
+const NAMES = Object.keys(BODIES);
+
+/** A real body, its query block optionally changed. */
+function answer(name: string, over: Partial<QueryBlock> = {}): AskResponse {
+  const body: AskResponse = JSON.parse(JSON.stringify(BODIES[name]));
+  Object.assign(body.query!, over);
+  return body;
 }
 
-const EXAMPLES: Example[] = JSON.parse(
-  fs.readFileSync(
-    path.resolve(__dirname, '../../fpl-grounded-assistant/tests/fixtures/query_reading_examples.json'),
-    'utf8',
-  ),
-);
-const example = (name: string) => EXAMPLES.find((e) => e.name === name)!;
+const COMPARE = 'complete_comparison_before_join';
+const REFUSALS = ['needs_clarification', 'unsupported_constraint', 'data_unavailable', 'unreadable_call'];
 
-const TABLE: NonNullable<QueryBlock['table']> = {
-  columns: [
-    { header: 'Player', align: 'left', kind: 'text' },
-    { header: 'Value', align: 'right', kind: 'mono' },
-  ],
-  rows: [['Alfa (AAA)', '1.4–1.7'], ['Beta (BBB)', '12']],
-};
-
-const side = (label: string, value: string) => ({
-  label, gameweeks: [1, 3], n: 2, home: 1, away: 1, mean_fdr_text: '2.5', value_text: value,
-  total_text: `total ${value}`, per_match_text: `each ${value}`, per_match_values_text: [`first ${value}`],
-});
-
-const COMPARISON: NonNullable<QueryBlock['comparison']> = {
-  club: 'AAA', metric_header: 'Server header', sides: [side('Side one', '1.9'), side('Side two', '0.7–0.9')],
-  mixed: [], before_join: [1, 2], small_sample: true, ranges_overlap: true,
-};
-
-function block(name: string, over: Partial<QueryBlock> = {}, lang: 'es' | 'en' = 'en'): QueryBlock {
-  const e = example(name);
-  return {
-    v: 1, state: e.state, reason: null, spec: e.spec, reading: e.reading[lang], table: null, comparison: null,
-    chips: [], notes: [], message: null, sum_check: null, changed_parts: [], ...over,
-  };
-}
-
-function answer(query: QueryBlock): AskResponse {
-  return {
-    ...comparisonOkResponse,
-    comparison: null,
-    intent: 'query',
-    outcome: (query.state === 'complete' ? 'ok' : query.state) as AskResponse['outcome'],
-    final_text: 'Showing: the text-only answer',
-    query,
-  };
-}
-
-function show(query: QueryBlock, actions: QueryActions | null = { pick: jest.fn(), correct: jest.fn() }) {
-  const card = <IntentRenderer response={answer(query)} />;
+function show(response: AskResponse, actions: QueryActions | null = { pick: jest.fn(), correct: jest.fn() }) {
+  const card = <IntentRenderer response={response} />;
   render(actions ? <QueryActionsProvider value={actions}>{card}</QueryActionsProvider> : card);
   return actions;
 }
 
+test('the bodies cover the four states and a call that could not be read', () => {
+  expect(new Set(NAMES.map((n) => BODIES[n].query!.state))).toEqual(
+    new Set(['complete', 'needs_clarification', 'unsupported_constraint', 'data_unavailable']),
+  );
+  expect(BODIES.unreadable_call.query!.reading).toBeNull();
+});
+
 describe('routing', () => {
-  test.each(EXAMPLES.map((e) => [e.name]))('%s opens the query card whatever its outcome', (name) => {
-    expect(selectIntentView(answer(block(name)))).toBe('query');
+  test.each(NAMES)('%s opens the query card whatever its outcome', (name) => {
+    expect(selectIntentView(answer(name))).toBe('query');
   });
 
   test('a state the UI does not know is text only, even with a table in the body', () => {
-    const response = answer(block('low_ownership_last_5', { state: 'something_new', table: TABLE }));
-    response.outcome = 'ok';
+    const response = answer('complete_list_en', { state: 'something_new' });
     response.generic_card = comparisonOkResponse.generic_card;
     expect(selectIntentView(response)).toBeNull();
   });
@@ -96,90 +65,109 @@ describe('routing', () => {
   });
 });
 
-describe('complete', () => {
-  test('the reading row comes first, then the server cells as sent', () => {
-    show(block('low_ownership_last_5', { table: TABLE }));
+describe.each(NAMES)('%s', (name) => {
+  const query = BODIES[name].query!;
+
+  test('draws what the block carries, in the server words, and never the text copy', () => {
+    show(answer(name));
     const card = screen.getByTestId('query-card');
-    const reading = within(card).getByTestId('query-reading');
-    const table = within(card).getByRole('table');
-    expect(reading.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(table).getByText('1.4–1.7')).toBeInTheDocument();
-    expect(card).not.toHaveTextContent('Showing: the text-only answer');
+    expect(card).toHaveAttribute('data-state', query.state);
+    expect(screen.queryByTestId('query-reading') != null).toBe(query.reading != null);
+    for (const part of query.reading?.parts ?? []) expect(card).toHaveTextContent(part.label);
+    if (query.message != null) expect(within(card).getByText(query.message)).toBeInTheDocument();
+    const notes = screen.queryByTestId('query-notes');
+    expect(notes ? within(notes).getAllByRole('listitem').map((li) => li.textContent) : []).toEqual(query.notes);
+    expect(screen.queryByRole('table') != null).toBe(query.table != null);
+    expect(screen.queryAllByTestId('query-side')).toHaveLength(query.comparison ? 2 : 0);
+    expect(card).not.toHaveTextContent(/Showing:|Muestro:/);
   });
 
-  test('a comparison shows both sides in the order sent, and the note about excluded gameweeks', () => {
-    show(block('team_with_without', { comparison: COMPARISON, notes: ['Server note: GW1–2 left out'] }));
-    const sides = screen.getAllByTestId('query-side');
-    expect(sides.map((s) => s.getAttribute('aria-label'))).toEqual(['Side one', 'Side two']);
-    expect(sides[1]).toHaveTextContent('0.7–0.9');
-    expect(screen.getByText('Server header')).toBeInTheDocument();
-    expect(screen.getByTestId('query-notes')).toHaveTextContent('Server note: GW1–2 left out');
-    expect(screen.queryByRole('table')).toBeNull();
+  test('every chip sends its typed spec with its label', () => {
+    const actions = show(answer(name))!;
+    for (const chip of query.chips) {
+      fireEvent.click(screen.getByRole('button', { name: chip.label }));
+      expect(actions.pick).toHaveBeenLastCalledWith(chip.spec, chip.label);
+    }
+    expect(actions.pick).toHaveBeenCalledTimes(query.chips.length);
   });
 
-  test('the part a tap changed is marked', () => {
-    show(block('low_ownership_last_5', { table: TABLE, changed_parts: ['window'] }));
-    const marked = Array.from(document.querySelectorAll('[data-changed]'), (el) => el.getAttribute('data-kind'));
-    expect(marked).toEqual(['window']);
-  });
-});
-
-describe.each([
-  ['clarify_club', 'needs_clarification'],
-  ['unsupported_outside_spec', 'unsupported_constraint'],
-  ['missing_gameweek', 'data_unavailable'],
-])('%s (%s)', (name, state) => {
-  test('shows the reading and the message, never a table or a comparison', () => {
-    // A table in a refusal would be a server fault; the card still must not draw it.
-    show(block(name, { message: 'Server sentence', table: TABLE, comparison: COMPARISON }));
-    expect(screen.getByTestId('query-card')).toHaveAttribute('data-state', state);
-    expect(screen.getByTestId('query-reading')).toBeInTheDocument();
-    expect(screen.getByText('Server sentence')).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.queryByTestId('query-side')).toBeNull();
-  });
-
-  test('a chip sends its typed spec with its label', () => {
-    const chip = { label: 'Server chip', spec: { v: 1, metric: 'bonus' } };
-    const actions = show(block(name, { chips: [chip] }))!;
-    fireEvent.click(screen.getByRole('button', { name: 'Server chip' }));
-    expect(actions.pick).toHaveBeenCalledWith(chip.spec, 'Server chip');
+  test('"Not this" is offered exactly when there is a spec and a reading to correct', () => {
+    show(answer(name));
+    expect(screen.queryByRole('button', { name: 'No es esto' }) != null).toBe(
+      query.spec != null && query.reading != null,
+    );
   });
 });
 
-test('an unreadable call has no reading: the message alone, and no "Not this"', () => {
-  show(block('clarify_club', { reading: null, spec: null, message: 'Server question' }));
-  expect(screen.getByText('Server question')).toBeInTheDocument();
-  expect(screen.queryByTestId('query-reading')).toBeNull();
-  expect(screen.queryByRole('button')).toBeNull();
+test('a list is the server table: reading row first, then the cells as sent', () => {
+  show(answer('complete_list_es'));
+  const reading = screen.getByTestId('query-reading');
+  const table = screen.getByRole('table');
+  expect(reading.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const expected = BODIES.complete_list_es.query!.table!;
+  const rows = within(table).getAllByRole('row').slice(1);
+  expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual(expected.rows);
+});
+
+test('a comparison says which gameweeks were left out because the player had not joined', () => {
+  const query = BODIES[COMPARE].query!;
+  expect(query.comparison!.before_join).not.toHaveLength(0);
+  const line = query.notes.find((note) => note.includes('GW1'))!;
+  show(answer(COMPARE));
+  expect(screen.getByTestId('query-notes')).toHaveTextContent(line);
+});
+
+test('comparison sides keep the order sent, and no figure is drawn twice in a column', () => {
+  const { sides, metric_header } = BODIES[COMPARE].query!.comparison!;
+  show(answer(COMPARE));
+  const columns = screen.getAllByTestId('query-side');
+  expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(sides.map((side) => side.label));
+  columns.forEach((column, i) => {
+    // This comparison is per match, so the headline is the per-match figure: only total and matches follow.
+    expect(sides[i].per_match_text).toBe(sides[i].value_text);
+    expect(Array.from(column.querySelectorAll('dd'), (dd) => dd.textContent)).toEqual(
+      [sides[i].total_text, String(sides[i].n)],
+    );
+  });
+  // The metric is in the reading row only; the group carries it for screen readers.
+  expect(screen.getByRole('group', { name: metric_header })).not.toHaveTextContent(metric_header);
+});
+
+test.each(REFUSALS)('%s never draws a table or a comparison, even if the body wrongly had one', (name) => {
+  show(answer(name, { table: BODIES.complete_list_en.query!.table, comparison: BODIES[COMPARE].query!.comparison }));
+  expect(screen.queryByRole('table')).toBeNull();
+  expect(screen.queryByTestId('query-side')).toBeNull();
+});
+
+test('the part a tap changed is marked', () => {
+  show(answer('complete_list_en', { changed_parts: ['window'] }));
+  const marked = Array.from(document.querySelectorAll('[data-changed]'), (el) => el.getAttribute('data-kind'));
+  expect(marked).toEqual(['window']);
 });
 
 test('a reading pill sends the alternative spec', () => {
-  const data = block('low_ownership_last_5', { table: TABLE });
-  const actions = show(data)!;
-  const windowPart = data.reading!.parts.find((p) => p.kind === 'window')!;
-  fireEvent.click(screen.getByRole('button', { name: new RegExp(windowPart.label.slice(0, 6)) }));
-  fireEvent.click(screen.getByRole('button', { name: windowPart.alternatives[0].label }));
-  expect(actions.pick).toHaveBeenCalledWith(windowPart.alternatives[0].spec, windowPart.alternatives[0].label);
+  const part = BODIES.complete_list_en.query!.reading!.parts.find((p) => p.kind === 'window')!;
+  const actions = show(answer('complete_list_en'))!;
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(part.label.slice(0, 6)) }));
+  fireEvent.click(screen.getByRole('button', { name: part.alternatives[0].label }));
+  expect(actions.pick).toHaveBeenCalledWith(part.alternatives[0].spec, part.alternatives[0].label);
 });
 
 test('"Not this" hands over to the composer', () => {
-  const actions = show(block('low_ownership_last_5', { table: TABLE }))!;
+  const actions = show(answer('complete_list_es'))!;
   fireEvent.click(screen.getByRole('button', { name: 'No es esto' }));
   expect(actions.correct).toHaveBeenCalledTimes(1);
 });
 
-test('outside the chat (a shared answer) nothing is tappable', () => {
-  show(block('low_ownership_last_5', { table: TABLE, chips: [{ label: 'Server chip', spec: {} }] }), null);
+test.each(NAMES)('%s: outside the chat nothing is tappable', (name) => {
+  show(answer(name), null);
   expect(screen.queryByRole('button')).toBeNull();
-  expect(screen.getByRole('table')).toBeInTheDocument();
 });
 
 test('the share image drawn inside the chat has no taps either', () => {
-  const data = block('low_ownership_last_5', { table: TABLE, chips: [{ label: 'Server chip', spec: {} }] });
   render(
     <QueryActionsProvider value={{ pick: jest.fn(), correct: jest.fn() }}>
-      <ShareCard question="q" response={answer(data)} appUrl="https://example.test" cta="cta" />
+      <ShareCard question="q" response={answer('needs_clarification')} appUrl="https://example.test" cta="cta" />
     </QueryActionsProvider>,
   );
   expect(screen.getByTestId('query-card')).toBeInTheDocument();
@@ -188,10 +176,10 @@ test('the share image drawn inside the chat has no taps either', () => {
 
 describe('what the next typed message carries', () => {
   const user = { role: 'user' as const };
-  const queried = { role: 'assistant' as const, response: answer(block('low_ownership_last_5')) };
+  const queried = { role: 'assistant' as const, response: BODIES.complete_list_es };
+  const spec = BODIES.complete_list_es.query!.spec;
 
   test('the last answer spec, and whether "Not this" was tapped', () => {
-    const spec = example('low_ownership_last_5').spec;
     expect(queryContextForNextTurn([user, queried], false)).toEqual({ spec, not_this: false });
     expect(queryContextForNextTurn([user, queried], true)).toEqual({ spec, not_this: true });
   });
@@ -199,7 +187,7 @@ describe('what the next typed message carries', () => {
   test('nothing after any other answer, an error, or a call with no spec', () => {
     const other = { role: 'assistant' as const, response: comparisonOkResponse };
     const error = { role: 'assistant' as const };
-    const unreadable = { role: 'assistant' as const, response: answer(block('clarify_club', { spec: null })) };
+    const unreadable = { role: 'assistant' as const, response: BODIES.unreadable_call };
     for (const last of [other, error, unreadable]) {
       expect(queryContextForNextTurn([queried, user, last], true)).toBeUndefined();
     }

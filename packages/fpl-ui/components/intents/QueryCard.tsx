@@ -77,28 +77,29 @@ export default function QueryCard({ data }: { data: QueryBlock }) {
   );
 }
 
-/** The two sets of matches side by side, in the order asked: [match_set, compare_to]. */
+/**
+ * The two sets of matches side by side, in the order asked: [match_set, compare_to]. The metric is already in
+ * the reading row, and home/away and difficulty arrive as notes, so neither is drawn again here.
+ */
 function Comparison({ data }: { data: QueryComparison }) {
   return (
-    <div className="space-y-2">
-      <span className="block text-[11px] font-extrabold uppercase tracking-wide text-bf-gray">{data.metric_header}</span>
-      <div className="grid grid-cols-2 gap-2">
-        {data.sides.map((side, i) => (
-          <ComparisonColumn key={i} side={side} />
-        ))}
-      </div>
+    <div role="group" aria-label={data.metric_header} className="grid grid-cols-2 gap-2">
+      {data.sides.map((side, i) => (
+        <ComparisonColumn key={i} side={side} />
+      ))}
     </div>
   );
 }
 
 function ComparisonColumn({ side }: { side: QueryComparisonSide }) {
   const t = useT();
+  // A figure that is already the headline is not repeated under it.
   const facts: Array<[string, string]> = [
-    [t('query.total'), side.total_text],
-    [t('query.perMatch'), side.per_match_text],
+    ...([
+      [t('query.total'), side.total_text],
+      [t('query.perMatch'), side.per_match_text],
+    ] as Array<[string, string]>).filter(([, value]) => value !== side.value_text),
     [t('query.matches'), String(side.n)],
-    [t('query.homeAway'), `${side.home} · ${side.away}`],
-    ...(side.mean_fdr_text != null ? [[t('query.meanFdr'), side.mean_fdr_text] as [string, string]] : []),
   ];
   return (
     <section data-testid="query-side" aria-label={side.label} className="min-w-0 space-y-2 rounded-card bg-white/[0.035] p-3">

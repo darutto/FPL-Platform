@@ -1505,6 +1505,7 @@ export interface QueryComparison {
 /** The `query` block of an /ask or /session answer; null on every other turn. */
 export interface QueryBlock {
   v: number;
+  lang: 'es' | 'en';
   /** A state the UI does not know renders as text only. */
   state: QueryState | (string & {});
   reason: string | null;
