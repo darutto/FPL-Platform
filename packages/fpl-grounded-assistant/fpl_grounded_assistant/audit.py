@@ -174,6 +174,9 @@ class AuditEntry:
     web_search_enabled: bool | None = None
     search_web_ran: bool | None = None
     player_lookup_diverted: str | None = None
+    # POST /card (a card without a chat turn): which card, and how long it took.
+    card_kind: str | None = None
+    latency_ms: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +319,9 @@ def write_audit_entry(entry: AuditEntry, log_dir: str | None = None) -> None:
         entry_dict["search_web_ran"] = entry.search_web_ran
     if entry.player_lookup_diverted is not None:
         entry_dict["player_lookup_diverted"] = entry.player_lookup_diverted
+    if entry.card_kind is not None:
+        entry_dict["card_kind"] = entry.card_kind
+        entry_dict["latency_ms"] = entry.latency_ms
 
     line = json.dumps(entry_dict, ensure_ascii=False, separators=(",", ":"))
 
@@ -409,6 +415,8 @@ def make_audit_entry(
     web_search_enabled: bool | None = None,
     search_web_ran: bool | None = None,
     player_lookup_diverted: str | None = None,
+    card_kind: str | None = None,
+    latency_ms: int | None = None,
 ) -> AuditEntry:
     """Convenience factory for building an AuditEntry from ask_v2() output.
 
@@ -452,4 +460,6 @@ def make_audit_entry(
         web_search_enabled=web_search_enabled,
         search_web_ran=search_web_ran,
         player_lookup_diverted=player_lookup_diverted,
+        card_kind=card_kind,
+        latency_ms=latency_ms,
     )
