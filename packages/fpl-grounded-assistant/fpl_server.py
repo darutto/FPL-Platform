@@ -383,6 +383,8 @@ class AskResponse(BaseModel):
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
+    team_card:            dict[str, Any] | None = None    # bare club name: the POST /card body
+    team_chip:            dict[str, Any] | None = None    # {team_id, name}: a player of that name won
     # Track A: additive renderable card composed only from deterministic metadata
     # (never LLM text). Non-null for composer-backed plain-text intents on OK turns.
     generic_card:         dict[str, Any] | None = None
@@ -527,6 +529,8 @@ class SessionAskResponse(BaseModel):
     fixture_outlook:      dict[str, Any] | None = None    # Track D / FI4: calendar ticker card (i102)
     player_snapshot:      dict[str, Any] | None = None    # single-player detail card
     player_zonal:         dict[str, Any] | None = None    # focused zonal card (same zonal block)
+    team_card:            dict[str, Any] | None = None    # bare club name: the POST /card body
+    team_chip:            dict[str, Any] | None = None    # {team_id, name}: a player of that name won
     # Track A: additive renderable card composed only from deterministic metadata.
     generic_card:         dict[str, Any] | None = None
     # Guided Comparison flow: tappable player-name suggestions (compare clarification only).
@@ -3123,6 +3127,8 @@ def session_ask(session_id: str, req: AskRequest, request: Request) -> SessionAs
         zonal_opportunity=_to_dict(r.zonal_opportunity),  # T4b
         player_snapshot=_player_snapshot_meta_dict(r.player_snapshot) if r.player_snapshot is not None else None,  # single-player card
         player_zonal=_to_dict(r.player_zonal),  # focused zonal card
+        team_card=r.team_card,                  # plain JSON, same as /ask
+        team_chip=r.team_chip,
         generic_card=_generic_card_meta_dict(r.generic_card) if r.generic_card is not None else None,  # Track A
         suggestions=_suggestions_meta_list(r.suggestions) if r.suggestions is not None else None,  # Guided Comparison
         table_conclusions=r.table_conclusions,  # metric ranking's verdict (already plain JSON)

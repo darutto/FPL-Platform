@@ -1203,6 +1203,12 @@ def _render_find_players(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE
     return f"Error ({code}): {message}"
 
 
+def _render_get_team_card(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
+    """The club's name only: every figure is on the card under it."""
+    del locale
+    return str(output.get("team_name") or "")
+
+
 def _render_get_player_snapshot(output: dict[str, Any], locale: Locale = DEFAULT_LOCALE) -> str:
     """Render get_player_snapshot raw_output.  P2.2.  F1: localized.
 
@@ -2396,6 +2402,7 @@ _RENDERERS = {
     # P2 atomic tools (P2.8 Gap B fix)
     "find_players":             _render_find_players,            # P2.1
     "get_player_snapshot":      _render_get_player_snapshot,     # P2.2
+    "get_team_card":            _render_get_team_card,           # bare club name
     "get_player_history":       _render_get_player_history,      # P2.3
     "get_fixtures_for_gw":      _render_get_fixtures_for_gw,     # P2.4
     "get_gameweek_context":     _render_get_gameweek_context,    # P2.5

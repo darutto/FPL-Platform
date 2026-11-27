@@ -70,7 +70,7 @@ Intentionally deferred
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from football_data_contract import (
@@ -84,7 +84,7 @@ from . import telemetry as _telemetry  # Phase 2.7g: in-process telemetry (never
 from .locale_types import Locale, DEFAULT_LOCALE
 from .query_contract import project as project_query
 from .news_es import news_label  # i151c
-from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT, INTENT_PLAYER_ZONAL_OUTLOOK  # noqa: F401 — re-exported
+from .dispatcher import OUTCOME_OK, OUTCOME_NEEDS_CLARIFICATION, INTENT_COMPARE_PLAYERS, INTENT_CAPTAIN_SCORE, INTENT_RANK_CANDIDATES, INTENT_MULTI_INTENT, INTENT_TRANSFER_ADVICE, INTENT_CHIP_ADVICE, INTENT_PLAYER_FIXTURE_RUN, INTENT_DIFFERENTIAL_PICKS, INTENT_PLAYER_FORM, INTENT_INJURY_LIST, INTENT_PRICE_CHANGES, INTENT_TEAM_FIXTURE_CALENDAR, INTENT_TEAM_SCHEDULE, INTENT_POSITION_FIXTURE_RUN, INTENT_TRANSFER_SUGGESTION, INTENT_FIXTURE_OUTLOOK, INTENT_ZONAL_OPPORTUNITY, INTENT_PLAYER_SNAPSHOT, INTENT_PLAYER_ZONAL_OUTLOOK, INTENT_TEAM_CARD  # noqa: F401 — re-exported
 from .dispatcher import _TOOL_TO_INTENT, INTENT_UNSUPPORTED  # _orch_result_to_final_response: tool->intent map
 from .multi_intent import detect_multi_intent
 from .generic_card import GenericCardMeta, build_generic_card  # Track A: additive generic card
@@ -1491,6 +1491,9 @@ class FinalResponse:
     zonal_opportunity:    "DefensiveZonesMeta | None"      = field(default=None)  # T4b
     player_snapshot:      "PlayerSnapshotMeta | None"      = field(default=None)  # single-player card
     player_zonal:         "PlayerZonalCardMeta | None"     = field(default=None)  # focused zonal card
+    # A bare club name's card (the POST /card body), and the club offered when a player of that name won.
+    team_card:            "dict[str, Any] | None"          = field(default=None)
+    team_chip:            "dict[str, Any] | None"          = field(default=None)
     # Phase 2.7d: routing audit fields (additive, safe defaults)
     route_source:          "str | None"                    = field(default=None)   # which routing stage decided
     classifier_confidence: "float | None"                  = field(default=None)   # LLM classifier confidence when attempted
@@ -2766,6 +2769,7 @@ def _extract_structured_meta(
     zonal_opportunity_meta:    "DefensiveZonesMeta | None"        = None
     player_snapshot_meta:      "PlayerSnapshotMeta | None"        = None
     player_zonal_meta:         "PlayerZonalCardMeta | None"       = None
+    team_card_meta:            "dict[str, Any] | None"            = None
 
     if ok:
         if intent == INTENT_COMPARE_PLAYERS:
@@ -2810,6 +2814,8 @@ def _extract_structured_meta(
             player_snapshot_meta = _extract_player_snapshot_meta(raw_output, locale)
         elif intent == INTENT_PLAYER_ZONAL_OUTLOOK:
             player_zonal_meta = _extract_player_zonal_card(raw_output)
+        elif intent == INTENT_TEAM_CARD:
+            team_card_meta = raw_output.get("team_card")
 
     result: "dict[str, Any]" = {
         "comparison":           comparison,
@@ -2835,6 +2841,7 @@ def _extract_structured_meta(
         "zonal_opportunity":    zonal_opportunity_meta,
         "player_snapshot":      player_snapshot_meta,
         "player_zonal":         player_zonal_meta,
+        "team_card":            team_card_meta,
     }
     # Track A: additive renderable generic card, composed only from the
     # deterministic metadata just built (never LLM text).  Returns None for
@@ -3362,8 +3369,15 @@ def _try_deterministic_player_lookup_response(
 
     from .player_lookup import classify_player_lookup, execute_player_lookup
     from .get_player_snapshot import get_player_snapshot
+    from .bare_team import bare_team, player_matches_exactly, team_card_output, team_chip
 
     decision = classify_player_lookup(user_message, bootstrap)
+    club = bare_team(user_message, bootstrap)
+    if club is not None and not player_matches_exactly(decision):
+        card_output = team_card_output(club, bootstrap, locale)
+        if card_output is not None:
+            return _team_card_response(card_output, include_debug=include_debug,
+                                       resolver_debug=resolver_debug, locale=locale)
     explicit_not_found = (
         allow_explicit_not_found
         and decision.explicit
@@ -3377,12 +3391,45 @@ def _try_deterministic_player_lookup_response(
         raw_output = get_player_snapshot(decision.query, bootstrap=bootstrap)
     else:
         raw_output = execute_player_lookup(decision, bootstrap)
-    return _player_snapshot_response_from_raw(
+    response = _player_snapshot_response_from_raw(
         raw_output,
         include_debug=include_debug,
         resolver_debug=resolver_debug,
         locale=locale,
     )
+    return response if club is None else replace(response, team_chip=team_chip(club))
+
+
+def _team_card_response(
+    raw_output: dict[str, Any],
+    *,
+    include_debug: bool,
+    resolver_debug: ResolverDebug | None,
+    locale: Locale,
+) -> FinalResponse:
+    """The session answer to a bare club name."""
+    from .renderer import render
+
+    final_text = render("get_team_card", raw_output, locale=locale)
+    debug = None
+    if include_debug:
+        debug = FinalResponseDebug(
+            llm_text=final_text, response_text=final_text, violations=(), prompt_used="",
+            model="none", resolver=resolver_debug, classification_source=None,
+        )
+    result = FinalResponse(
+        final_text=final_text, outcome=OUTCOME_OK, supported=True, intent=INTENT_TEAM_CARD,
+        review_passed=True, llm_used=False, debug=debug, team_card=raw_output["team_card"],
+        route_source="deterministic",
+    )
+    try:
+        _telemetry.record_response(
+            intent=result.intent, outcome=result.outcome, route_source=result.route_source,
+            classifier_confidence=None, supported=True, clarification_asked=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return result
 
 
 # Branches where an LLM ran somewhere in the pipeline (mirrors
@@ -3640,6 +3687,8 @@ def _try_session_orchestration_response(
         zonal_opportunity=result.get("zonal_opportunity"),
         player_snapshot=result.get("player_snapshot"),
         player_zonal=result.get("player_zonal"),
+        team_card=result.get("team_card"),
+        team_chip=result.get("team_chip"),
         generic_card=result.get("generic_card"),
         table_conclusions=result.get("table_conclusions"),
         web_search=_web_search_payload(result, answer_text),

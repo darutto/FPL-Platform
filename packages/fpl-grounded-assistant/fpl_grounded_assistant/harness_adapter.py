@@ -443,6 +443,8 @@ def to_ask_response(
         fixture_outlook=_to_dict(d.get("fixture_outlook")),      # Track D / FI4
         player_snapshot=_to_dict(d.get("player_snapshot")),      # single-player card
         player_zonal=_to_dict(d.get("player_zonal")),            # focused zonal card
+        team_card=d.get("team_card"),                            # bare club name (plain JSON)
+        team_chip=d.get("team_chip"),
         generic_card=_to_dict(d.get("generic_card")),            # Track A: additive card
         suggestions=d.get("player_suggestions"),                 # Guided Comparison: tappable chips (already list[dict])
         evidence=_to_dict(d.get("evidence")),                    # FI-7a: contract-only passthrough
