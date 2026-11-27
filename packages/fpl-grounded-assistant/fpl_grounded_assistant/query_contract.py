@@ -17,7 +17,7 @@ from typing import Any, Iterable, Mapping
 from fpl_grounded_assistant import query_catalogue as cat
 from fpl_grounded_assistant.query_engine import (COMPLETE, DATA_UNAVAILABLE, NEEDS_CLARIFICATION, UNSUPPORTED,
                                                  QueryResult)
-from fpl_grounded_assistant.query_reading import PREFIX, WORDS, gameweeks_text, render_reading, value_text
+from fpl_grounded_assistant.query_reading import PREFIX, SEPARATOR, WORDS, gameweeks_text, render_reading, value_text
 from fpl_grounded_assistant.query_spec import PLAYER_PREDICATES, QuerySpec
 
 STATES = (COMPLETE, NEEDS_CLARIFICATION, UNSUPPORTED, DATA_UNAVAILABLE)
@@ -256,9 +256,15 @@ def _output(block: dict[str, Any], brake: str | None) -> dict[str, Any]:
 
 
 def build(spec: QuerySpec, result: QueryResult, bootstrap: Mapping[str, Any], lang: str,
-          chips: Iterable[Mapping[str, Any]] = (), brake: str | None = None) -> dict[str, Any]:
+          chips: Iterable[Mapping[str, Any]] = (), brake: str | None = None,
+          unused: Iterable[str] = ()) -> dict[str, Any]:
     """The tool output for a run (or a brake) of *spec*."""
     reading = render_reading(spec, lang, result, bootstrap)
+    for kind in unused:                      # said, not braked: the answer below does not depend on it
+        label = WORDS[lang]["unused"].format(name=WORDS[lang]["kinds"][kind])
+        reading["parts"].append({"kind": "unused", "label": label, "value": kind, "editable": False,
+                                 "alternatives": [], "braked": False})
+        reading["text"] += SEPARATOR + label
     block = _block(result.state, result.reason, lang, spec=spec.to_dict(), reading=reading,
                    chips=[dict(c) for c in chips])
     if result.state == COMPLETE:

@@ -71,6 +71,7 @@ class BrakeResult:
     unsupported: tuple[str, ...] = ()
     clarify: Mapping[str, Any] | None = None     # {kind, written, candidates}
     chips: tuple[Mapping[str, Any], ...] = ()    # {label, spec}
+    unused: tuple[str, ...] = ()                 # reported beside a comparison that runs anyway
 
     def as_query_result(self) -> QueryResult:
         """The refusal in the engine's shape, so the reading line and the contract read one type."""
@@ -403,12 +404,17 @@ def apply_brakes(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any], t
     if unknown:
         raise ValueError("not_expressible has a kind outside the vocabulary")
     spec, date_problem = assign_years(spec, raw_text, bootstrap, today)
+    # A comparison the engine can run is not cancelled by a report beside it: the reading line says what was
+    # left unused. What code itself finds (unsupported_reasons, a date, B1's words) still brakes.
+    unused: tuple[str, ...] = ()
+    if spec.shape == "comparison" and not unsupported_reasons(spec):
+        unused = tuple(dict.fromkeys(str(i["kind"]) for i in not_expressible if i["kind"] != "ownership_then"))
     words = _words(raw_text)
 
     then = any(_find(words, _key(w)) for w in THEN_WORDS)
     kinds = list(dict.fromkeys(
         (["ownership_then"] if then else []) + list(unsupported_reasons(spec))
-        + [str(i["kind"]) for i in not_expressible]
+        + [str(i["kind"]) for i in not_expressible if str(i["kind"]) not in unused]
         + (["past_season"] if date_problem == "past_season" else [])))
     if kinds:
         brake = "B1" if then else "date" if kinds == ["past_season"] and date_problem else "B3"
@@ -447,4 +453,4 @@ def apply_brakes(spec: QuerySpec, raw_text: str, bootstrap: Mapping[str, Any], t
         written = " ".join(quote) if isinstance(quote, list) else str(quote or "")
         return BrakeResult(spec, NEEDS_CLARIFICATION, "ambiguous", "ambiguous_phrase",
                            clarify={"kind": "phrase", "written": written, "candidates": ()})
-    return BrakeResult(spec)
+    return BrakeResult(spec, unused=unused)
