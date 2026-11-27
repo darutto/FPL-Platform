@@ -43,6 +43,8 @@ const SAME_IN_BOTH = new Set<string>([
   'sq.stat.sel',
   'z.pos.DEF',
   'sq.pos.DEF',
+  // The same word in both languages.
+  'query.total',
 ]);
 
 const keys = Object.keys(es) as DictKey[];

@@ -28,6 +28,8 @@
  *   * (any intent, no bespoke match) → 'generic' (generic_card non-null) (Track B)
  *   search_web (premium) → 'web_search'      (web_search non-null; lowest precedence)
  *
+ *   query (any outcome) → 'query'            (query block with a state the UI knows)
+ *
  * TEXT-ONLY (Phase 2c, structured rendering deferred):
  *   multi_intent, current_gameweek, player_summary, player_resolve
  *
@@ -48,6 +50,7 @@ export type IntentView =
   | 'differential'
   | 'transfer_suggestion'
   | 'multi_intent'
+  | 'query'
   | 'defensive_zones'
   | 'player_snapshot'
   | 'player_zonal'
@@ -63,7 +66,15 @@ export type IntentView =
  *
  * Called once per assistant message bubble.
  */
+const QUERY_STATES = new Set(['complete', 'needs_clarification', 'unsupported_constraint', 'data_unavailable']);
+
 export function selectIntentView(response: AskResponse): IntentView | null {
+  // A query answer is decided by its own state alone: the refusals are not 'ok' and still show their card.
+  // A state this UI does not know shows the text and nothing else, never an empty table.
+  if (response.query != null) {
+    return QUERY_STATES.has(response.query.state) ? 'query' : null;
+  }
+
   if (response.outcome !== 'ok') return null;
 
   // Resource rows — most specific signal: if present, render the resource view

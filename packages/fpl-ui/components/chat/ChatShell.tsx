@@ -24,14 +24,15 @@
  *
  * Auth gating deferred to Phase 3.
  */
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ask, sessionAsk, createSession, clearSession, eoWarm, apiErrorText, FplApiError } from '@/lib/api';
-import { ChatAskProvider } from '@/lib/chat-ask';
+import { ChatAskProvider, QueryActionsProvider } from '@/lib/chat-ask';
 import { generateId } from '@/lib/id';
 import { buildSessionSeed } from '@/lib/session-seed';
 import { planStateForNextTurn } from '@/lib/plan-state';
-import type { AskResponse, SquadContext, Suggestion } from '@/lib/types';
+import { queryContextForNextTurn } from '@/lib/query-context';
+import type { AskResponse, QuerySpecDict, SquadContext, Suggestion } from '@/lib/types';
 import {
   WIZARD_ARMING_INTENTS,
   isLeaguePickSuggestion,
@@ -248,12 +249,17 @@ export default function ChatShell() {
     setFollowUpArmedFor(null);
   }, []);
 
+  // "Not this" was tapped: the next typed message says so, once.
+  const notThisRef = useRef(false);
+
   const sendMessage = useCallback(async (
     rawInput: string,
     selectedPlayerId?: number,
     selectedPlayerSessionId?: string | null,
     // A league the user has just picked: it goes on THIS request, before the state update lands.
     leagueIdOverride?: number | null,
+    // A tapped query pill or chip: the typed spec to run. rawInput is then only its label.
+    querySpec?: QuerySpecDict,
   ) => {
     const teamAtSend = teamIdRef.current; // the team this question is asked for
     const trimmed = rawInput.trim();
@@ -268,7 +274,7 @@ export default function ChatShell() {
     // escape hatch out of the wizard into something else.
     const isEscapeHatch = /^[/@]/.test(trimmed);
     const input =
-      selectedPlayerId == null && compareWizard != null && !isEscapeHatch
+      querySpec == null && selectedPlayerId == null && compareWizard != null && !isEscapeHatch
         ? compareWizard.playerA == null
           ? `${compareCommand} ${trimmed}`
           : `${compareCommand} ${compareWizard.playerA} vs ${trimmed}`
@@ -322,6 +328,9 @@ export default function ChatShell() {
       let responseSessionId: string | null = null;
 
       const planState = planStateForNextTurn(messages);
+      // A typed message right after a query answer carries that answer's spec; a tap carries its own.
+      const queryContext = querySpec == null ? queryContextForNextTurn(messages, notThisRef.current) : undefined;
+      notThisRef.current = false;
       const requestBody = {
         question: effectiveQuestion,
         // The language the user is looking at governs the whole answer; the question's language only affects routing.
@@ -340,7 +349,9 @@ export default function ChatShell() {
         // an ineligible user can't spend a request on a feature the backend
         // would reject anyway (defense-in-depth; the UI already locks the
         // toggle).
-        web_search_requested: webSearchOn && webSearchAvailable,
+        web_search_requested: querySpec == null && webSearchOn && webSearchAvailable,
+        ...(querySpec != null ? { query_spec: querySpec } : {}),
+        ...(queryContext ? { query_context: queryContext } : {}),
       };
 
       if (isFollowUp) {
@@ -528,6 +539,17 @@ export default function ChatShell() {
     sendMessage(question);
   }, [sendMessage]);
 
+  // Query cards: a tap sends its spec down the same path as a message; "Not this" hands over the composer.
+  const queryActions = useMemo(() => ({
+    pick: (spec: QuerySpecDict, label: string) => {
+      sendMessage(label, undefined, null, undefined, spec);
+    },
+    correct: () => {
+      notThisRef.current = true;
+      handleInsert('');
+    },
+  }), [sendMessage, handleInsert]);
+
   const isEmpty = messages.length === 0;
 
   return (
@@ -570,6 +592,7 @@ export default function ChatShell() {
                 </div>
               ) : (
                 <ChatAskProvider ask={askFromCard}>
+                <QueryActionsProvider value={queryActions}>
                   <MessageList
                     messages={messages}
                     loading={loading}
@@ -586,6 +609,7 @@ export default function ChatShell() {
                     }
                     onRetryEo={retryEoPoll}
                   />
+                </QueryActionsProvider>
                 </ChatAskProvider>
               )}
             </div>

@@ -207,6 +207,13 @@ export interface AskRequest {
    */
   web_search_requested?: boolean;
   /**
+   * A tapped query pill or chip: its typed spec, sent back exactly as received. `question` then only fills
+   * the user's bubble.
+   */
+  query_spec?: QuerySpecDict | null;
+  /** On a typed message right after a query answer (lib/query-context.ts); never sent with `query_spec`. */
+  query_context?: QueryContext;
+  /**
    * The connected user's FPL team (entry) id, when a team is linked (i39).
    * Enables the get_my_squad tool server-side — unrelated to squad_context
    * above, which only carries ITB/free-transfers/chips, not the team id.
@@ -277,6 +284,8 @@ export interface SquadContext {
  *   - Phase 2 will render structured metadata components per intent.
  */
 export interface AskResponse {
+  /** Query-layer answers only (backend flag FPL_QUERY_LAYER); the key is absent on every other turn. */
+  query?: QueryBlock | null;
   /**
    * A "computing" EO answer (get_league_eo / get_near_rank_eo): what the UI polls POST /eo/poll for, with no
    * model (lib/use-eo-poll.ts). Null/absent on every other turn.
@@ -1430,4 +1439,113 @@ export interface PositionPitchMeta {
   /** One observed line: teammates whose absence from the XI coincided with the starts shown (never a cause). */
   associations?: string | null;
   claim_status: string;
+}
+
+// --- Query layer: the reading line (backend query_reading.render_reading) ---
+
+/** A typed query spec. Opaque to the UI: a tap sends it back exactly as received. */
+export type QuerySpecDict = Record<string, unknown>;
+
+export interface QueryReadingAlternative {
+  label: string;
+  spec: QuerySpecDict;
+}
+
+export interface QueryReadingPart {
+  /** The backend may add kinds; the UI draws any part from its label. */
+  kind: string;
+  label: string;
+  value: unknown;
+  editable: boolean;
+  alternatives: QueryReadingAlternative[];
+  /** This part stopped a non-complete answer. */
+  braked: boolean;
+}
+
+export interface QueryReading {
+  parts: QueryReadingPart[];
+  text: string;
+  lang: 'es' | 'en';
+}
+
+export interface QueryContext {
+  spec: QuerySpecDict;
+  /** The "Not this" chip was tapped before this message. */
+  not_this: boolean;
+}
+
+export type QueryState = 'complete' | 'needs_clarification' | 'unsupported_constraint' | 'data_unavailable';
+
+/** One side of a comparison. Every `_text` field is formatted by the server. */
+export interface QueryComparisonSide {
+  label: string;
+  gameweeks: number[];
+  n: number;
+  home: number;
+  away: number;
+  mean_fdr_text: string | null;
+  value_text: string;
+  total_text: string;
+  per_match_text: string;
+  per_match_values_text: string[];
+  /** The column heading ("Con X") and what it covers ("J1–J6 · 6 partidos"). */
+  title: string;
+  detail: string;
+  /** Home and away matches, and today's mean difficulty. */
+  venue_text: string;
+}
+
+/** One statistic of a comparison; `sides` follows the order of `QueryComparison.sides`. */
+export interface QueryComparisonMetric {
+  key: string;
+  label: string;
+  /** Which figure the big number is. */
+  headline: 'per_match' | 'total';
+  /** What the big number is, e.g. "goles por partido". */
+  hero_label: string;
+  sides: {
+    value_text: string;
+    total_text: string;
+    /** Null for a count that has no per-match figure. */
+    per_match_text: string | null;
+    series: { label: string; value_text: string }[];
+  }[];
+}
+
+export interface QueryComparison {
+  metrics: QueryComparisonMetric[];
+  club: string;
+  metric_header: string;
+  /** [match_set, compare_to] */
+  sides: QueryComparisonSide[];
+  mixed: Array<{ gameweek: number; minutes: number }>;
+  /** Gameweeks left out because the player had not joined yet; `notes` carries the line that says so. */
+  before_join: number[];
+  small_sample: boolean;
+  ranges_overlap: boolean;
+}
+
+/** The `query` block of an /ask or /session answer; null on every other turn. */
+export interface QueryBlock {
+  v: number;
+  lang: 'es' | 'en';
+  /** A state the UI does not know renders as text only. */
+  state: QueryState | (string & {});
+  reason: string | null;
+  spec: QuerySpecDict | null;
+  /** Null when the call could not be read at all: then there is only `message`. */
+  reading: QueryReading | null;
+  /** The same column and cell shape as GenericCardMeta. Complete list answers only. */
+  table: Pick<GenericCardMeta, 'columns' | 'rows'> | null;
+  comparison: QueryComparison | null;
+  chips: QueryReadingAlternative[];
+  /** Ready lines in the answer's language. */
+  notes: string[];
+  /** The one sentence the card does not otherwise show (a question, what cannot be computed); null on complete. */
+  message: string | null;
+  /** Small print under the card; null when there is none. */
+  footnote: string | null;
+  sum_check: 'passed' | 'not_checked' | 'not_applicable' | null;
+  /** Reading-part kinds a tap or correction changed. */
+  changed_parts: string[];
 }
